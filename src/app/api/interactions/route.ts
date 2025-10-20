@@ -54,10 +54,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { donorId, type, date, subject, notes } = body;
+    const { donorId, type, date, content } = body;
 
     // Validate required fields
-    if (!donorId || !type || !date) {
+    if (!donorId || !type || !date || !content) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -69,8 +69,7 @@ export async function POST(req: NextRequest) {
         donorId,
         type,
         date: new Date(date),
-        subject,
-        notes,
+        content,
       },
       include: {
         donor: {

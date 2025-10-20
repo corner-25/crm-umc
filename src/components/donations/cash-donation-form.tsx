@@ -3,6 +3,9 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cashDonationSchema, CashDonationFormValues, paymentMethodLabels, donationStatusLabels } from "@/lib/validations/donation";
+
+// Re-export types for external use
+export type { CashDonationFormValues };
 import { Button } from "@/components/ui/button";
 import {
   Form,

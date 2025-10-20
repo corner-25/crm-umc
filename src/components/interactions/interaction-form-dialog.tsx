@@ -41,11 +41,8 @@ import { cn } from "@/lib/utils";
 
 const interactionSchema = z.object({
   type: z.enum(["CALL", "EMAIL", "MEETING", "EVENT"]),
-  date: z.date({
-    required_error: "Ngày tương tác là bắt buộc",
-  }),
-  subject: z.string().min(1, "Tiêu đề là bắt buộc"),
-  notes: z.string().optional(),
+  date: z.date(),
+  content: z.string().min(1, "Nội dung là bắt buộc"),
 });
 
 export type InteractionFormValues = z.infer<typeof interactionSchema>;
@@ -75,8 +72,7 @@ export function InteractionFormDialog({
     defaultValues: {
       type: "CALL",
       date: new Date(),
-      subject: "",
-      notes: "",
+      content: "",
     },
   });
 
@@ -163,27 +159,13 @@ export function InteractionFormDialog({
 
             <FormField
               control={form.control}
-              name="subject"
+              name="content"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tiêu đề *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="VD: Trao đổi về dự án mới" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ghi chú</FormLabel>
+                  <FormLabel>Nội dung *</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Chi tiết về cuộc tương tác..."
+                      placeholder="Mô tả chi tiết về cuộc tương tác..."
                       rows={4}
                       {...field}
                     />

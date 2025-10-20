@@ -52,9 +52,7 @@ const reminderSchema = z.object({
   title: z.string().min(1, "Tiêu đề là bắt buộc"),
   description: z.string().optional(),
   type: z.enum(["BIRTHDAY", "DONATION_ANNIVERSARY", "SEND_REPORT", "FOLLOW_UP", "OTHER"]),
-  dueDate: z.date({
-    required_error: "Ngày đến hạn là bắt buộc",
-  }),
+  dueDate: z.date(),
   donorId: z.string().optional(),
 });
 

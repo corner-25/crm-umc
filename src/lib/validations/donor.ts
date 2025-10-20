@@ -13,19 +13,15 @@ export const donorSchema = z.object({
     .optional()
     .or(z.literal("")),
   address: z.string().optional(),
-  type: z.enum(["INDIVIDUAL", "COMPANY", "ORGANIZATION", "COMMUNITY"], {
-    required_error: "Vui lòng chọn loại nhà tài trợ",
-  }),
-  tier: z.enum(["VIP", "REGULAR", "NEW", "POTENTIAL"], {
-    required_error: "Vui lòng chọn cấp độ",
-  }),
+  type: z.enum(["INDIVIDUAL", "COMPANY", "ORGANIZATION", "COMMUNITY"]),
+  tier: z.enum(["VIP", "REGULAR", "NEW", "POTENTIAL"]),
   occupation: z.string().optional(),
   company: z.string().optional(),
   position: z.string().optional(),
   birthday: z.date().optional().nullable(),
   firstDonationDate: z.date().optional().nullable(),
   personalInterests: z.string().optional(),
-  areasOfInterest: z.array(z.string()).default([]),
+  areasOfInterest: z.array(z.string()),
   notes: z.string().optional(),
 });
 

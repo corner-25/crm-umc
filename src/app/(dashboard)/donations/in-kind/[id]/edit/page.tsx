@@ -73,15 +73,15 @@ export default function EditInKindDonationPage({ params }: { params: { id: strin
               donorId: donation.donorId,
               itemName: donation.itemName,
               category: donation.category,
-              quantity: donation.quantity.toString(),
+              quantity: Number(donation.quantity),
               unit: donation.unit,
               condition: donation.condition,
-              estimatedValue: donation.estimatedValue.toString(),
-              date: new Date(donation.date),
-              expiryDate: donation.expiryDate ? new Date(donation.expiryDate) : undefined,
-              storageLocation: donation.storageLocation || "",
+              estimatedValue: Number(donation.estimatedValue),
+              expiryDate: donation.expiryDate ? new Date(donation.expiryDate) : null,
+              imageUrls: donation.imageUrls || [],
+              receivingLocation: donation.receivingLocation,
+              storageLocation: donation.storageLocation,
               distributionStatus: donation.distributionStatus,
-              notes: donation.notes || "",
             }}
             onSubmit={(values) => updateMutation.mutate(values)}
             isLoading={updateMutation.isPending}

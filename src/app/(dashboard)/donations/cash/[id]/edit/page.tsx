@@ -71,12 +71,13 @@ export default function EditCashDonationPage({ params }: { params: { id: string 
           <CashDonationForm
             defaultValues={{
               donorId: donation.donorId,
-              amount: donation.amount.toString(),
-              date: new Date(donation.date),
-              method: donation.method,
-              transactionId: donation.transactionId || "",
-              purpose: donation.purpose || "",
-              notes: donation.notes || "",
+              amount: Number(donation.amount),
+              currency: donation.currency,
+              paymentMethod: donation.paymentMethod,
+              receivedDate: new Date(donation.receivedDate),
+              purpose: donation.purpose,
+              receiptUrl: donation.receiptUrl || undefined,
+              status: donation.status,
             }}
             onSubmit={(values) => updateMutation.mutate(values)}
             isLoading={updateMutation.isPending}

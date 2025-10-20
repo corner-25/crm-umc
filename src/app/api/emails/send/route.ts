@@ -42,9 +42,9 @@ export async function POST(req: NextRequest) {
         deletedAt: null,
       },
       include: {
-        donationsCash: {
+        cashDonations: {
           where: { deletedAt: null },
-          orderBy: { date: "desc" },
+          orderBy: { receivedDate: "desc" },
           take: 1,
         },
       },
@@ -74,19 +74,19 @@ export async function POST(req: NextRequest) {
         .replace(/\{phone\}/g, donor.phone || "");
 
       // Add last donation info if available
-      if (donor.donationsCash.length > 0) {
-        const lastDonation = donor.donationsCash[0];
+      if (donor.cashDonations.length > 0) {
+        const lastDonation = donor.cashDonations[0];
         body = body
           .replace(
             /\{số_tiền\}/g,
             new Intl.NumberFormat("vi-VN", {
               style: "currency",
               currency: "VND",
-            }).format(lastDonation.amount)
+            }).format(Number(lastDonation.amount))
           )
           .replace(
             /\{ngày\}/g,
-            new Date(lastDonation.date).toLocaleDateString("vi-VN")
+            new Date(lastDonation.receivedDate).toLocaleDateString("vi-VN")
           );
       }
 

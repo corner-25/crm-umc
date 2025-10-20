@@ -331,7 +331,7 @@ export default function DashboardPage() {
                     cx="50%"
                     cy="50%"
                     outerRadius={100}
-                    label={(entry) =>
+                    label={(entry: any) =>
                       `${entry.type}: ${((entry.value / stats.grandTotal) * 100).toFixed(1)}%`
                     }
                   >

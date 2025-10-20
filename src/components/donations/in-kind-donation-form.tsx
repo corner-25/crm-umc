@@ -3,6 +3,9 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { inKindDonationSchema, InKindDonationFormValues, inKindCategoryLabels, itemConditionLabels, distributionStatusLabels } from "@/lib/validations/donation";
+
+// Re-export types for external use
+export type { InKindDonationFormValues };
 import { Button } from "@/components/ui/button";
 import {
   Form,

@@ -72,13 +72,13 @@ export default function EditVolunteerDonationPage({ params }: { params: { id: st
             defaultValues={{
               donorId: donation.donorId,
               workType: donation.workType,
-              skills: donation.skills || "",
+              skills: donation.skills,
               startDate: new Date(donation.startDate),
               endDate: new Date(donation.endDate),
-              hours: donation.hours.toString(),
-              hourlyRate: donation.hourlyRate.toString(),
-              rating: donation.rating || 0,
-              reviewNotes: donation.reviewNotes || "",
+              hours: Number(donation.hours),
+              hourlyRate: Number(donation.hourlyRate),
+              rating: donation.rating ?? null,
+              reviewNotes: donation.reviewNotes || undefined,
             }}
             onSubmit={(values) => updateMutation.mutate(values)}
             isLoading={updateMutation.isPending}
