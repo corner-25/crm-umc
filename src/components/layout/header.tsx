@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell } from "lucide-react";
+import { Bell, Menu } from "lucide-react";
 import Image from "next/image";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -17,7 +17,11 @@ import { signOut, useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 
-export function Header() {
+interface HeaderProps {
+  onMenuClick?: () => void;
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
   const { data: session } = useSession();
 
   // Fetch pending reminders count
@@ -44,21 +48,31 @@ export function Header() {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-white px-6">
-      <div className="flex items-center gap-4">
+    <header className="flex h-16 items-center justify-between border-b bg-white px-4 md:px-6">
+      <div className="flex items-center gap-2 md:gap-4">
+        {/* Mobile menu button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onMenuClick}
+          className="md:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+
         <Image
           src="/logo.jpg"
           alt="Hospital Logo"
           width={200}
           height={200}
-          className="rounded-md"
+          className="hidden sm:block rounded-md"
         />
-        <h1 className="text-xl font-semibold text-slate-800">
-          {process.env.NEXT_PUBLIC_HOSPITAL_NAME || "Phòng Công tác xã hội - Bệnh viện Đại học Y Dược TP. Hồ Chí Minh"}
+        <h1 className="text-sm sm:text-lg md:text-xl font-semibold text-slate-800 truncate max-w-[150px] sm:max-w-none">
+          {process.env.NEXT_PUBLIC_HOSPITAL_NAME || "CRM UMC"}
         </h1>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4">
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative" asChild>
           <Link href="/gratitude/reminders">
@@ -80,7 +94,7 @@ export function Header() {
                   {getInitials(session?.user?.name || null)}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-sm font-medium">
+              <span className="hidden sm:block text-sm font-medium">
                 {session?.user?.name || session?.user?.email}
               </span>
             </Button>

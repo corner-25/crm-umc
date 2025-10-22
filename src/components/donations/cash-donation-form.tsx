@@ -58,7 +58,7 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
     resolver: zodResolver(cashDonationSchema),
     defaultValues: {
       donorId: "",
-      amount: 0,
+      amount: defaultValues?.amount || undefined,
       currency: "VND",
       paymentMethod: "BANK_TRANSFER",
       receivedDate: new Date(),
