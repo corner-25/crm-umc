@@ -112,6 +112,10 @@ model Donor {
   emailLogs             EmailLog[]
   reminders             Reminder[]
 
+  // Cancer Support Relations
+  medicationSponsors    MedicationSponsor[]
+  patientTreatments     PatientTreatment[]
+
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
   deletedAt             DateTime?
@@ -383,4 +387,143 @@ enum ReminderType {
   SEND_REPORT           // Gửi báo cáo
   FOLLOW_UP             // Theo dõi
   OTHER                 // Khác
+}
+
+// ================================
+// CANCER SUPPORT PROGRAM
+// ================================
+
+// Bệnh nhân ung thư
+model CancerPatient {
+  id                    String                  @id @default(cuid())
+  patientCode           String                  @unique
+  name                  String
+  gender                PatientGender
+  yearOfBirth           Int
+  phone                 String?
+  cccd                  String?
+  status                PatientStatus           @default(ACTIVE)
+
+  // Trạng thái phụ (dùng để thống kê)
+  subStatus             PatientSubStatus?
+
+  // Relations
+  treatments            PatientTreatment[]
+
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  deletedAt             DateTime?
+
+  @@index([patientCode])
+  @@index([name])
+  @@index([status])
+  @@index([subStatus])
+  @@map("cancer_patients")
+}
+
+enum PatientGender {
+  MALE                  // Nam
+  FEMALE                // Nữ
+  OTHER                 // Khác
+}
+
+enum PatientStatus {
+  ACTIVE                // Đang điều trị
+  DECEASED              // Tử vong
+  LOST_CONTACT          // Mất liên lạc
+  TRANSFERRED_OUT       // Chuyển đi viện khác
+  DISCONTINUED          // Ngừng tham gia
+}
+
+enum PatientSubStatus {
+  CHANGED_MEDICATION    // Đổi thuốc
+  CONCURRENT_TREATMENT  // Điều trị song song
+  TRANSFERRED_IN        // Chuyển từ viện khác tới
+  REJOINED              // Tham gia lại
+}
+
+// Thuốc
+model Medication {
+  id                    String                  @id @default(cuid())
+  name                  String
+  description           String?
+  unitPrice             Decimal                 @db.Decimal(15, 2)
+  cycleDays             Int                     // Chu kỳ bao nhiêu ngày
+  sponsorPolicy         SponsorPolicy           // Chính sách tài trợ
+
+  // Relations
+  sponsors              MedicationSponsor[]     // Nhiều nhà tài trợ
+  treatments            PatientTreatment[]
+
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  deletedAt             DateTime?
+
+  @@index([name])
+  @@map("medications")
+}
+
+enum SponsorPolicy {
+  BUY_1_GET_1           // Mua 1 tặng 1
+  BUY_2_GET_1           // Mua 2 tặng 1
+  BUY_3_GET_1           // Mua 3 tặng 1
+  FULL_SPONSOR          // Tài trợ 100%
+}
+
+// Quan hệ nhiều-nhiều: Thuốc <-> Nhà tài trợ
+model MedicationSponsor {
+  id                    String                  @id @default(cuid())
+  medicationId          String
+  medication            Medication              @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+
+  sponsorId             String
+  sponsor               Donor                   @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+
+  isActive              Boolean                 @default(true)
+
+  createdAt             DateTime                @default(now())
+
+  @@unique([medicationId, sponsorId])
+  @@index([medicationId])
+  @@index([sponsorId])
+  @@map("medication_sponsors")
+}
+
+// Lịch sử điều trị
+model PatientTreatment {
+  id                    String                  @id @default(cuid())
+  patientId             String
+  patient               CancerPatient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  medicationId          String
+  medication            Medication              @relation(fields: [medicationId], references: [id], onDelete: Restrict)
+
+  cycleNumber           Int                     // Chu kỳ thứ mấy
+  treatmentDate         DateTime                // Ngày thực hiện
+  nextCycleDate         DateTime                // Ngày chu kỳ tiếp theo (tự động tính)
+
+  isSponsored           Boolean                 @default(false)  // Có được tài trợ không
+  sponsorId             String?                 // Công ty tài trợ
+  sponsor               Donor?                  @relation(fields: [sponsorId], references: [id], onDelete: SetNull)
+  donationAmount        Decimal?                @db.Decimal(15, 2)  // Số tiền quyên góp
+
+  status                TreatmentStatus         @default(UPCOMING)
+  notes                 String?
+
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  deletedAt             DateTime?
+
+  @@index([patientId])
+  @@index([medicationId])
+  @@index([treatmentDate])
+  @@index([nextCycleDate])
+  @@index([status])
+  @@map("patient_treatments")
+}
+
+enum TreatmentStatus {
+  UPCOMING              // Sắp đến
+  COMPLETED             // Hoàn thành
+  CANCELLED             // Hủy
 }

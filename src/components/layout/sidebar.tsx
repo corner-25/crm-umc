@@ -11,6 +11,7 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
+  Activity,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -47,9 +48,23 @@ const navigation = [
     ],
   },
   {
+    name: "Chương trình hỗ trợ thuốc",
+    href: "/cancer-support",
+    icon: Activity,
+    children: [
+      { name: "Người bệnh", href: "/cancer-support/patients" },
+      { name: "Thuốc", href: "/cancer-support/medications" },
+      { name: "Theo dõi", href: "/cancer-support/tracking" },
+    ],
+  },
+  {
     name: "Báo cáo",
     href: "/reports",
     icon: FileText,
+    children: [
+      { name: "Báo cáo CRM", href: "/reports/crm" },
+      { name: "Báo cáo Hỗ trợ thuốc", href: "/reports/drug-support" },
+    ],
   },
 ];
 
