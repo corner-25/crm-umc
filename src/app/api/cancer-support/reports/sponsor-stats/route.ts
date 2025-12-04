@@ -51,17 +51,21 @@ export async function GET(request: NextRequest) {
     });
 
     // Group by sponsor and medication
-    const sponsorMap = new Map<string, {
+    interface MedicationStats {
+      medicationId: string;
+      medicationName: string;
+      totalDoses: number;
+      totalValue: number;
+    }
+
+    interface SponsorStats {
       sponsorId: string;
       sponsorName: string;
       sponsorCompany: string | null;
-      medications: Map<string, {
-        medicationId: string;
-        medicationName: string;
-        totalDoses: number;
-        totalValue: number;
-      }>;
-    }>();
+      medications: Map<string, MedicationStats>;
+    }
+
+    const sponsorMap = new Map<string, SponsorStats>();
 
     treatments.forEach((treatment) => {
       if (!treatment.sponsor) return;
@@ -93,7 +97,8 @@ export async function GET(request: NextRequest) {
 
       const medication = sponsor.medications.get(medicationId)!;
       medication.totalDoses += 1;
-      medication.totalValue += treatment.donationAmount || Number(treatment.medication.unitPrice);
+      const donationValue = treatment.donationAmount ? Number(treatment.donationAmount) : Number(treatment.medication.unitPrice);
+      medication.totalValue += donationValue;
     });
 
     // Convert to array format
