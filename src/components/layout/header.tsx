@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { signOut, useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { InactiveSponsorsDropdown } from "./inactive-sponsors-dropdown";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -73,7 +74,10 @@ export function Header({ onMenuClick }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-2 md:gap-4">
-        {/* Notifications */}
+        {/* Inactive Sponsors Notifications */}
+        <InactiveSponsorsDropdown />
+
+        {/* Reminders Notifications */}
         <Button variant="ghost" size="icon" className="relative" asChild>
           <Link href="/gratitude/reminders">
             <Bell className="h-5 w-5" />

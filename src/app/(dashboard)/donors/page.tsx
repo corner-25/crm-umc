@@ -124,7 +124,7 @@ export default function DonorsPage() {
                     <TableRow>
                       <TableHead>Họ tên</TableHead>
                       <TableHead>Loại</TableHead>
-                      <TableHead>Cấp độ</TableHead>
+                      <TableHead className="min-w-[120px]">Cấp độ</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Số điện thoại</TableHead>
                       <TableHead>Số khoản tài trợ</TableHead>
@@ -150,7 +150,7 @@ export default function DonorsPage() {
                           <TableCell>
                             <Badge
                               variant="outline"
-                              className={donorTierColors[donor.tier as DonorTier]}
+                              className={`whitespace-nowrap ${donorTierColors[donor.tier as DonorTier]}`}
                             >
                               {donorTierLabels[donor.tier as DonorTier]}
                             </Badge>

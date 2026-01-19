@@ -116,6 +116,9 @@ model Donor {
   medicationSponsors    MedicationSponsor[]
   patientTreatments     PatientTreatment[]
 
+  // Inactive Sponsor Notifications
+  inactiveNotifications InactiveSponsorNotification[]
+
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
   deletedAt             DateTime?
@@ -526,4 +529,47 @@ enum TreatmentStatus {
   UPCOMING              // Sắp đến
   COMPLETED             // Hoàn thành
   CANCELLED             // Hủy
+}
+
+// ================================
+// INACTIVE SPONSOR NOTIFICATIONS
+// ================================
+
+// Thông báo nhà tài trợ không hoạt động
+model InactiveSponsorNotification {
+  id                    String                  @id @default(cuid())
+  donorId               String
+  donor                 Donor                   @relation(fields: [donorId], references: [id], onDelete: Cascade)
+
+  lastDonationDate      DateTime?               // Ngày tài trợ cuối cùng
+  notifiedAt            DateTime                @default(now())  // Ngày thông báo
+  isResolved            Boolean                 @default(false)  // Đã xử lý chưa
+  resolvedAt            DateTime?               // Ngày xử lý
+
+  // Lịch sử liên hệ
+  contactHistory        SponsorContactHistory[]
+
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  @@index([donorId])
+  @@index([isResolved])
+  @@index([notifiedAt])
+  @@map("inactive_sponsor_notifications")
+}
+
+// Lịch sử liên hệ với nhà tài trợ
+model SponsorContactHistory {
+  id                    String                          @id @default(cuid())
+  notificationId        String
+  notification          InactiveSponsorNotification     @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  contactNumber         Int                             // Lần liên hệ thứ mấy (1, 2, 3,...)
+  contactDate           DateTime                        @default(now())  // Ngày liên hệ
+  notes                 String?                         // Ghi chú
+
+  createdAt             DateTime                        @default(now())
+
+  @@index([notificationId])
+  @@map("sponsor_contact_history")
 }
