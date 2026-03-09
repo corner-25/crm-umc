@@ -238,7 +238,7 @@ export function DonationReportPDF({ donor, donations, generatedAt, generatedBy }
               return (
                 <View key={i} style={[styles.tableRow, i % 2 === 0 ? {} : { backgroundColor: "#f9fafb" }]}>
                   <Text style={styles.col1}>{formatDate(d.receivedDate)}</Text>
-                  <Text style={[styles.col2, { fontSize: 8 }]} numberOfLines={2}>{d.purpose}</Text>
+                  <Text style={[styles.col2, { fontSize: 8 }]}>{d.purpose}</Text>
                   <Text style={styles.col3}>{formatMoney(d.amount, d.currency)}</Text>
                   <Text style={styles.col4}>{formatMoney(d.usedAmount || 0, d.currency)}</Text>
                   <Text style={[styles.col5, { color: remaining === 0 ? "#6b7280" : "#15803d" }]}>

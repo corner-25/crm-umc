@@ -43,7 +43,7 @@ export function ExportPDFButton({ donor, donations, userName }: ExportPDFButtonP
           donations,
           generatedAt: format(new Date(), "dd/MM/yyyy HH:mm"),
           generatedBy: userName,
-        })
+        }) as any
       ).toBlob();
 
       const url = URL.createObjectURL(blob);
