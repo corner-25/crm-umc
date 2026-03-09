@@ -211,9 +211,13 @@ export default function CashDonationsPage() {
                               {donation.purpose}
                             </TableCell>
                             <TableCell>
-                              <Badge variant="outline">
-                                {donationStatusLabels[donation.status as keyof typeof donationStatusLabels]}
-                              </Badge>
+                              {used <= 0 ? (
+                                <Badge variant="outline">Đã nhận</Badge>
+                              ) : used < amount ? (
+                                <Badge variant="outline" className="border-amber-400 text-amber-700">Sử dụng một phần</Badge>
+                              ) : (
+                                <Badge variant="outline" className="border-green-500 text-green-700">Đã sử dụng</Badge>
+                              )}
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">

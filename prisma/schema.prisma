@@ -103,6 +103,8 @@ model Donor {
   personalInterests     String?
   areasOfInterest       String[]    @default([])
   notes                 String?
+  isPatient             Boolean     @default(false)  // Là người bệnh
+  isPatientFamily       Boolean     @default(false)  // Là người nhà người bệnh
 
   // Lead tracking
   leadStatus            LeadStatus?           // null = đã là donor thực sự

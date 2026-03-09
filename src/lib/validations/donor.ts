@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const donorSchema = z.object({
-  fullName: z.string().min(1, "Họ tên là bắt buộc"),
+  fullName: z.string().optional().or(z.literal("")),
   isAnonymous: z.boolean().optional().default(false),
   email: z
     .string()
@@ -24,6 +24,8 @@ export const donorSchema = z.object({
   personalInterests: z.string().optional(),
   areasOfInterest: z.array(z.string()),
   notes: z.string().optional(),
+  isPatient: z.boolean().optional().default(false),
+  isPatientFamily: z.boolean().optional().default(false),
   // Lead tracking
   leadStatus: z.enum(["NEW", "CONTACTED", "INTERESTED", "NEGOTIATING", "CONVERTED", "LOST"]).optional().nullable(),
   leadSource: z.enum(["FACEBOOK", "ZALO", "REFERRAL", "EVENT", "WEBSITE", "COLD_CALL", "OTHER"]).optional().nullable(),

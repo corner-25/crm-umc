@@ -64,6 +64,8 @@ export function DonorForm({ defaultValues, onSubmit, isLoading }: DonorFormProps
       personalInterests: "",
       areasOfInterest: [],
       notes: "",
+      isPatient: false,
+      isPatientFamily: false,
       ...defaultValues,
     },
   });
@@ -107,9 +109,9 @@ export function DonorForm({ defaultValues, onSubmit, isLoading }: DonorFormProps
               name="fullName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Họ tên *</FormLabel>
+                  <FormLabel>{isAnonymous ? "Họ tên (tuỳ chọn)" : "Họ tên *"}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Nguyễn Văn A" {...field} />
+                    <Input placeholder={isAnonymous ? "Để trống nếu không muốn ghi" : "Nguyễn Văn A"} {...field} value={field.value || ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -202,6 +204,32 @@ export function DonorForm({ defaultValues, onSubmit, isLoading }: DonorFormProps
                 </FormItem>
               )}
             />
+
+            <FormItem className="flex flex-col justify-end">
+              <FormLabel>Phân loại</FormLabel>
+              <div className="flex items-center gap-4 h-10">
+                <FormField
+                  control={form.control}
+                  name="isPatient"
+                  render={({ field }) => (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      <span className="text-sm">Người bệnh</span>
+                    </label>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="isPatientFamily"
+                  render={({ field }) => (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      <span className="text-sm">Người nhà người bệnh</span>
+                    </label>
+                  )}
+                />
+              </div>
+            </FormItem>
 
             <FormField
               control={form.control}
