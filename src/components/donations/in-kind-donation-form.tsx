@@ -112,7 +112,7 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
                   </FormControl>
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0" align="start">
-                  <Command>
+                  <Command shouldFilter={false}>
                     <CommandInput
                       placeholder="Tìm nhà tài trợ..."
                       value={donorSearch}

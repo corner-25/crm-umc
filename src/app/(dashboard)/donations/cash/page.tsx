@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit, Trash2, FilterX } from "lucide-react";
+import { Plus, Edit, Trash2, FilterX, Zap } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { donationStatusLabels, paymentMethodLabels } from "@/lib/validations/donation";
@@ -73,12 +73,20 @@ export default function CashDonationsPage() {
           <h2 className="text-3xl font-bold tracking-tight">Tài trợ tiền mặt</h2>
           <p className="text-muted-foreground">Quản lý các khoản tài trợ tiền mặt, chuyển khoản</p>
         </div>
-        <Button asChild>
-          <Link href="/donations/cash/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Thêm mới
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/donations/cash/quick">
+              <Zap className="mr-2 h-4 w-4 text-amber-500" />
+              Nhập nhanh
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/donations/cash/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Thêm mới
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Filter bar */}

@@ -127,7 +127,7 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
                   </FormControl>
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0" align="start">
-                  <Command>
+                  <Command shouldFilter={false}>
                     <CommandInput
                       placeholder="Tìm nhà tài trợ..."
                       value={donorSearch}
@@ -434,8 +434,8 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
                           <Input
                             type="number"
                             placeholder="10000000"
-                            {...field}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
                           />
                         </FormControl>
                         <FormMessage />
@@ -498,7 +498,7 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
             variant="outline"
             size="sm"
             disabled={remainingAmount <= 0 && usageFields.length > 0}
-            onClick={() => appendUsage({ description: "", amount: 0, date: new Date() })}
+            onClick={() => appendUsage({ description: "", amount: undefined as any, date: new Date() })}
             className="w-full"
           >
             <Plus className="h-4 w-4 mr-2" />

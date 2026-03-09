@@ -135,14 +135,17 @@ export async function POST(request: NextRequest) {
 
     // Tự động sinh anonymousCode nếu là giấu tên
     let anonymousCode: string | undefined;
+    let fullName: string | undefined;
     if (body.isAnonymous) {
       const count = await prisma.donor.count({ where: { isAnonymous: true } });
-      anonymousCode = `Mạnh thường quân ${String(count + 1).padStart(2, "0")}`;
+      anonymousCode = `Mạnh thường quân ẩn danh ${String(count + 1).padStart(4, "0")}`;
+      fullName = anonymousCode;
     }
 
     const donor = await prisma.donor.create({
       data: {
         ...body,
+        ...(fullName ? { fullName } : {}),
         anonymousCode: anonymousCode ?? null,
         managerId: session.user.id,
       },
