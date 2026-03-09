@@ -25,12 +25,39 @@ import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
 import Link from "next/link";
 import { donorTypeLabels, donorTierLabels, donorTierColors } from "@/types/donor";
 import { DonorType, DonorTier } from "@prisma/client";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function DonorsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [tierFilter, setTierFilter] = useState<string>("ALL");
+  const [deletingDonor, setDeletingDonor] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const queryClient = useQueryClient();
+
+  async function handleDelete(id: string) {
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/donors/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        queryClient.invalidateQueries({ queryKey: ["donors"] });
+      }
+    } finally {
+      setIsDeleting(false);
+      setDeletingDonor(null);
+    }
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ["donors", page, search, typeFilter, tierFilter],
@@ -185,10 +212,7 @@ export default function DonorsPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => {
-                                  // TODO: Add delete confirmation dialog
-                                  alert("Delete functionality coming soon");
-                                }}
+                                onClick={() => setDeletingDonor({ id: donor.id, name: donor.fullName })}
                               >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
@@ -230,6 +254,26 @@ export default function DonorsPage() {
           )}
         </CardContent>
       </Card>
+      <AlertDialog open={!!deletingDonor} onOpenChange={(open) => !open && setDeletingDonor(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xoá nhà tài trợ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn xoá <strong>{deletingDonor?.name}</strong>? Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Huỷ</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deletingDonor && handleDelete(deletingDonor.id)}
+            >
+              {isDeleting ? "Đang xoá..." : "Xoá"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
