@@ -20,7 +20,10 @@ export async function POST(request: NextRequest) {
     if (donorData.isAnonymous) {
       const count = await prisma.donor.count({ where: { isAnonymous: true } });
       anonymousCode = `Mạnh thường quân ẩn danh ${String(count + 1).padStart(4, "0")}`;
-      fullName = anonymousCode;
+      // Nếu người dùng có nhập tên thì dùng tên đó, không thì dùng mã tự sinh
+      if (!donorData.fullName || !donorData.fullName.trim()) {
+        fullName = anonymousCode;
+      }
     }
 
     const donor = await prisma.donor.create({

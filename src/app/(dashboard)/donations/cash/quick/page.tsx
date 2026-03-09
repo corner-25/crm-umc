@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,12 +14,9 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { format } from "date-fns";
-import { CalendarIcon, Plus, Trash2, Zap } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Plus, Trash2, Zap } from "lucide-react";
+import { DateInput } from "@/components/ui/date-input";
 import { useToast } from "@/hooks/use-toast";
 import { paymentMethodLabels, donationStatusLabels, cashCustodianLabels, CASH_PURPOSES } from "@/lib/validations/donation";
 import Link from "next/link";
@@ -168,14 +164,28 @@ export default function QuickEntryPage() {
                         Mạnh thường quân ẩn danh
                       </FormLabel>
                       <p className="text-sm text-muted-foreground">
-                        Hệ thống tự cấp tên: Mạnh thường quân ẩn danh 0001, 0002,...
+                        Không có thông tin liên lạc. Nếu để trống tên, hệ thống tự cấp: Mạnh thường quân ẩn danh 0001, 0002,...
                       </p>
                     </div>
                   </FormItem>
                 )}
               />
 
-              {!isAnonymous && (
+              {isAnonymous ? (
+                <FormField
+                  control={form.control}
+                  name="fullName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Họ tên (nếu biết)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Để trống nếu không biết tên" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : (
                 <div className="grid gap-4 md:grid-cols-3">
                   <FormField
                     control={form.control}
@@ -291,19 +301,13 @@ export default function QuickEntryPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Ngày nhận *</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                              {field.value ? format(field.value, "dd/MM/yyyy") : <span>Chọn ngày</span>}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(d) => d > new Date()} initialFocus />
-                        </PopoverContent>
-                      </Popover>
+                      <FormControl>
+                        <DateInput
+                          value={field.value}
+                          onChange={field.onChange}
+                          disabled={(d) => d > new Date()}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -453,26 +457,21 @@ export default function QuickEntryPage() {
                       )}
                     />
                   </div>
-                  <div className="w-36">
+                  <div className="w-44">
                     <FormField
                       control={form.control}
                       name={`usageItems.${index}.date`}
                       render={({ field }) => (
                         <FormItem>
                           {index === 0 && <FormLabel className="text-xs">Ngày sử dụng</FormLabel>}
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button variant="outline" className={cn("w-full pl-3 text-left font-normal text-xs h-9", !field.value && "text-muted-foreground")}>
-                                  {field.value ? format(field.value, "dd/MM/yyyy") : <span>Chọn ngày</span>}
-                                  <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(d) => d > new Date()} initialFocus />
-                            </PopoverContent>
-                          </Popover>
+                          <FormControl>
+                            <DateInput
+                              value={field.value}
+                              onChange={field.onChange}
+                              disabled={(d) => d > new Date()}
+                              size="sm"
+                            />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
