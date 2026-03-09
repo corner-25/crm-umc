@@ -71,9 +71,28 @@ export async function PUT(
 
     const body = await request.json();
 
+    const {
+      fullName, isAnonymous, email, phone, address, type, tier,
+      occupation, company, position, birthday, firstDonationDate,
+      personalInterests, areasOfInterest, notes,
+      isPatient, isPatientFamily,
+      leadStatus, leadSource, leadNote,
+    } = body;
+
     const donor = await prisma.donor.update({
       where: { id: params.id },
-      data: body,
+      data: {
+        fullName, isAnonymous, email, phone, address, type, tier,
+        occupation, company, position,
+        birthday: birthday ? new Date(birthday) : null,
+        firstDonationDate: firstDonationDate ? new Date(firstDonationDate) : null,
+        personalInterests, areasOfInterest, notes,
+        isPatient: isPatient ?? false,
+        isPatientFamily: isPatientFamily ?? false,
+        leadStatus: leadStatus ?? null,
+        leadSource: leadSource ?? null,
+        leadNote,
+      },
     });
 
     return NextResponse.json(donor);

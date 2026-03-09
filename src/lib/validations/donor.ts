@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const donorSchema = z.object({
-  fullName: z.string().optional().or(z.literal("")),
+  fullName: z.string().optional().nullable(),
   isAnonymous: z.boolean().optional().default(false),
   email: z
     .string()
@@ -30,6 +30,14 @@ export const donorSchema = z.object({
   leadStatus: z.enum(["NEW", "CONTACTED", "INTERESTED", "NEGOTIATING", "CONVERTED", "LOST"]).optional().nullable(),
   leadSource: z.enum(["FACEBOOK", "ZALO", "REFERRAL", "EVENT", "WEBSITE", "COLD_CALL", "OTHER"]).optional().nullable(),
   leadNote: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (!data.isAnonymous && (!data.fullName || !data.fullName.trim())) {
+    ctx.addIssue({
+      path: ["fullName"],
+      code: z.ZodIssueCode.custom,
+      message: "Họ tên là bắt buộc",
+    });
+  }
 });
 
 export type DonorFormValues = z.infer<typeof donorSchema>;

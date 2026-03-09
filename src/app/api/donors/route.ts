@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
     let anonymousCode: string | undefined;
     let fullName: string | undefined;
     if (body.isAnonymous) {
-      const count = await prisma.donor.count({ where: { isAnonymous: true } });
+      const count = await prisma.donor.count({ where: { isAnonymous: true, deletedAt: null } });
       anonymousCode = `Mạnh thường quân ẩn danh ${String(count + 1).padStart(4, "0")}`;
       fullName = anonymousCode;
     }
