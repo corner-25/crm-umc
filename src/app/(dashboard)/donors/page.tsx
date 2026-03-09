@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, Zap } from "lucide-react";
 import Link from "next/link";
 import { donorTypeLabels, donorTierLabels, donorTierColors } from "@/types/donor";
 import { DonorType, DonorTier } from "@prisma/client";
@@ -84,12 +84,20 @@ export default function DonorsPage() {
             Quản lý danh sách nhà tài trợ
           </p>
         </div>
-        <Button asChild>
-          <Link href="/donors/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Thêm mới
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/donations/cash/quick">
+              <Zap className="mr-2 h-4 w-4 text-amber-500" />
+              Nhập nhanh tài trợ
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/donors/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Thêm mới
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <Card>

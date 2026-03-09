@@ -14,64 +14,28 @@ export async function GET(request: NextRequest) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
 
-    const dateFilter: any = {};
-    if (from) dateFilter.gte = new Date(from);
-    if (to) dateFilter.lte = new Date(to);
+    const hasDateFilter = !!(from || to);
+    const cashDateFilter = hasDateFilter ? { receivedDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } } : {};
+    const inKindDateFilter = hasDateFilter ? { createdAt: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } } : {};
+    const volunteerDateFilter = hasDateFilter ? { startDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } } : {};
 
-    // Count donors
+    // Count donors (always total, not filtered by date)
     const totalDonors = await prisma.donor.count({
       where: { deletedAt: null },
     });
 
-    // Count donations
-    const [cashCount, inKindCount, volunteerCount] = await Promise.all([
-      prisma.donationCash.count({ where: { deletedAt: null } }),
-      prisma.donationInKind.count({ where: { deletedAt: null } }),
-      prisma.donationVolunteer.count({ where: { deletedAt: null } }),
+    // Count + sum donations (filtered by date if set)
+    const [cashCount, inKindCount, volunteerCount, cashSum, inKindSum, volunteerSum, usedSum] = await Promise.all([
+      prisma.donationCash.count({ where: { deletedAt: null, ...cashDateFilter } }),
+      prisma.donationInKind.count({ where: { deletedAt: null, ...inKindDateFilter } }),
+      prisma.donationVolunteer.count({ where: { deletedAt: null, ...volunteerDateFilter } }),
+      prisma.donationCash.aggregate({ where: { deletedAt: null, currency: "VND", ...cashDateFilter }, _sum: { amount: true } }),
+      prisma.donationInKind.aggregate({ where: { deletedAt: null, ...inKindDateFilter }, _sum: { estimatedValue: true } }),
+      prisma.donationVolunteer.aggregate({ where: { deletedAt: null, ...volunteerDateFilter }, _sum: { totalValue: true } }),
+      prisma.donationCash.aggregate({ where: { deletedAt: null, currency: "VND", ...cashDateFilter }, _sum: { usedAmount: true } }),
     ]);
 
     const totalDonations = cashCount + inKindCount + volunteerCount;
-
-    // Sum cash donations
-    const cashSum = await prisma.donationCash.aggregate({
-      where: {
-        deletedAt: null,
-        currency: "VND",
-        ...(Object.keys(dateFilter).length > 0 && { receivedDate: dateFilter }),
-      },
-      _sum: {
-        amount: true,
-      },
-    });
-
-    // Sum in-kind donations (estimated value)
-    const inKindSum = await prisma.donationInKind.aggregate({
-      where: {
-        deletedAt: null,
-        ...(Object.keys(dateFilter).length > 0 && { createdAt: dateFilter }),
-      },
-      _sum: {
-        estimatedValue: true,
-      },
-    });
-
-    // Sum volunteer donations (total value)
-    const volunteerSum = await prisma.donationVolunteer.aggregate({
-      where: {
-        deletedAt: null,
-        ...(Object.keys(dateFilter).length > 0 && { startDate: dateFilter }),
-      },
-      _sum: {
-        totalValue: true,
-      },
-    });
-
-    // Sum used amount
-    const usedSum = await prisma.donationCash.aggregate({
-      where: { deletedAt: null, currency: "VND" },
-      _sum: { usedAmount: true },
-    });
-
     const totalCash = Number(cashSum._sum.amount || 0);
     const totalUsed = Number(usedSum._sum.usedAmount || 0);
     const totalRemaining = totalCash - totalUsed;
@@ -86,20 +50,20 @@ export async function GET(request: NextRequest) {
       { type: "Tình nguyện", value: totalVolunteer, count: volunteerCount },
     ];
 
-    // Get top donors by total value
+    // Get top donors by total value (filtered by date)
     const donors = await prisma.donor.findMany({
       where: { deletedAt: null },
       include: {
         cashDonations: {
-          where: { deletedAt: null },
+          where: { deletedAt: null, ...cashDateFilter },
           select: { amount: true, currency: true },
         },
         inKindDonations: {
-          where: { deletedAt: null },
+          where: { deletedAt: null, ...inKindDateFilter },
           select: { estimatedValue: true },
         },
         volunteerDonations: {
-          where: { deletedAt: null },
+          where: { deletedAt: null, ...volunteerDateFilter },
           select: { totalValue: true },
         },
       },
