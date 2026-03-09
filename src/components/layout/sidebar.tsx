@@ -12,6 +12,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Activity,
+  ScrollText,
+  UserPlus,
+  Facebook,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -56,6 +59,21 @@ const navigation = [
       { name: "Thuốc", href: "/cancer-support/medications" },
       { name: "Theo dõi", href: "/cancer-support/tracking" },
     ],
+  },
+  {
+    name: "Fanpage",
+    href: "/fanpage",
+    icon: Facebook,
+  },
+  {
+    name: "Lead",
+    href: "/leads",
+    icon: UserPlus,
+  },
+  {
+    name: "Hợp đồng",
+    href: "/contracts",
+    icon: ScrollText,
   },
   {
     name: "Báo cáo",
@@ -131,18 +149,21 @@ export function Sidebar() {
       </nav>
 
       {/* Toggle Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-20 h-6 w-6 rounded-full border bg-white shadow-md hover:bg-slate-100"
-      >
-        {isCollapsed ? (
-          <ChevronRight className="h-4 w-4" />
-        ) : (
-          <ChevronLeft className="h-4 w-4" />
-        )}
-      </Button>
+      <div className="border-t px-3 py-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="h-8 w-8 rounded-full border bg-white shadow-sm hover:bg-slate-100"
+          title={isCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
     </div>
   );
 }

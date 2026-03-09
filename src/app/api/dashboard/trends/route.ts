@@ -29,55 +29,54 @@ export async function GET(req: NextRequest) {
         const monthStart = startOfMonth(month);
         const monthEnd = endOfMonth(month);
 
-        // Cash donations
+        // Cash donations (tài trợ)
         const cashResult = await prisma.donationCash.aggregate({
           where: {
             deletedAt: null,
-            receivedDate: {
-              gte: monthStart,
-              lte: monthEnd,
-            },
+            receivedDate: { gte: monthStart, lte: monthEnd },
           },
-          _sum: {
-            amount: true,
+          _sum: { amount: true },
+        });
+
+        // Cash used (sử dụng - theo ngày nhận để đơn giản)
+        // Tổng usedAmount của các khoản nhận trong tháng này
+        const cashUsedResult = await prisma.donationCash.aggregate({
+          where: {
+            deletedAt: null,
+            receivedDate: { gte: monthStart, lte: monthEnd },
           },
+          _sum: { usedAmount: true },
         });
 
         // In-kind donations
         const inKindResult = await prisma.donationInKind.aggregate({
           where: {
             deletedAt: null,
-            createdAt: {
-              gte: monthStart,
-              lte: monthEnd,
-            },
+            createdAt: { gte: monthStart, lte: monthEnd },
           },
-          _sum: {
-            estimatedValue: true,
-          },
+          _sum: { estimatedValue: true },
         });
 
         // Volunteer donations
         const volunteerResult = await prisma.donationVolunteer.aggregate({
           where: {
             deletedAt: null,
-            startDate: {
-              gte: monthStart,
-              lte: monthEnd,
-            },
+            startDate: { gte: monthStart, lte: monthEnd },
           },
-          _sum: {
-            totalValue: true,
-          },
+          _sum: { totalValue: true },
         });
 
         const cash = Number(cashResult._sum.amount || 0);
+        const cashUsed = Number(cashUsedResult._sum.usedAmount || 0);
+        const cashRemaining = cash - cashUsed;
         const inKind = Number(inKindResult._sum.estimatedValue || 0);
         const volunteer = Number(volunteerResult._sum.totalValue || 0);
 
         return {
           month: format(month, "MM/yyyy"),
           cash,
+          cashUsed,
+          cashRemaining,
           inKind,
           volunteer,
           total: cash + inKind + volunteer,

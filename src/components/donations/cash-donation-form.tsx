@@ -1,8 +1,8 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { cashDonationSchema, CashDonationFormValues, paymentMethodLabels, donationStatusLabels } from "@/lib/validations/donation";
+import { cashDonationSchema, CashDonationFormValues, paymentMethodLabels, donationStatusLabels, cashCustodianLabels, CASH_PURPOSES } from "@/lib/validations/donation";
 
 // Re-export types for external use
 export type { CashDonationFormValues };
@@ -31,7 +31,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Search } from "lucide-react";
+import { CalendarIcon, Search, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -55,19 +55,37 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
   const [donorSearch, setDonorSearch] = useState("");
 
   const form = useForm<CashDonationFormValues>({
-    resolver: zodResolver(cashDonationSchema),
+    resolver: zodResolver(cashDonationSchema) as any,
     defaultValues: {
       donorId: "",
-      amount: defaultValues?.amount || undefined,
+      amount: undefined,
       currency: "VND",
       paymentMethod: "BANK_TRANSFER",
       receivedDate: new Date(),
       purpose: "",
+      purposeOther: "",
       receiptUrl: "",
       status: "RECEIVED",
+      custodian: "CTXH",
+      voucherCode: "",
+      usageItems: [],
+      usageNote: "",
       ...defaultValues,
     },
   });
+
+  const { fields: usageFields, append: appendUsage, remove: removeUsage } = useFieldArray({
+    control: form.control,
+    name: "usageItems",
+  });
+
+  const watchedAmount = form.watch("amount");
+  const watchedUsageItems = form.watch("usageItems");
+  const watchedPurpose = form.watch("purpose");
+  const watchedCustodian = form.watch("custodian");
+  const watchedPaymentMethod = form.watch("paymentMethod");
+  const totalUsed = watchedUsageItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+  const remainingAmount = (watchedAmount || 0) - totalUsed;
 
   // Fetch donors for selection
   const { data: donorsData } = useQuery({
@@ -284,23 +302,227 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
           />
         </div>
 
-        {/* Mục đích */}
-        <FormField
-          control={form.control}
-          name="purpose"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Mục đích tài trợ *</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Hỗ trợ mua thiết bị y tế cho khoa Nhi..."
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+        {/* Mục đích (dropdown) */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="purpose"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nội dung/Mục đích *</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn mục đích tài trợ" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {CASH_PURPOSES.map((p) => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {watchedPurpose === "Khác" && (
+            <FormField
+              control={form.control}
+              name="purposeOther"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Mục đích khác *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Nhập mục đích sử dụng..." {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           )}
-        />
+        </div>
+
+        {/* Quản lý tiền */}
+        <div className="space-y-4 rounded-lg border p-4">
+          <h3 className="font-medium text-sm">Quản lý tiền</h3>
+          <FormField
+            control={form.control}
+            name="custodian"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tiền đang do ai giữ *</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn người giữ tiền" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {Object.entries(cashCustodianLabels).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {watchedCustodian === "ACCOUNTING" && (
+            <FormField
+              control={form.control}
+              name="voucherCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {watchedPaymentMethod === "CASH" ? "Mã phiếu thu" : "Mã lệnh chuyển khoản"}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder={watchedPaymentMethod === "CASH" ? "PT-2025-001" : "CK-2025-001"}
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+        </div>
+
+        {/* Tình trạng sử dụng (multi-item) */}
+        <div className="space-y-4 rounded-lg border p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium text-sm">Tình trạng sử dụng tiền</h3>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Số dư còn lại</p>
+              <p className={`text-base font-semibold ${remainingAmount < 0 ? "text-destructive" : remainingAmount === 0 ? "text-muted-foreground" : "text-green-600"}`}>
+                {remainingAmount.toLocaleString("vi-VN")} {form.watch("currency") === "VND" ? "đ" : form.watch("currency")}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {usageFields.map((field, index) => (
+              <div key={field.id} className="flex gap-3 items-start">
+                <div className="flex-1">
+                  <FormField
+                    control={form.control}
+                    name={`usageItems.${index}.description`}
+                    render={({ field }) => (
+                      <FormItem>
+                        {index === 0 && <FormLabel className="text-xs">Nội dung sử dụng</FormLabel>}
+                        <FormControl>
+                          <Input placeholder="VD: Hỗ trợ bệnh nhi A" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="w-36">
+                  <FormField
+                    control={form.control}
+                    name={`usageItems.${index}.amount`}
+                    render={({ field }) => (
+                      <FormItem>
+                        {index === 0 && <FormLabel className="text-xs">Số tiền</FormLabel>}
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="10000000"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="w-36">
+                  <FormField
+                    control={form.control}
+                    name={`usageItems.${index}.date`}
+                    render={({ field }) => (
+                      <FormItem>
+                        {index === 0 && <FormLabel className="text-xs">Ngày sử dụng</FormLabel>}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal text-xs h-9",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? format(field.value, "dd/MM/yyyy") : <span>Chọn ngày</span>}
+                                <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              disabled={(date) => date > new Date()}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={`${index === 0 ? "mt-6" : ""} text-destructive hover:text-destructive`}
+                  onClick={() => removeUsage(index)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={remainingAmount <= 0 && usageFields.length > 0}
+            onClick={() => appendUsage({ description: "", amount: 0, date: new Date() })}
+            className="w-full"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Thêm khoản sử dụng
+          </Button>
+
+          <FormField
+            control={form.control}
+            name="usageNote"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Ghi chú thêm</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Ghi chú về tình trạng sử dụng..."
+                    {...field}
+                    value={field.value || ""}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         {/* Upload biên lai */}
         <FormField

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const donorSchema = z.object({
   fullName: z.string().min(1, "Họ tên là bắt buộc"),
+  isAnonymous: z.boolean().optional().default(false),
   email: z
     .string()
     .email("Email không hợp lệ")
@@ -23,6 +24,10 @@ export const donorSchema = z.object({
   personalInterests: z.string().optional(),
   areasOfInterest: z.array(z.string()),
   notes: z.string().optional(),
+  // Lead tracking
+  leadStatus: z.enum(["NEW", "CONTACTED", "INTERESTED", "NEGOTIATING", "CONVERTED", "LOST"]).optional().nullable(),
+  leadSource: z.enum(["FACEBOOK", "ZALO", "REFERRAL", "EVENT", "WEBSITE", "COLD_CALL", "OTHER"]).optional().nullable(),
+  leadNote: z.string().optional(),
 });
 
 export type DonorFormValues = z.infer<typeof donorSchema>;

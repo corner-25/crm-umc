@@ -113,9 +113,37 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
+    // Kiểm tra trùng lắp tên hoặc SĐT
+    if (!body.isAnonymous) {
+      const duplicateWhere: any[] = [];
+      if (body.fullName) duplicateWhere.push({ fullName: { equals: body.fullName, mode: "insensitive" } });
+      if (body.phone) duplicateWhere.push({ phone: body.phone });
+
+      if (duplicateWhere.length > 0) {
+        const existing = await prisma.donor.findFirst({
+          where: { deletedAt: null, OR: duplicateWhere },
+          select: { id: true, fullName: true, phone: true },
+        });
+        if (existing) {
+          return NextResponse.json(
+            { error: "DUPLICATE", duplicate: existing },
+            { status: 409 }
+          );
+        }
+      }
+    }
+
+    // Tự động sinh anonymousCode nếu là giấu tên
+    let anonymousCode: string | undefined;
+    if (body.isAnonymous) {
+      const count = await prisma.donor.count({ where: { isAnonymous: true } });
+      anonymousCode = `Mạnh thường quân ${String(count + 1).padStart(2, "0")}`;
+    }
+
     const donor = await prisma.donor.create({
       data: {
         ...body,
+        anonymousCode: anonymousCode ?? null,
         managerId: session.user.id,
       },
     });

@@ -76,8 +76,18 @@ export default function EditCashDonationPage({ params }: { params: { id: string 
               paymentMethod: donation.paymentMethod,
               receivedDate: new Date(donation.receivedDate),
               purpose: donation.purpose,
+              purposeOther: donation.purposeOther || undefined,
               receiptUrl: donation.receiptUrl || undefined,
               status: donation.status,
+              custodian: donation.custodian || "CTXH",
+              voucherCode: donation.voucherCode || undefined,
+              usageItems: Array.isArray(donation.usageItems)
+                ? donation.usageItems.map((item: any) => ({
+                    ...item,
+                    date: item.date ? new Date(item.date) : new Date(),
+                  }))
+                : [],
+              usageNote: donation.usageNote || undefined,
             }}
             onSubmit={(values) => updateMutation.mutate(values)}
             isLoading={updateMutation.isPending}

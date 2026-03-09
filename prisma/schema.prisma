@@ -26,9 +26,11 @@ model User {
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
 
-  accounts      Account[]
-  sessions      Session[]
-  donors        Donor[]   @relation("DonorManager")
+  accounts          Account[]
+  sessions          Session[]
+  donors            Donor[]         @relation("DonorManager")
+  assignedConvos    Conversation[]  @relation("InboxAssignee")
+  sentMessages      Message[]       @relation("MessageSender")
 
   @@index([email])
   @@map("users")
@@ -86,6 +88,8 @@ model VerificationToken {
 model Donor {
   id                    String      @id @default(cuid())
   fullName              String
+  isAnonymous           Boolean     @default(false)
+  anonymousCode         String?     @unique  // Mạnh thường quân 01, 02,...
   email                 String?
   phone                 String?
   address               String?
@@ -99,6 +103,12 @@ model Donor {
   personalInterests     String?
   areasOfInterest       String[]    @default([])
   notes                 String?
+
+  // Lead tracking
+  leadStatus            LeadStatus?           // null = đã là donor thực sự
+  leadSource            LeadSource?           // Nguồn tiếp cận
+  leadNote              String?               // Ghi chú tiếp cận
+  convertedAt           DateTime?             // Ngày chuyển đổi thành donor
 
   // Manager relationship
   managerId             String?
@@ -116,6 +126,12 @@ model Donor {
   medicationSponsors    MedicationSponsor[]
   patientTreatments     PatientTreatment[]
 
+  // Contracts
+  contracts             Contract[]
+
+  // Inbox conversations
+  conversations         Conversation[]
+
   // Inactive Sponsor Notifications
   inactiveNotifications InactiveSponsorNotification[]
 
@@ -129,7 +145,27 @@ model Donor {
   @@index([type])
   @@index([tier])
   @@index([managerId])
+  @@index([leadStatus])
   @@map("donors")
+}
+
+enum LeadStatus {
+  NEW           // Mới tiếp cận
+  CONTACTED     // Đã liên hệ
+  INTERESTED    // Quan tâm
+  NEGOTIATING   // Đang thương lượng
+  CONVERTED     // Đã chuyển đổi thành donor
+  LOST          // Không chuyển đổi được
+}
+
+enum LeadSource {
+  FACEBOOK      // Facebook
+  ZALO          // Zalo
+  REFERRAL      // Giới thiệu
+  EVENT         // Sự kiện
+  WEBSITE       // Website
+  COLD_CALL     // Gọi trực tiếp
+  OTHER         // Khác
 }
 
 enum DonorType {
@@ -160,9 +196,19 @@ model DonationCash {
   currency        Currency            @default(VND)
   paymentMethod   PaymentMethod
   receivedDate    DateTime
-  purpose         String
+  purpose         String              // Dropdown mục đích
+  purposeOther    String?             // Nếu chọn "Khác" thì nhập ở đây
   receiptUrl      String?
   status          DonationStatus      @default(COMMITTED)
+
+  // Quản lý tiền
+  custodian       CashCustodian       @default(CTXH)  // Ai đang giữ tiền
+  voucherCode     String?             // Mã phiếu thu / mã lệnh chuyển khoản (khi kế toán giữ)
+
+  // Tình trạng sử dụng (multi-item)
+  usedAmount      Decimal             @default(0) @db.Decimal(15, 2)  // Tổng đã sử dụng (tính tự động)
+  usageItems      Json                @default("[]")  // [{description, amount}]
+  usageNote       String?             // Ghi chú tình trạng sử dụng
 
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
@@ -184,6 +230,12 @@ enum PaymentMethod {
   CASH            // Tiền mặt
   BANK_TRANSFER   // Chuyển khoản
   E_WALLET        // Ví điện tử
+}
+
+enum CashCustodian {
+  CTXH            // Uỷ quyền cho phòng CTXH
+  ACCOUNTING      // Kế toán giữ tiền
+  STAFF           // Nhân viên CTXH đang giữ (Minh Lan)
 }
 
 enum DonationStatus {
@@ -532,6 +584,47 @@ enum TreatmentStatus {
 }
 
 // ================================
+// CONTRACT MANAGEMENT
+// ================================
+
+model Contract {
+  id                String          @id @default(cuid())
+  contractNumber    String          @unique  // Số hợp đồng
+  donorId           String
+  donor             Donor           @relation(fields: [donorId], references: [id], onDelete: Cascade)
+
+  signedDate        DateTime        // Ngày ký
+  startDate         DateTime        // Ngày hiệu lực
+  endDate           DateTime?       // Ngày hết hạn (null = vô thời hạn)
+
+  committedAmount   Decimal         @db.Decimal(15, 2)  // Giá trị cam kết
+  currency          Currency        @default(VND)
+
+  purpose           String          // Mục đích hợp đồng
+  terms             String?         // Điều khoản
+  fileUrl           String?         // File hợp đồng PDF
+
+  status            ContractStatus  @default(ACTIVE)
+  notes             String?
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+
+  @@index([donorId])
+  @@index([status])
+  @@index([endDate])
+  @@map("contracts")
+}
+
+enum ContractStatus {
+  ACTIVE            // Đang hiệu lực
+  EXPIRED           // Hết hạn
+  TERMINATED        // Đã thanh lý
+  DRAFT             // Nháp
+}
+
+// ================================
 // INACTIVE SPONSOR NOTIFICATIONS
 // ================================
 
@@ -572,4 +665,122 @@ model SponsorContactHistory {
 
   @@index([notificationId])
   @@map("sponsor_contact_history")
+}
+
+// ================================
+// FANPAGE MODULE
+// ================================
+
+model FanpagePost {
+  id              String            @id @default(cuid())
+  title           String            // Tiêu đề/mô tả nội dung bài
+  scheduledAt     DateTime          // Ngày giờ dự kiến đăng
+  content         String?           // Nội dung bài viết
+  imageUrl        String?
+
+  status          FanpagePostStatus @default(SCHEDULED)
+  notified7Days   Boolean           @default(false)  // Đã gửi thông báo trước 7 ngày chưa
+  notifiedDay     Boolean           @default(false)  // Đã gửi thông báo ngày đăng chưa
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([scheduledAt])
+  @@index([status])
+  @@map("fanpage_posts")
+}
+
+enum FanpagePostStatus {
+  SCHEDULED     // Đã lên lịch
+  PUBLISHED     // Đã đăng
+  CANCELLED     // Huỷ
+}
+
+// ================================
+// UNIFIED INBOX
+// ================================
+
+// Một cuộc hội thoại qua bất kỳ kênh nào
+model Conversation {
+  id              String              @id @default(cuid())
+
+  channel         InboxChannel        // Kênh: Facebook, Zalo, Email...
+  externalId      String              // ID cuộc trò chuyện bên ngoài (thread_id, conversation_id)
+  externalUserId  String              // ID người dùng bên ngoài (page-scoped ID, Zalo user ID...)
+  displayName     String?             // Tên người dùng bên ngoài
+  avatarUrl       String?             // Avatar người dùng
+
+  // Link với donor nếu đã nhận diện được
+  donorId         String?
+  donor           Donor?              @relation(fields: [donorId], references: [id], onDelete: SetNull)
+
+  // Phân công cho staff
+  assignedToId    String?
+  assignedTo      User?               @relation("InboxAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  status          ConversationStatus  @default(OPEN)
+  lastMessageAt   DateTime            @default(now())
+  isRead          Boolean             @default(false)
+
+  messages        Message[]
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([channel, externalId])
+  @@index([donorId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+// Từng tin nhắn trong cuộc hội thoại
+model Message {
+  id              String          @id @default(cuid())
+  conversationId  String
+  conversation    Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  direction       MessageDirection // IN = khách gửi, OUT = staff gửi
+  content         String
+  contentType     MessageContentType @default(TEXT)
+  attachmentUrl   String?         // Link file đính kèm nếu có
+
+  // Người gửi (nếu là OUT)
+  sentById        String?
+  sentBy          User?           @relation("MessageSender", fields: [sentById], references: [id], onDelete: SetNull)
+
+  externalMsgId   String?         // ID tin nhắn bên ngoài (để tránh duplicate)
+  sentAt          DateTime        @default(now())
+  isRead          Boolean         @default(false)
+
+  createdAt       DateTime        @default(now())
+
+  @@index([conversationId])
+  @@index([sentAt])
+  @@map("messages")
+}
+
+enum InboxChannel {
+  FACEBOOK    // Facebook Messenger
+  ZALO        // Zalo OA
+  EMAIL       // Email
+}
+
+enum ConversationStatus {
+  OPEN        // Đang mở
+  RESOLVED    // Đã xử lý
+  SPAM        // Spam
+}
+
+enum MessageDirection {
+  IN          // Khách gửi vào
+  OUT         // Staff gửi ra
+}
+
+enum MessageContentType {
+  TEXT
+  IMAGE
+  FILE
+  STICKER
 }

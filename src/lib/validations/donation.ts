@@ -1,5 +1,23 @@
 import { z } from "zod";
 
+export const usageItemSchema = z.object({
+  description: z.string().min(1, "Vui lòng nhập nội dung sử dụng"),
+  amount: z.number().positive("Số tiền phải lớn hơn 0"),
+  date: z.date(),
+});
+
+export type UsageItem = z.infer<typeof usageItemSchema>;
+
+export const CASH_PURPOSES = [
+  "Hỗ trợ người bệnh khó khăn",
+  "Hỗ trợ bệnh nhi",
+  "Hỗ trợ người già",
+  "Hỗ trợ người bệnh ung thư",
+  "Hỗ trợ suất ăn",
+  "Chi phí xe cấp cứu",
+  "Khác",
+] as const;
+
 // Cash Donation Schema
 export const cashDonationSchema = z.object({
   donorId: z.string().min(1, "Vui lòng chọn nhà tài trợ"),
@@ -7,9 +25,14 @@ export const cashDonationSchema = z.object({
   currency: z.enum(["VND", "USD", "EUR"]),
   paymentMethod: z.enum(["CASH", "BANK_TRANSFER", "E_WALLET"]),
   receivedDate: z.date(),
-  purpose: z.string().min(1, "Vui lòng nhập mục đích tài trợ"),
+  purpose: z.string().min(1, "Vui lòng chọn mục đích tài trợ"),
+  purposeOther: z.string().optional(),
   receiptUrl: z.string().optional(),
   status: z.enum(["COMMITTED", "RECEIVED", "IN_USE", "REPORTED"]),
+  custodian: z.enum(["CTXH", "ACCOUNTING", "STAFF"]),
+  voucherCode: z.string().optional(),
+  usageItems: z.array(usageItemSchema).default([]),
+  usageNote: z.string().optional(),
 });
 
 export type CashDonationFormValues = z.infer<typeof cashDonationSchema>;
@@ -89,4 +112,10 @@ export const volunteerWorkTypeLabels = {
   TRANSPORTATION: "Vận chuyển",
   CARE: "Chăm sóc",
   OTHER: "Khác",
+};
+
+export const cashCustodianLabels = {
+  CTXH: "Uỷ quyền cho phòng CTXH",
+  ACCOUNTING: "Kế toán giữ tiền",
+  STAFF: "Nhân viên CTXH đang giữ (Minh Lan)",
 };

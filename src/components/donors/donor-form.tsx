@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { donorTypeLabels, donorTierLabels } from "@/types/donor";
 import { DonorType, DonorTier } from "@prisma/client";
@@ -46,9 +47,10 @@ const areasOfInterestOptions = [
 
 export function DonorForm({ defaultValues, onSubmit, isLoading }: DonorFormProps) {
   const form = useForm<DonorFormValues>({
-    resolver: zodResolver(donorSchema),
+    resolver: zodResolver(donorSchema) as any,
     defaultValues: {
       fullName: "",
+      isAnonymous: false,
       email: "",
       phone: "",
       address: "",
@@ -66,9 +68,35 @@ export function DonorForm({ defaultValues, onSubmit, isLoading }: DonorFormProps
     },
   });
 
+  const isAnonymous = form.watch("isAnonymous");
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Mạnh thường quân giấu tên */}
+        <FormField
+          control={form.control}
+          name="isAnonymous"
+          render={({ field }) => (
+            <FormItem className="flex items-center gap-3 rounded-lg border p-4 bg-amber-50 border-amber-200">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+              <div>
+                <FormLabel className="text-base font-medium cursor-pointer">
+                  Mạnh thường quân giấu tên
+                </FormLabel>
+                <p className="text-sm text-muted-foreground">
+                  Tích vào nếu người tài trợ không muốn tiết lộ danh tính. Hệ thống sẽ tự cấp mã định danh (Mạnh thường quân 01, 02,...).
+                </p>
+              </div>
+            </FormItem>
+          )}
+        />
+
         {/* Thông tin cơ bản */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Thông tin cơ bản</h3>
@@ -195,137 +223,143 @@ export function DonorForm({ defaultValues, onSubmit, isLoading }: DonorFormProps
           </div>
         </div>
 
-        {/* Thông tin nghề nghiệp */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Thông tin nghề nghiệp</h3>
+        {/* Thông tin nghề nghiệp - ẩn khi giấu tên */}
+        {!isAnonymous && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Thông tin nghề nghiệp</h3>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormField
-              control={form.control}
-              name="occupation"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nghề nghiệp</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Doanh nhân"
-                      {...field}
-                      value={field.value || ""}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid gap-4 md:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="occupation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nghề nghiệp</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Doanh nhân"
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="company"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Công ty</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="ABC Corp"
-                      {...field}
-                      value={field.value || ""}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Công ty</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="ABC Corp"
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="position"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Chức vụ</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="CEO"
-                      {...field}
-                      value={field.value || ""}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="position"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Chức vụ</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="CEO"
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Ngày tháng */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Ngày quan trọng</h3>
+        {/* Ngày tháng - ẩn khi giấu tên */}
+        {!isAnonymous && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Ngày quan trọng</h3>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="birthday"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ngày sinh</FormLabel>
-                  <FormControl>
-                    <DatePicker
-                      value={field.value || undefined}
-                      onChange={field.onChange}
-                      disabled={(date) =>
-                        date > new Date() || date < new Date("1900-01-01")
-                      }
-                      placeholder="Chọn ngày sinh"
-                      yearRange={{ start: 1940, end: new Date().getFullYear() }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="birthday"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ngày sinh</FormLabel>
+                    <FormControl>
+                      <DatePicker
+                        value={field.value || undefined}
+                        onChange={field.onChange}
+                        disabled={(date) =>
+                          date > new Date() || date < new Date("1900-01-01")
+                        }
+                        placeholder="Chọn ngày sinh"
+                        yearRange={{ start: 1940, end: new Date().getFullYear() }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="firstDonationDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ngày tài trợ lần đầu</FormLabel>
-                  <FormControl>
-                    <DatePicker
-                      value={field.value || undefined}
-                      onChange={field.onChange}
-                      disabled={(date) => date > new Date()}
-                      placeholder="Chọn ngày"
-                      yearRange={{ start: 2000, end: new Date().getFullYear() }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="firstDonationDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ngày tài trợ lần đầu</FormLabel>
+                    <FormControl>
+                      <DatePicker
+                        value={field.value || undefined}
+                        onChange={field.onChange}
+                        disabled={(date) => date > new Date()}
+                        placeholder="Chọn ngày"
+                        yearRange={{ start: 2000, end: new Date().getFullYear() }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Sở thích và ghi chú */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Thông tin bổ sung</h3>
 
-          <FormField
-            control={form.control}
-            name="personalInterests"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Sở thích cá nhân</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Golf, du lịch, từ thiện..."
-                    {...field}
-                    value={field.value || ""}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {!isAnonymous && (
+            <FormField
+              control={form.control}
+              name="personalInterests"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Sở thích cá nhân</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Golf, du lịch, từ thiện..."
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           <FormField
             control={form.control}
@@ -343,6 +377,83 @@ export function DonorForm({ defaultValues, onSubmit, isLoading }: DonorFormProps
                 <FormDescription>
                   Thông tin nội bộ, không hiển thị với nhà tài trợ
                 </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Lead tracking */}
+        <div className="space-y-4 rounded-lg border p-4">
+          <h3 className="text-lg font-medium">Thông tin Lead (nếu chưa là nhà tài trợ)</h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="leadStatus"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Trạng thái lead</FormLabel>
+                  <Select onValueChange={(v) => field.onChange(v === "none" ? null : v)} value={field.value ?? "none"}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Không phải lead" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Không phải lead (đã là donor)</SelectItem>
+                      <SelectItem value="NEW">Mới tiếp cận</SelectItem>
+                      <SelectItem value="CONTACTED">Đã liên hệ</SelectItem>
+                      <SelectItem value="INTERESTED">Quan tâm</SelectItem>
+                      <SelectItem value="NEGOTIATING">Đang thương lượng</SelectItem>
+                      <SelectItem value="CONVERTED">Đã chuyển đổi</SelectItem>
+                      <SelectItem value="LOST">Không thành</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="leadSource"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nguồn tiếp cận</FormLabel>
+                  <Select onValueChange={(v) => field.onChange(v === "none" ? null : v)} value={field.value ?? "none"}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn nguồn" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Không xác định</SelectItem>
+                      <SelectItem value="FACEBOOK">Facebook</SelectItem>
+                      <SelectItem value="ZALO">Zalo</SelectItem>
+                      <SelectItem value="REFERRAL">Giới thiệu</SelectItem>
+                      <SelectItem value="EVENT">Sự kiện</SelectItem>
+                      <SelectItem value="WEBSITE">Website</SelectItem>
+                      <SelectItem value="COLD_CALL">Gọi trực tiếp</SelectItem>
+                      <SelectItem value="OTHER">Khác</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <FormField
+            control={form.control}
+            name="leadNote"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Ghi chú tiếp cận</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Ghi lại tình trạng tiếp cận, nhu cầu, rào cản..."
+                    {...field}
+                    value={field.value || ""}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

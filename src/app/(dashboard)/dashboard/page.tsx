@@ -11,7 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DollarSign, Users, TrendingUp, Gift, Heart, Coins, CalendarIcon } from "lucide-react";
+import { DollarSign, Users, TrendingUp, Gift, Heart, Coins, CalendarIcon, Bell, AlertTriangle, Cake, FileText, Stethoscope, Clock, Facebook, UserMinus, Wallet } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import { donorTierColors, donorTierLabels } from "@/types/donor";
 import { DonorTier } from "@prisma/client";
@@ -32,6 +32,16 @@ export default function DashboardPage() {
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
+  });
+
+  const { data: alerts } = useQuery({
+    queryKey: ["dashboard-alerts"],
+    queryFn: async () => {
+      const res = await fetch("/api/dashboard/alerts");
+      if (!res.ok) throw new Error("Failed to fetch alerts");
+      return res.json();
+    },
+    refetchInterval: 5 * 60 * 1000, // refresh mỗi 5 phút
   });
 
   const { data: trends, isLoading: trendsLoading } = useQuery({
@@ -84,103 +94,228 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      {/* Alerts Panel */}
+      {alerts && alerts.totalAlerts > 0 && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-orange-800">
+              <Bell className="h-5 w-5" />
+              {alerts.totalAlerts} nhắc nhở cần chú ý
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Sinh nhật */}
+            {alerts.birthdays?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <Cake className="h-3 w-3" /> Sinh nhật trong 7 ngày tới
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {alerts.birthdays.map((alert: any) => (
+                    <Link key={alert.donorId} href={`/donors/${alert.donorId}`}>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "cursor-pointer border-orange-300 text-orange-800 hover:bg-orange-100",
+                          alert.isToday && "bg-orange-200 font-semibold"
+                        )}
+                      >
+                        {alert.isToday ? "Hôm nay: " : ""}{alert.donorName} ({format(new Date(alert.date), "dd/MM")})
+                      </Badge>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Hợp đồng sắp hết hạn */}
+            {alerts.expiringContracts?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <FileText className="h-3 w-3" /> Hợp đồng sắp hết hạn (30 ngày)
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {alerts.expiringContracts.map((alert: any) => (
+                    <Link key={alert.contractId} href={`/contracts/${alert.contractId}/edit`}>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "cursor-pointer border-orange-300 text-orange-800 hover:bg-orange-100",
+                          alert.isUrgent && "bg-red-100 border-red-300 text-red-800"
+                        )}
+                      >
+                        {alert.isUrgent && <AlertTriangle className="h-3 w-3 mr-1 inline" />}
+                        {alert.contractNumber} — {alert.donorName} ({format(new Date(alert.date), "dd/MM/yyyy")})
+                      </Badge>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Chu kỳ điều trị sắp đến */}
+            {alerts.upcomingTreatments?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <Stethoscope className="h-3 w-3" /> Chu kỳ điều trị trong 7 ngày tới
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {alerts.upcomingTreatments.map((alert: any) => (
+                    <Link key={alert.treatmentId} href={`/cancer-support/patients/${alert.patientId}`}>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "cursor-pointer border-orange-300 text-orange-800 hover:bg-orange-100",
+                          alert.isToday && "bg-orange-200 font-semibold"
+                        )}
+                      >
+                        {alert.isToday ? "Hôm nay: " : ""}{alert.patientCode} — {alert.medicationName} ({format(new Date(alert.date), "dd/MM")})
+                      </Badge>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Nhắc nhở quá hạn */}
+            {alerts.overdueReminders?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <Clock className="h-3 w-3" /> Nhắc nhở chưa xử lý / quá hạn
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {alerts.overdueReminders.map((alert: any) => (
+                    <Link key={alert.reminderId} href={`/donors/${alert.donorId}`}>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "cursor-pointer border-red-300 text-red-800 hover:bg-red-50",
+                          alert.isOverdue && "bg-red-100"
+                        )}
+                      >
+                        {alert.isOverdue && <AlertTriangle className="h-3 w-3 mr-1 inline" />}
+                        {alert.donorName}: {alert.title}
+                      </Badge>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Lịch đăng bài Fanpage */}
+            {alerts.upcomingFanpostPosts?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <Facebook className="h-3 w-3" /> Lịch đăng bài Fanpage (7 ngày tới)
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {alerts.upcomingFanpostPosts.map((alert: any) => (
+                    <Link key={alert.postId} href="/fanpage">
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "cursor-pointer border-blue-300 text-blue-800 hover:bg-blue-50",
+                          alert.isToday && "bg-blue-100 font-semibold"
+                        )}
+                      >
+                        {alert.isToday ? "Hôm nay: " : ""}{format(new Date(alert.date), "dd/MM HH:mm")} — {alert.title}
+                      </Badge>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Nhà tài trợ không hoạt động */}
+            {alerts.inactiveDonors?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <UserMinus className="h-3 w-3" /> Nhà tài trợ chưa phát sinh &gt;6 tháng
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {alerts.inactiveDonors.map((alert: any) => (
+                    <Link key={alert.donorId} href={`/donors/${alert.donorId}`}>
+                      <Badge
+                        variant="outline"
+                        className="cursor-pointer border-amber-300 text-amber-800 hover:bg-amber-50"
+                      >
+                        {alert.donorName}
+                        {alert.lastDonationDate && ` (lần cuối: ${format(new Date(alert.lastDonationDate), "MM/yyyy")})`}
+                      </Badge>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Tổng giá trị tài trợ
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Tổng giá trị tài trợ</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(stats?.grandTotal || 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Bao gồm tất cả loại hình
-            </p>
+            <div className="text-2xl font-bold">{formatCurrency(stats?.grandTotal || 0)}</div>
+            <p className="text-xs text-muted-foreground">Bao gồm tất cả loại hình</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Tiền mặt
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Tiền mặt nhận được</CardTitle>
             <Coins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(stats?.totalCash || 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {stats?.cashCount || 0} khoản
-            </p>
+            <div className="text-2xl font-bold">{formatCurrency(stats?.totalCash || 0)}</div>
+            <p className="text-xs text-muted-foreground">{stats?.cashCount || 0} khoản</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Hiện vật
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Tiền chưa sử dụng</CardTitle>
+            <Wallet className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(stats?.totalRemaining || 0)}</div>
+            <p className="text-xs text-muted-foreground">Đã dùng: {formatCurrency(stats?.totalUsed || 0)}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Hiện vật</CardTitle>
             <Gift className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(stats?.totalInKind || 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {stats?.inKindCount || 0} khoản
-            </p>
+            <div className="text-2xl font-bold">{formatCurrency(stats?.totalInKind || 0)}</div>
+            <p className="text-xs text-muted-foreground">{stats?.inKindCount || 0} khoản</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Tình nguyện
-            </CardTitle>
-            <Heart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(stats?.totalVolunteer || 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {stats?.volunteerCount || 0} khoản
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Nhà tài trợ
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Nhà tài trợ</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.totalDonors || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Tổng số nhà tài trợ
-            </p>
+            <p className="text-xs text-muted-foreground">Tổng số nhà tài trợ</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Khoản tài trợ
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Khoản tài trợ</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.totalDonations || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Tổng số khoản
-            </p>
+            <p className="text-xs text-muted-foreground">Tổng số khoản</p>
           </CardContent>
         </Card>
       </div>
@@ -263,10 +398,7 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height={350}>
               <LineChart data={trends?.trends || []}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="month"
-                  style={{ fontSize: "12px" }}
-                />
+                <XAxis dataKey="month" style={{ fontSize: "12px" }} />
                 <YAxis
                   tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
                   style={{ fontSize: "12px" }}
@@ -276,35 +408,43 @@ export default function DashboardPage() {
                   labelStyle={{ color: "#000" }}
                 />
                 <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="cash"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  name="Tiền mặt"
+                <Line type="monotone" dataKey="cash" stroke="#3b82f6" strokeWidth={2} name="Tiền mặt" />
+                <Line type="monotone" dataKey="inKind" stroke="#10b981" strokeWidth={2} name="Hiện vật" />
+                <Line type="monotone" dataKey="total" stroke="#8b5cf6" strokeWidth={3} name="Tổng" strokeDasharray="5 5" />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Cash Flow Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Dòng tiền mặt</CardTitle>
+          <CardDescription>
+            Tiền tài trợ, tiền đã sử dụng và tiền còn lại theo thời gian (chỉ tiền mặt)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {trendsLoading ? (
+            <div className="py-12 text-center">Đang tải...</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={trends?.trends || []}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" style={{ fontSize: "12px" }} />
+                <YAxis
+                  tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
+                  style={{ fontSize: "12px" }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="inKind"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  name="Hiện vật"
+                <Tooltip
+                  formatter={(value: any) => formatCurrency(value)}
+                  labelStyle={{ color: "#000" }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="volunteer"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  name="Tình nguyện"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="total"
-                  stroke="#8b5cf6"
-                  strokeWidth={3}
-                  name="Tổng"
-                  strokeDasharray="5 5"
-                />
+                <Legend />
+                <Line type="monotone" dataKey="cash" stroke="#3b82f6" strokeWidth={2} name="Tài trợ tiền mặt" />
+                <Line type="monotone" dataKey="cashUsed" stroke="#ef4444" strokeWidth={2} name="Đã sử dụng" />
+                <Line type="monotone" dataKey="cashRemaining" stroke="#10b981" strokeWidth={2} name="Còn lại" strokeDasharray="5 5" />
               </LineChart>
             </ResponsiveContainer>
           )}

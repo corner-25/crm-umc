@@ -66,7 +66,15 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Sum used amount
+    const usedSum = await prisma.donationCash.aggregate({
+      where: { deletedAt: null, currency: "VND" },
+      _sum: { usedAmount: true },
+    });
+
     const totalCash = Number(cashSum._sum.amount || 0);
+    const totalUsed = Number(usedSum._sum.usedAmount || 0);
+    const totalRemaining = totalCash - totalUsed;
     const totalInKind = Number(inKindSum._sum.estimatedValue || 0);
     const totalVolunteer = Number(volunteerSum._sum.totalValue || 0);
     const grandTotal = totalCash + totalInKind + totalVolunteer;
@@ -131,6 +139,8 @@ export async function GET(request: NextRequest) {
       totalDonors,
       totalDonations,
       totalCash,
+      totalUsed,
+      totalRemaining,
       totalInKind,
       totalVolunteer,
       grandTotal,

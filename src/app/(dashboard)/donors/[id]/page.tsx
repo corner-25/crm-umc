@@ -15,11 +15,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Edit, Trash2, ArrowLeft, Phone, Mail, MapPin, Briefcase, Calendar, Plus } from "lucide-react";
+import { Edit, Trash2, ArrowLeft, Phone, Mail, MapPin, Briefcase, Calendar, Plus, FileText, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { donorTypeLabels, donorTierLabels, donorTierColors } from "@/types/donor";
 import { DonorType, DonorTier } from "@prisma/client";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { format, isWithinInterval, addDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -34,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { InteractionFormDialog, InteractionFormValues } from "@/components/interactions/interaction-form-dialog";
 import { InteractionTimeline } from "@/components/interactions/interaction-timeline";
+import { ExportPDFButton } from "@/components/reports/export-pdf-button";
 
 export default function DonorDetailPage() {
   const params = useParams();
@@ -42,6 +44,15 @@ export default function DonorDetailPage() {
   const queryClient = useQueryClient();
   const donorId = params.id as string;
   const [interactionDialogOpen, setInteractionDialogOpen] = useState(false);
+
+  const { data: contractsData } = useQuery({
+    queryKey: ["contracts", donorId],
+    queryFn: async () => {
+      const res = await fetch(`/api/contracts?donorId=${donorId}&limit=100`);
+      if (!res.ok) throw new Error("Failed to fetch contracts");
+      return res.json();
+    },
+  });
 
   const { data: donor, isLoading } = useQuery({
     queryKey: ["donor", donorId],
@@ -300,6 +311,9 @@ export default function DonorDetailPage() {
           <TabsTrigger value="reminders">
             Nhắc nhở ({donor.reminders?.length || 0})
           </TabsTrigger>
+          <TabsTrigger value="contracts">
+            Hợp đồng ({contractsData?.pagination?.total || 0})
+          </TabsTrigger>
         </TabsList>
 
         {/* Tab: Thông tin */}
@@ -346,9 +360,27 @@ export default function DonorDetailPage() {
         {/* Tab: Lịch sử tài trợ */}
         <TabsContent value="donations">
           <Card>
-            <CardHeader>
-              <CardTitle>Lịch sử tài trợ</CardTitle>
-              <CardDescription>Tất cả các khoản tài trợ từ nhà tài trợ này</CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between">
+              <div>
+                <CardTitle>Lịch sử tài trợ</CardTitle>
+                <CardDescription>Tất cả các khoản tài trợ từ nhà tài trợ này</CardDescription>
+              </div>
+              {donor.cashDonations?.length > 0 && (
+                <ExportPDFButton
+                  donor={donor}
+                  donations={donor.cashDonations.map((d: any) => ({
+                    receivedDate: d.receivedDate,
+                    amount: Number(d.amount),
+                    usedAmount: Number(d.usedAmount || 0),
+                    purpose: d.purpose,
+                    status: d.status,
+                    currency: d.currency,
+                    paymentMethod: d.paymentMethod,
+                    usageNote: d.usageNote,
+                  }))}
+                  userName="Staff"
+                />
+              )}
             </CardHeader>
             <CardContent>
               <Table>
@@ -503,6 +535,86 @@ export default function DonorDetailPage() {
                 </div>
               ) : (
                 <p className="text-center text-muted-foreground">Không có nhắc nhở nào</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Hợp đồng */}
+        <TabsContent value="contracts">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Hợp đồng tài trợ</CardTitle>
+              <Button size="sm" asChild>
+                <Link href={`/contracts/new?donorId=${donorId}`}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Tạo hợp đồng
+                </Link>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {contractsData?.contracts?.length > 0 ? (
+                <div className="space-y-3">
+                  {contractsData.contracts.map((contract: any) => {
+                    const statusColors: Record<string, string> = {
+                      DRAFT: "bg-gray-100 text-gray-700",
+                      ACTIVE: "bg-green-100 text-green-700",
+                      EXPIRED: "bg-red-100 text-red-700",
+                      TERMINATED: "bg-slate-100 text-slate-700",
+                    };
+                    const statusLabels: Record<string, string> = {
+                      DRAFT: "Nháp",
+                      ACTIVE: "Đang hiệu lực",
+                      EXPIRED: "Hết hạn",
+                      TERMINATED: "Đã thanh lý",
+                    };
+                    const isExpiringSoon = contract.status === "ACTIVE" && contract.endDate &&
+                      isWithinInterval(new Date(contract.endDate), { start: new Date(), end: addDays(new Date(), 30) });
+                    return (
+                      <div key={contract.id} className="flex items-center justify-between rounded-lg border p-3">
+                        <div className="flex items-center gap-3">
+                          <FileText className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium">{contract.contractNumber}</p>
+                            <p className="text-sm text-muted-foreground">{contract.purpose}</p>
+                            <div className="flex gap-3 text-xs text-muted-foreground mt-1">
+                              <span>Ký: {format(new Date(contract.signedDate), "dd/MM/yyyy")}</span>
+                              {contract.endDate && (
+                                <span className={isExpiringSoon ? "text-yellow-600 font-medium" : ""}>
+                                  Hết hạn: {format(new Date(contract.endDate), "dd/MM/yyyy")}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="font-semibold">{formatCurrency(contract.committedAmount)}</p>
+                            <Badge className={statusColors[contract.status]}>
+                              {statusLabels[contract.status]}
+                            </Badge>
+                          </div>
+                          <div className="flex gap-1">
+                            {contract.fileUrl && (
+                              <Button variant="ghost" size="icon" asChild>
+                                <a href={contract.fileUrl} target="_blank" rel="noopener noreferrer">
+                                  <ExternalLink className="h-4 w-4" />
+                                </a>
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" asChild>
+                              <Link href={`/contracts/${contract.id}/edit`}>
+                                <Edit className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-4">Chưa có hợp đồng nào</p>
               )}
             </CardContent>
           </Card>

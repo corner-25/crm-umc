@@ -13,24 +13,19 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const donation = await prisma.donationCash.findUnique({
+    const contract = await prisma.contract.findUnique({
       where: { id: params.id },
-      include: {
-        donor: true,
-      },
+      include: { donor: true },
     });
 
-    if (!donation) {
+    if (!contract) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    return NextResponse.json(donation);
+    return NextResponse.json(contract);
   } catch (error) {
-    console.error("Error fetching cash donation:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("Error fetching contract:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -46,31 +41,21 @@ export async function PUT(
 
     const body = await request.json();
 
-    // Tính lại usedAmount từ usageItems
-    const usageItems = Array.isArray(body.usageItems) ? body.usageItems : undefined;
-    const usedAmount = usageItems
-      ? usageItems.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0)
-      : undefined;
-
-    const donation = await prisma.donationCash.update({
+    const contract = await prisma.contract.update({
       where: { id: params.id },
       data: {
         ...body,
-        receivedDate: body.receivedDate ? new Date(body.receivedDate) : undefined,
-        ...(usedAmount !== undefined && { usedAmount }),
+        signedDate: body.signedDate ? new Date(body.signedDate) : undefined,
+        startDate: body.startDate ? new Date(body.startDate) : undefined,
+        endDate: body.endDate ? new Date(body.endDate) : null,
       },
-      include: {
-        donor: true,
-      },
+      include: { donor: true },
     });
 
-    return NextResponse.json(donation);
+    return NextResponse.json(contract);
   } catch (error) {
-    console.error("Error updating cash donation:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("Error updating contract:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -84,17 +69,14 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const donation = await prisma.donationCash.update({
+    await prisma.contract.update({
       where: { id: params.id },
       data: { deletedAt: new Date() },
     });
 
-    return NextResponse.json(donation);
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting cash donation:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("Error deleting contract:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
