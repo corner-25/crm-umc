@@ -11,7 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DollarSign, Users, TrendingUp, Gift, Heart, Coins, CalendarIcon, Bell, AlertTriangle, Cake, FileText, Stethoscope, Clock, Facebook, UserMinus, Wallet } from "lucide-react";
+import { DollarSign, Users, TrendingUp, Gift, Heart, Coins, CalendarIcon, Bell, AlertTriangle, Cake, FileText, Stethoscope, Clock, Facebook, UserMinus, Wallet } from "lucide-react"; // some icons kept for the hidden alerts block
 import { formatCurrency, cn } from "@/lib/utils";
 import { donorTierColors, donorTierLabels } from "@/types/donor";
 import { DonorTier } from "@prisma/client";
@@ -32,16 +32,6 @@ export default function DashboardPage() {
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
-  });
-
-  const { data: alerts } = useQuery({
-    queryKey: ["dashboard-alerts"],
-    queryFn: async () => {
-      const res = await fetch("/api/dashboard/alerts");
-      if (!res.ok) throw new Error("Failed to fetch alerts");
-      return res.json();
-    },
-    refetchInterval: 5 * 60 * 1000, // refresh mỗi 5 phút
   });
 
   const { data: trends, isLoading: trendsLoading } = useQuery({
@@ -94,13 +84,13 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Alerts Panel */}
-      {alerts && alerts.totalAlerts > 0 && (
+      {/* Alerts Panel đã chuyển vào nút chuông trên header */}
+      {false && (
         <Card className="border-orange-200 bg-orange-50">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-orange-800">
               <Bell className="h-5 w-5" />
-              {alerts.totalAlerts} nhắc nhở cần chú ý
+              nhắc nhở cần chú ý
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">

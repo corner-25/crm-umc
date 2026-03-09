@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import Image from "next/image";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -11,12 +11,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { signOut, useSession } from "next-auth/react";
-import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
 import { InactiveSponsorsDropdown } from "./inactive-sponsors-dropdown";
+import { NotificationsDropdown } from "./notifications-dropdown";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -24,19 +22,6 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { data: session } = useSession();
-
-  // Fetch pending reminders count
-  const { data: remindersData } = useQuery({
-    queryKey: ["reminders-count"],
-    queryFn: async () => {
-      const res = await fetch("/api/reminders?completed=false");
-      if (!res.ok) return { reminders: [] };
-      return res.json();
-    },
-    refetchInterval: 60000, // Refetch every minute
-  });
-
-  const pendingCount = remindersData?.reminders?.length || 0;
 
   const getInitials = (name: string | null) => {
     if (!name) return "U";
@@ -77,17 +62,8 @@ export function Header({ onMenuClick }: HeaderProps) {
         {/* Inactive Sponsors Notifications */}
         <InactiveSponsorsDropdown />
 
-        {/* Reminders Notifications */}
-        <Button variant="ghost" size="icon" className="relative" asChild>
-          <Link href="/gratitude/reminders">
-            <Bell className="h-5 w-5" />
-            {pendingCount > 0 && (
-              <Badge className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center">
-                {pendingCount > 9 ? "9+" : pendingCount}
-              </Badge>
-            )}
-          </Link>
-        </Button>
+        {/* Alerts Notifications Bell */}
+        <NotificationsDropdown />
 
         {/* User Menu */}
         <DropdownMenu>
