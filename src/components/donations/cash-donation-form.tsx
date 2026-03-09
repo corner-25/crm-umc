@@ -1,6 +1,7 @@
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
+import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cashDonationSchema, CashDonationFormValues, paymentMethodLabels, donationStatusLabels, cashCustodianLabels, CASH_PURPOSES } from "@/lib/validations/donation";
 
@@ -85,6 +86,12 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
   const watchedPaymentMethod = form.watch("paymentMethod");
   const totalUsed = watchedUsageItems.reduce((sum, item) => sum + (item.amount || 0), 0);
   const remainingAmount = (watchedAmount || 0) - totalUsed;
+
+  // Auto-sync status based on usage
+  useEffect(() => {
+    const computedStatus = totalUsed <= 0 ? "RECEIVED" : remainingAmount > 0 ? "IN_USE" : "REPORTED";
+    form.setValue("status", computedStatus);
+  }, [totalUsed, remainingAmount, form]);
 
   // Fetch donors for selection
   const { data: donorsData } = useQuery({
@@ -252,31 +259,17 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
             )}
           />
 
-          {/* Trạng thái */}
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Trạng thái *</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn trạng thái" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {Object.entries(donationStatusLabels).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Trạng thái - tự động theo tình trạng sử dụng */}
+          <FormItem>
+            <FormLabel>Trạng thái</FormLabel>
+            <div className="flex items-center h-10 px-3 rounded-md border bg-muted text-sm">
+              {totalUsed <= 0
+                ? "Đã nhận"
+                : remainingAmount > 0
+                ? "Sử dụng một phần"
+                : "Đã sử dụng"}
+            </div>
+          </FormItem>
         </div>
 
         {/* Mục đích (dropdown) */}

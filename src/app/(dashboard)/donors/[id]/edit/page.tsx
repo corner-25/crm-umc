@@ -79,9 +79,11 @@ export default function EditDonorPage() {
             defaultValues={{
               ...donor,
               birthday: donor?.birthday ? new Date(donor.birthday) : null,
-              firstDonationDate: donor?.firstDonationDate
-                ? new Date(donor.firstDonationDate)
-                : null,
+              firstDonationDate: donor?.firstDonationDate ? new Date(donor.firstDonationDate) : null,
+              areasOfInterest: donor?.areasOfInterest ?? [],
+              isPatient: donor?.isPatient ?? false,
+              isPatientFamily: donor?.isPatientFamily ?? false,
+              leadNote: donor?.leadNote ?? "",
             }}
             onSubmit={(values) => updateMutation.mutate(values)}
             isLoading={updateMutation.isPending}

@@ -21,14 +21,23 @@ import { format, subMonths } from "date-fns";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b"];
 
+const YEAR_FILTERS = [2024, 2025, 2026];
+
 export default function DashboardPage() {
   const [startDate, setStartDate] = useState<Date>(subMonths(new Date(), 5));
   const [endDate, setEndDate] = useState<Date>(new Date());
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+
+  const statsFrom = selectedYear ? new Date(selectedYear, 0, 1).toISOString() : undefined;
+  const statsTo = selectedYear ? new Date(selectedYear, 11, 31, 23, 59, 59).toISOString() : undefined;
 
   const { data: stats, isLoading } = useQuery({
-    queryKey: ["dashboard-stats"],
+    queryKey: ["dashboard-stats", selectedYear],
     queryFn: async () => {
-      const res = await fetch("/api/dashboard/stats");
+      const params = new URLSearchParams();
+      if (statsFrom) params.set("from", statsFrom);
+      if (statsTo) params.set("to", statsTo);
+      const res = await fetch(`/api/dashboard/stats?${params}`);
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
@@ -77,11 +86,31 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground">
-          Tổng quan hệ thống quản lý nhà tài trợ
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-muted-foreground">
+            Tổng quan hệ thống quản lý nhà tài trợ
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Năm:</span>
+          {YEAR_FILTERS.map((year) => (
+            <Button
+              key={year}
+              variant={selectedYear === year ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedYear(selectedYear === year ? null : year)}
+            >
+              {year}
+            </Button>
+          ))}
+          {selectedYear && (
+            <Button variant="ghost" size="sm" onClick={() => setSelectedYear(null)} className="text-muted-foreground">
+              Tất cả
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* KPI Cards */}
