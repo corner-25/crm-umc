@@ -89,7 +89,7 @@ model Donor {
   id                    String      @id @default(cuid())
   fullName              String
   isAnonymous           Boolean     @default(false)
-  anonymousCode         String?     @unique  // Mạnh thường quân 01, 02,...
+  anonymousCode         String?     // Mạnh thường quân 01, 02,...
   email                 String?
   phone                 String?
   address               String?
