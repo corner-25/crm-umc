@@ -44,8 +44,8 @@ import { ImageUpload } from "@/components/ui/image-upload";
 const contractSchema = z.object({
   contractNumber: z.string().min(1, "Vui lòng nhập số hợp đồng"),
   donorId: z.string().min(1, "Vui lòng chọn nhà tài trợ"),
-  signedDate: z.date({ required_error: "Vui lòng chọn ngày ký" }),
-  startDate: z.date({ required_error: "Vui lòng chọn ngày hiệu lực" }),
+  signedDate: z.date(),
+  startDate: z.date(),
   endDate: z.date().optional().nullable(),
   committedAmount: z.number().positive("Giá trị phải lớn hơn 0"),
   currency: z.enum(["VND", "USD", "EUR"]),
