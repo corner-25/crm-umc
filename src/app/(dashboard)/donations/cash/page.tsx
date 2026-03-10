@@ -173,25 +173,22 @@ export default function CashDonationsPage() {
             <div className="py-8 text-center">Đang tải...</div>
           ) : (
             <>
-              <div className="rounded-md border">
+              <div className="rounded-md border overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nhà tài trợ</TableHead>
-                      <TableHead>Số tiền</TableHead>
-                      <TableHead>Đã dùng</TableHead>
-                      <TableHead>Còn lại</TableHead>
-                      <TableHead>Phương thức</TableHead>
-                      <TableHead>Ngày nhận</TableHead>
-                      <TableHead>Mục đích</TableHead>
-                      <TableHead>Trạng thái</TableHead>
-                      <TableHead className="text-right">Thao tác</TableHead>
+                      <TableHead className="min-w-[160px]">Nhà tài trợ</TableHead>
+                      <TableHead className="min-w-[120px]">Số tiền</TableHead>
+                      <TableHead className="min-w-[150px]">Sử dụng</TableHead>
+                      <TableHead className="min-w-[90px]">Ngày nhận</TableHead>
+                      <TableHead className="min-w-[100px]">Trạng thái</TableHead>
+                      <TableHead className="text-right min-w-[80px]">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data?.donations?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                           Không có dữ liệu
                         </TableCell>
                       </TableRow>
@@ -206,38 +203,37 @@ export default function CashDonationsPage() {
                               <Link href={`/donors/${donation.donor.id}`} className="font-medium hover:underline">
                                 {donation.donor.fullName}
                               </Link>
+                              <div className="text-xs text-muted-foreground truncate max-w-[180px] mt-0.5">
+                                {donation.purpose}
+                              </div>
                             </TableCell>
-                            <TableCell className="font-semibold">
+                            <TableCell className="font-semibold whitespace-nowrap">
                               {formatCurrency(donation.amount.toString(), donation.currency)}
                             </TableCell>
-                            <TableCell className="text-muted-foreground text-sm">
-                              {used > 0 ? formatCurrency(used.toString(), donation.currency) : "—"}
+                            <TableCell className="min-w-[160px]">
+                              <div className="space-y-1">
+                                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                                  <div
+                                    className={cn(
+                                      "h-full rounded-full transition-all",
+                                      used >= amount ? "bg-green-500" : used > 0 ? "bg-amber-400" : "bg-muted-foreground/20"
+                                    )}
+                                    style={{ width: `${Math.min((used / amount) * 100, 100)}%` }}
+                                  />
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {formatCurrency(used.toString(), donation.currency)} / {formatCurrency(amount.toString(), donation.currency)}
+                                </div>
+                              </div>
                             </TableCell>
-                            <TableCell>
-                              {remaining > 0 ? (
-                                <span className="text-sm font-medium text-amber-600">
-                                  {formatCurrency(remaining.toString(), donation.currency)}
-                                </span>
-                              ) : remaining === 0 && used > 0 ? (
-                                <span className="text-xs text-green-600">Đã dùng hết</span>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {paymentMethodLabels[donation.paymentMethod as keyof typeof paymentMethodLabels]}
-                            </TableCell>
-                            <TableCell>{formatDate(donation.receivedDate)}</TableCell>
-                            <TableCell className="max-w-[160px] truncate text-sm">
-                              {donation.purpose}
-                            </TableCell>
+                            <TableCell className="text-sm whitespace-nowrap">{formatDate(donation.receivedDate)}</TableCell>
                             <TableCell>
                               {used <= 0 ? (
-                                <Badge variant="outline">Đã nhận</Badge>
+                                <Badge variant="outline" className="whitespace-nowrap">Đã nhận</Badge>
                               ) : used < amount ? (
-                                <Badge variant="outline" className="border-amber-400 text-amber-700">Sử dụng một phần</Badge>
+                                <Badge variant="outline" className="border-amber-400 text-amber-700 whitespace-nowrap">Dùng một phần</Badge>
                               ) : (
-                                <Badge variant="outline" className="border-green-500 text-green-700">Đã sử dụng</Badge>
+                                <Badge variant="outline" className="border-green-500 text-green-700 whitespace-nowrap">Đã dùng hết</Badge>
                               )}
                             </TableCell>
                             <TableCell className="text-right">

@@ -16,7 +16,7 @@ import { formatCurrency, cn } from "@/lib/utils";
 import { donorTierColors, donorTierLabels } from "@/types/donor";
 import { DonorTier } from "@prisma/client";
 import Link from "next/link";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, AreaChart, Area } from "recharts";
 import { format, subMonths } from "date-fns";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b"];
@@ -292,7 +292,17 @@ export default function DashboardPage() {
             <div className="py-12 text-center">Đang tải...</div>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={trends?.trends || []}>
+              <AreaChart data={trends?.trends || []}>
+                <defs>
+                  <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.7} />
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3} />
+                  </linearGradient>
+                  <linearGradient id="colorRemaining" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.6} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" style={{ fontSize: "12px" }} />
                 <YAxis
@@ -300,14 +310,28 @@ export default function DashboardPage() {
                   style={{ fontSize: "12px" }}
                 />
                 <Tooltip
-                  formatter={(value: any) => formatCurrency(value)}
+                  formatter={(value: any, name: string) => [formatCurrency(value), name]}
                   labelStyle={{ color: "#000" }}
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    const total = payload.reduce((sum: number, p: any) => sum + (Number(p.value) || 0), 0);
+                    return (
+                      <div className="rounded-lg border bg-background p-2 shadow-sm text-sm">
+                        <p className="font-medium mb-1">{label}</p>
+                        {payload.map((p: any) => (
+                          <p key={p.dataKey} style={{ color: p.color }}>
+                            {p.name}: {formatCurrency(p.value)}
+                          </p>
+                        ))}
+                        <p className="border-t mt-1 pt-1 font-semibold">Tổng: {formatCurrency(total)}</p>
+                      </div>
+                    );
+                  }}
                 />
                 <Legend />
-                <Line type="monotone" dataKey="cash" stroke="#3b82f6" strokeWidth={2} name="Tài trợ tiền mặt" />
-                <Line type="monotone" dataKey="cashUsed" stroke="#ef4444" strokeWidth={2} name="Đã sử dụng" />
-                <Line type="monotone" dataKey="cashRemaining" stroke="#10b981" strokeWidth={2} name="Còn lại" strokeDasharray="5 5" />
-              </LineChart>
+                <Area type="monotone" dataKey="cashUsed" stackId="1" stroke="#ef4444" fill="url(#colorUsed)" name="Đã sử dụng" />
+                <Area type="monotone" dataKey="cashRemaining" stackId="1" stroke="#10b981" fill="url(#colorRemaining)" name="Còn lại" />
+              </AreaChart>
             </ResponsiveContainer>
           )}
         </CardContent>
