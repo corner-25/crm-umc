@@ -36,6 +36,51 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Nếu filter hasRemaining, dùng raw query để so sánh 2 cột trực tiếp ở DB level
+    if (hasRemaining === "true") {
+      const whereConditions: string[] = [`dc."deletedAt" IS NULL`, `dc."usedAmount" < dc.amount`];
+      const queryParams: any[] = [];
+      let paramIdx = 1;
+
+      if (donorId) {
+        whereConditions.push(`dc."donorId" = $${paramIdx++}`);
+        queryParams.push(donorId);
+      }
+      if (fromDate) {
+        whereConditions.push(`dc."receivedDate" >= $${paramIdx++}`);
+        queryParams.push(new Date(fromDate));
+      }
+      if (toDate) {
+        const to = new Date(toDate);
+        to.setHours(23, 59, 59, 999);
+        whereConditions.push(`dc."receivedDate" <= $${paramIdx++}`);
+        queryParams.push(to);
+      }
+
+      const whereClause = whereConditions.join(" AND ");
+
+      const [donations, countResult] = await Promise.all([
+        prisma.$queryRawUnsafe<any[]>(
+          `SELECT dc.*, row_to_json(d) as donor FROM donation_cash dc
+           JOIN donors d ON d.id = dc."donorId"
+           WHERE ${whereClause}
+           ORDER BY dc."receivedDate" DESC
+           LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+          ...queryParams, limit, skip
+        ),
+        prisma.$queryRawUnsafe<[{ count: bigint }]>(
+          `SELECT COUNT(*) as count FROM donation_cash dc WHERE ${whereClause}`,
+          ...queryParams
+        ),
+      ]);
+
+      const total = Number(countResult[0].count);
+      return NextResponse.json({
+        donations,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
+    }
+
     const [donations, total] = await Promise.all([
       prisma.donationCash.findMany({
         where,
@@ -56,19 +101,9 @@ export async function GET(request: NextRequest) {
       prisma.donationCash.count({ where }),
     ]);
 
-    // Filter chưa sử dụng hết ở app level (Prisma không so sánh 2 cột trực tiếp)
-    const filteredDonations = hasRemaining === "true"
-      ? donations.filter((d: any) => Number(d.usedAmount) < Number(d.amount))
-      : donations;
-
     return NextResponse.json({
-      donations: filteredDonations,
-      pagination: {
-        page,
-        limit,
-        total: hasRemaining === "true" ? filteredDonations.length : total,
-        totalPages: Math.ceil((hasRemaining === "true" ? filteredDonations.length : total) / limit),
-      },
+      donations,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
     console.error("Error fetching cash donations:", error);

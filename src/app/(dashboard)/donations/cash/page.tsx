@@ -124,7 +124,7 @@ export default function CashDonationsPage() {
                 "inline-block h-2 w-2 rounded-full",
                 hasRemaining ? "bg-amber-500" : "bg-muted-foreground/40"
               )} />
-              Còn số dư chưa sử dụng
+              Còn số dư
             </button>
             {hasFilter && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground h-8">
