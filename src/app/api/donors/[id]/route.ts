@@ -76,7 +76,7 @@ export async function PUT(
       occupation, company, position, birthday, firstDonationDate,
       personalInterests, areasOfInterest, notes,
       isPatient, isPatientFamily,
-      leadStatus, leadSource, leadNote,
+      contactMethod, contactName,
     } = body;
 
     const donor = await prisma.donor.update({
@@ -89,9 +89,8 @@ export async function PUT(
         personalInterests, areasOfInterest, notes,
         isPatient: isPatient ?? false,
         isPatientFamily: isPatientFamily ?? false,
-        leadStatus: leadStatus ?? null,
-        leadSource: leadSource ?? null,
-        leadNote,
+        contactMethod: contactMethod || null,
+        contactName: contactName || null,
       },
     });
 

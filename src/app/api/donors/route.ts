@@ -162,9 +162,8 @@ export async function POST(request: NextRequest) {
         notes: body.notes || null,
         isPatient: body.isPatient ?? false,
         isPatientFamily: body.isPatientFamily ?? false,
-        leadStatus: body.leadStatus ?? null,
-        leadSource: body.leadSource ?? null,
-        leadNote: body.leadNote || null,
+        contactMethod: body.contactMethod || null,
+        contactName: body.contactName || null,
         managerId: session.user.id,
       },
     });

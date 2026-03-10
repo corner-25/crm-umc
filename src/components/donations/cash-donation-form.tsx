@@ -33,6 +33,7 @@ import {
 import { Search, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DateInput } from "@/components/ui/date-input";
+import { CustomOptionSelect } from "@/components/ui/custom-option-select";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -280,38 +281,18 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Nội dung/Mục đích *</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn mục đích tài trợ" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {CASH_PURPOSES.map((p) => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <CustomOptionSelect
+                    type="cash_purpose"
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Chọn hoặc thêm mục đích..."
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-
-          {watchedPurpose === "Khác" && (
-            <FormField
-              control={form.control}
-              name="purposeOther"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Mục đích khác *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Nhập mục đích sử dụng..." {...field} value={field.value || ""} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
         </div>
 
         {/* Quản lý tiền */}
@@ -426,6 +407,26 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
                             onChange={field.onChange}
                             disabled={(date) => date > new Date()}
                             size="sm"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="w-52">
+                  <FormField
+                    control={form.control}
+                    name={`usageItems.${index}.method`}
+                    render={({ field }) => (
+                      <FormItem>
+                        {index === 0 && <FormLabel className="text-xs">Hình thức trao</FormLabel>}
+                        <FormControl>
+                          <CustomOptionSelect
+                            type="usage_method"
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            placeholder="Chọn hình thức..."
                           />
                         </FormControl>
                         <FormMessage />

@@ -4,6 +4,7 @@ export const usageItemSchema = z.object({
   description: z.string().min(1, "Vui lòng nhập nội dung sử dụng"),
   amount: z.number().positive("Số tiền phải lớn hơn 0"),
   date: z.date(),
+  method: z.string().optional(),
 });
 
 export type UsageItem = z.infer<typeof usageItemSchema>;

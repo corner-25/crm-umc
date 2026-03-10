@@ -18,10 +18,8 @@ export const donorSchema = z.object({
   notes: z.string().optional().nullable(),
   isPatient: z.boolean().optional().default(false),
   isPatientFamily: z.boolean().optional().default(false),
-  // Lead tracking
-  leadStatus: z.enum(["NEW", "CONTACTED", "INTERESTED", "NEGOTIATING", "CONVERTED", "LOST"]).optional().nullable(),
-  leadSource: z.enum(["FACEBOOK", "ZALO", "REFERRAL", "EVENT", "WEBSITE", "COLD_CALL", "OTHER"]).optional().nullable(),
-  leadNote: z.string().optional().nullable(),
+  contactMethod: z.string().optional().nullable(),
+  contactName: z.string().optional().nullable(),
 }).superRefine((data, ctx) => {
   if (!data.isAnonymous && (!data.fullName || !data.fullName.trim())) {
     ctx.addIssue({

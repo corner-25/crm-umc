@@ -103,8 +103,10 @@ model Donor {
   personalInterests     String?
   areasOfInterest       String[]    @default([])
   notes                 String?
-  isPatient             Boolean     @default(false)  // Là người bệnh
-  isPatientFamily       Boolean     @default(false)  // Là người nhà người bệnh
+  isPatient             Boolean     @default(false)
+  isPatientFamily       Boolean     @default(false)
+  contactMethod         String?     // Ví dụ: Zalo, Facebook, Phone
+  contactName           String?     // Tên tài khoản liên lạc
 
   // Lead tracking
   leadStatus            LeadStatus?           // null = đã là donor thực sự
@@ -785,4 +787,14 @@ enum MessageContentType {
   IMAGE
   FILE
   STICKER
+}
+
+model CustomOption {
+  id        String   @id @default(cuid())
+  type      String   // cash_purpose, usage_method
+  label     String
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@map("custom_options")
 }

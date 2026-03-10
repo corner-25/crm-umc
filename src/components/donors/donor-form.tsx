@@ -66,6 +66,8 @@ export function DonorForm({ defaultValues, onSubmit, isLoading }: DonorFormProps
       notes: "",
       isPatient: false,
       isPatientFamily: false,
+      contactMethod: "",
+      contactName: "",
       ...defaultValues,
     },
   });
@@ -230,6 +232,34 @@ export function DonorForm({ defaultValues, onSubmit, isLoading }: DonorFormProps
                 />
               </div>
             </FormItem>
+
+            <FormField
+              control={form.control}
+              name="contactMethod"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phương thức liên lạc</FormLabel>
+                  <FormControl>
+                    <Input placeholder="VD: Zalo, Facebook, Viber..." {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="contactName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tên tài khoản liên lạc</FormLabel>
+                  <FormControl>
+                    <Input placeholder="VD: Nguyễn Văn A (Zalo)" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
@@ -405,83 +435,6 @@ export function DonorForm({ defaultValues, onSubmit, isLoading }: DonorFormProps
                 <FormDescription>
                   Thông tin nội bộ, không hiển thị với nhà tài trợ
                 </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {/* Lead tracking */}
-        <div className="space-y-4 rounded-lg border p-4">
-          <h3 className="text-lg font-medium">Thông tin Lead (nếu chưa là nhà tài trợ)</h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="leadStatus"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Trạng thái lead</FormLabel>
-                  <Select onValueChange={(v) => field.onChange(v === "none" ? null : v)} value={field.value ?? "none"}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Không phải lead" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">Không phải lead (đã là donor)</SelectItem>
-                      <SelectItem value="NEW">Mới tiếp cận</SelectItem>
-                      <SelectItem value="CONTACTED">Đã liên hệ</SelectItem>
-                      <SelectItem value="INTERESTED">Quan tâm</SelectItem>
-                      <SelectItem value="NEGOTIATING">Đang thương lượng</SelectItem>
-                      <SelectItem value="CONVERTED">Đã chuyển đổi</SelectItem>
-                      <SelectItem value="LOST">Không thành</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="leadSource"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nguồn tiếp cận</FormLabel>
-                  <Select onValueChange={(v) => field.onChange(v === "none" ? null : v)} value={field.value ?? "none"}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn nguồn" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">Không xác định</SelectItem>
-                      <SelectItem value="FACEBOOK">Facebook</SelectItem>
-                      <SelectItem value="ZALO">Zalo</SelectItem>
-                      <SelectItem value="REFERRAL">Giới thiệu</SelectItem>
-                      <SelectItem value="EVENT">Sự kiện</SelectItem>
-                      <SelectItem value="WEBSITE">Website</SelectItem>
-                      <SelectItem value="COLD_CALL">Gọi trực tiếp</SelectItem>
-                      <SelectItem value="OTHER">Khác</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          <FormField
-            control={form.control}
-            name="leadNote"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Ghi chú tiếp cận</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Ghi lại tình trạng tiếp cận, nhu cầu, rào cản..."
-                    {...field}
-                    value={field.value || ""}
-                  />
-                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
