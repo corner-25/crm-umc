@@ -206,7 +206,7 @@ model DonationCash {
   status          DonationStatus      @default(COMMITTED)
 
   // Quản lý tiền
-  custodian       CashCustodian       @default(CTXH)  // Ai đang giữ tiền
+  custodian       String              @default("Uỷ quyền cho phòng CTXH")  // Ai đang giữ tiền
   voucherCode     String?             // Mã phiếu thu / mã lệnh chuyển khoản (khi kế toán giữ)
 
   // Tình trạng sử dụng (multi-item)

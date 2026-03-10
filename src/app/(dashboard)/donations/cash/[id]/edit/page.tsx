@@ -79,7 +79,7 @@ export default function EditCashDonationPage({ params }: { params: { id: string 
               purposeOther: donation.purposeOther || undefined,
               receiptUrl: donation.receiptUrl || undefined,
               status: donation.status,
-              custodian: donation.custodian || "CTXH",
+              custodian: donation.custodian || "Uỷ quyền cho phòng CTXH",
               voucherCode: donation.voucherCode || undefined,
               usageItems: Array.isArray(donation.usageItems)
                 ? donation.usageItems.map((item: any) => ({

@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
         purpose: donationData.purpose,
         purposeOther: donationData.purposeOther || null,
         status: donationData.status || "RECEIVED",
-        custodian: donationData.custodian || "CTXH",
+        custodian: donationData.custodian || "Uỷ quyền cho phòng CTXH",
         voucherCode: donationData.voucherCode || null,
         usageItems: usageItems,
         usedAmount,

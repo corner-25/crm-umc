@@ -30,7 +30,7 @@ export const cashDonationSchema = z.object({
   purposeOther: z.string().optional(),
   receiptUrl: z.string().optional(),
   status: z.enum(["COMMITTED", "RECEIVED", "IN_USE", "REPORTED"]),
-  custodian: z.enum(["CTXH", "ACCOUNTING", "STAFF"]),
+  custodian: z.string().min(1, "Vui lòng chọn người giữ tiền"),
   voucherCode: z.string().optional(),
   usageItems: z.array(usageItemSchema).default([]),
   usageNote: z.string().optional(),

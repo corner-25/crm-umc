@@ -15,9 +15,10 @@ interface CustomOptionSelectProps {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  protectedValues?: string[];
 }
 
-export function CustomOptionSelect({ type, value, onChange, placeholder = "Chọn hoặc thêm mới...", disabled }: CustomOptionSelectProps) {
+export function CustomOptionSelect({ type, value, onChange, placeholder = "Chọn hoặc thêm mới...", disabled, protectedValues = [] }: CustomOptionSelectProps) {
   const [open, setOpen] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const queryClient = useQueryClient();
@@ -97,13 +98,15 @@ export function CustomOptionSelect({ type, value, onChange, placeholder = "Chọ
                       <Check className={cn("h-4 w-4", value === option.label ? "opacity-100" : "opacity-0")} />
                       {option.label}
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(option.id); }}
-                      className="ml-2 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
+                    {!protectedValues.includes(option.label) && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(option.id); }}
+                        className="ml-2 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
                   </CommandItem>
                 ))}
             </CommandGroup>

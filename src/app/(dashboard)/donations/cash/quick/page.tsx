@@ -20,7 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Zap } from "lucide-react";
 import { DateInput } from "@/components/ui/date-input";
 import { useToast } from "@/hooks/use-toast";
-import { paymentMethodLabels, cashCustodianLabels } from "@/lib/validations/donation";
+import { paymentMethodLabels } from "@/lib/validations/donation";
 import { CustomOptionSelect } from "@/components/ui/custom-option-select";
 import Link from "next/link";
 
@@ -37,7 +37,7 @@ const quickEntrySchema = z.object({
   receivedDate: z.date(),
   purpose: z.string().min(1, "Vui lòng chọn mục đích"),
   status: z.enum(["COMMITTED", "RECEIVED", "IN_USE", "REPORTED"]),
-  custodian: z.enum(["CTXH", "ACCOUNTING", "STAFF"]),
+  custodian: z.string().min(1, "Vui lòng chọn người giữ tiền"),
   voucherCode: z.string().optional(),
   usageItems: z.array(z.object({
     description: z.string().min(1, "Vui lòng nhập nội dung"),
@@ -70,7 +70,7 @@ export default function QuickEntryPage() {
       receivedDate: new Date(),
       purpose: "",
       status: "RECEIVED",
-      custodian: "CTXH",
+      custodian: "Uỷ quyền cho phòng CTXH",
       voucherCode: "",
       usageItems: [],
       usageNote: "",
@@ -355,19 +355,20 @@ export default function QuickEntryPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Tiền đang do ai giữ *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          {Object.entries(cashCustodianLabels).map(([k, v]) => (
-                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <CustomOptionSelect
+                          type="custodian"
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Chọn người giữ tiền..."
+                          protectedValues={["Kế toán đang giữ"]}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                {watchedCustodian === "ACCOUNTING" && (
+                {watchedCustodian === "Kế toán đang giữ" && (
                   <FormField
                     control={form.control}
                     name="voucherCode"

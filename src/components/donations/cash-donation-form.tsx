@@ -3,7 +3,7 @@
 import { useForm, useFieldArray } from "react-hook-form";
 import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { cashDonationSchema, CashDonationFormValues, paymentMethodLabels, donationStatusLabels, cashCustodianLabels, CASH_PURPOSES } from "@/lib/validations/donation";
+import { cashDonationSchema, CashDonationFormValues, paymentMethodLabels } from "@/lib/validations/donation";
 
 // Re-export types for external use
 export type { CashDonationFormValues };
@@ -67,7 +67,7 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
       purposeOther: "",
       receiptUrl: "",
       status: "RECEIVED",
-      custodian: "CTXH",
+      custodian: "Uỷ quyền cho phòng CTXH",
       voucherCode: "",
       usageItems: [],
       usageNote: "",
@@ -82,7 +82,6 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
 
   const watchedAmount = form.watch("amount");
   const watchedUsageItems = form.watch("usageItems");
-  const watchedPurpose = form.watch("purpose");
   const watchedCustodian = form.watch("custodian");
   const watchedPaymentMethod = form.watch("paymentMethod");
   const totalUsed = watchedUsageItems.reduce((sum, item) => sum + (item.amount || 0), 0);
@@ -304,24 +303,21 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Tiền đang do ai giữ *</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn người giữ tiền" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {Object.entries(cashCustodianLabels).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <CustomOptionSelect
+                    type="custodian"
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Chọn người giữ tiền..."
+                    protectedValues={["Kế toán đang giữ"]}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          {watchedCustodian === "ACCOUNTING" && (
+          {watchedCustodian === "Kế toán đang giữ" && (
             <FormField
               control={form.control}
               name="voucherCode"
