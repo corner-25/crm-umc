@@ -1,6 +1,7 @@
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
+import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
@@ -88,6 +89,11 @@ export default function QuickEntryPage() {
   const watchedPaymentMethod = form.watch("paymentMethod");
   const totalUsed = watchedUsageItems.reduce((sum, item) => sum + (item.amount || 0), 0);
   const remainingAmount = (watchedAmount || 0) - totalUsed;
+
+  useEffect(() => {
+    const computedStatus = totalUsed <= 0 ? "RECEIVED" : remainingAmount > 0 ? "IN_USE" : "REPORTED";
+    form.setValue("status", computedStatus);
+  }, [totalUsed, remainingAmount, form]);
 
   const mutation = useMutation({
     mutationFn: async (values: QuickEntryValues) => {
@@ -312,24 +318,12 @@ export default function QuickEntryPage() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Trạng thái *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          {Object.entries(donationStatusLabels).map(([k, v]) => (
-                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormItem>
+                  <FormLabel>Trạng thái</FormLabel>
+                  <div className="flex items-center h-10 px-3 rounded-md border bg-muted text-sm">
+                    {totalUsed <= 0 ? "Đã nhận" : remainingAmount > 0 ? "Sử dụng một phần" : "Đã sử dụng"}
+                  </div>
+                </FormItem>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
