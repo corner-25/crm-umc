@@ -12,6 +12,7 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -19,7 +20,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Zap } from "lucide-react";
 import { DateInput } from "@/components/ui/date-input";
 import { useToast } from "@/hooks/use-toast";
-import { paymentMethodLabels, donationStatusLabels, cashCustodianLabels, CASH_PURPOSES } from "@/lib/validations/donation";
+import { paymentMethodLabels, cashCustodianLabels } from "@/lib/validations/donation";
+import { CustomOptionSelect } from "@/components/ui/custom-option-select";
 import Link from "next/link";
 
 const quickEntrySchema = z.object({
@@ -34,7 +36,6 @@ const quickEntrySchema = z.object({
   paymentMethod: z.enum(["CASH", "BANK_TRANSFER", "E_WALLET"]),
   receivedDate: z.date(),
   purpose: z.string().min(1, "Vui lòng chọn mục đích"),
-  purposeOther: z.string().optional(),
   status: z.enum(["COMMITTED", "RECEIVED", "IN_USE", "REPORTED"]),
   custodian: z.enum(["CTXH", "ACCOUNTING", "STAFF"]),
   voucherCode: z.string().optional(),
@@ -42,6 +43,7 @@ const quickEntrySchema = z.object({
     description: z.string().min(1, "Vui lòng nhập nội dung"),
     amount: z.number().positive("Số tiền phải lớn hơn 0"),
     date: z.date(),
+    method: z.string().optional(),
   })).default([]),
   usageNote: z.string().optional(),
 }).refine((data) => data.isAnonymous || (data.fullName && data.fullName.trim().length > 0), {
@@ -67,7 +69,6 @@ export default function QuickEntryPage() {
       paymentMethod: "CASH",
       receivedDate: new Date(),
       purpose: "",
-      purposeOther: "",
       status: "RECEIVED",
       custodian: "CTXH",
       voucherCode: "",
@@ -84,7 +85,6 @@ export default function QuickEntryPage() {
   const isAnonymous = form.watch("isAnonymous");
   const watchedAmount = form.watch("amount");
   const watchedUsageItems = form.watch("usageItems");
-  const watchedPurpose = form.watch("purpose");
   const watchedCustodian = form.watch("custodian");
   const watchedPaymentMethod = form.watch("paymentMethod");
   const totalUsed = watchedUsageItems.reduce((sum, item) => sum + (item.amount || 0), 0);
@@ -113,7 +113,6 @@ export default function QuickEntryPage() {
             paymentMethod: values.paymentMethod,
             receivedDate: values.receivedDate,
             purpose: values.purpose,
-            purposeOther: values.purposeOther,
             status: values.status,
             custodian: values.custodian,
             voucherCode: values.voucherCode,
@@ -333,31 +332,18 @@ export default function QuickEntryPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Mục đích *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Chọn mục đích tài trợ" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          {CASH_PURPOSES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <CustomOptionSelect
+                          type="cash_purpose"
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Chọn mục đích tài trợ"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                {watchedPurpose === "Khác" && (
-                  <FormField
-                    control={form.control}
-                    name="purposeOther"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Mục đích khác *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Nhập mục đích..." {...field} value={field.value || ""} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
               </div>
 
               {/* Quản lý tiền */}
@@ -471,6 +457,26 @@ export default function QuickEntryPage() {
                       )}
                     />
                   </div>
+                  <div className="w-52">
+                    <FormField
+                      control={form.control}
+                      name={`usageItems.${index}.method`}
+                      render={({ field }) => (
+                        <FormItem>
+                          {index === 0 && <FormLabel className="text-xs">Hình thức trao</FormLabel>}
+                          <FormControl>
+                            <CustomOptionSelect
+                              type="usage_method"
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              placeholder="Chọn hình thức..."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <Button
                     type="button"
                     variant="ghost"
@@ -494,6 +500,24 @@ export default function QuickEntryPage() {
                 <Plus className="h-4 w-4 mr-2" />
                 Thêm khoản sử dụng
               </Button>
+
+              <FormField
+                control={form.control}
+                name="usageNote"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ghi chú thêm</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Ghi chú về tình trạng sử dụng..."
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </CardContent>
           </Card>
 
