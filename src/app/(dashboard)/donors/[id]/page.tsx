@@ -162,9 +162,9 @@ export default function DonorDetailPage() {
   }
 
   const totalDonations =
-    donor._count?.cashDonations +
-    donor._count?.inKindDonations +
-    donor._count?.volunteerDonations || 0;
+    (donor.cashDonations?.length || 0) +
+    (donor.inKindDonations?.length || 0) +
+    (donor.volunteerDonations?.length || 0);
 
   return (
     <div className="space-y-6">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit, Trash2, FilterX, Zap } from "lucide-react";
+import { Plus, Edit, Trash2, FilterX, Zap, Search } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { donationStatusLabels, paymentMethodLabels } from "@/lib/validations/donation";
@@ -28,16 +28,24 @@ export default function CashDonationsPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [hasRemaining, setHasRemaining] = useState(false);
+  const [donorSearch, setDonorSearch] = useState("");
+  const [donorSearchDebounced, setDonorSearchDebounced] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  useEffect(() => {
+    const t = setTimeout(() => setDonorSearchDebounced(donorSearch), 400);
+    return () => clearTimeout(t);
+  }, [donorSearch]);
+
   const { data, isLoading } = useQuery({
-    queryKey: ["cash-donations", page, fromDate, toDate, hasRemaining],
+    queryKey: ["cash-donations", page, fromDate, toDate, hasRemaining, donorSearchDebounced],
     queryFn: async () => {
       const params = new URLSearchParams({ page: page.toString(), limit: "20" });
       if (fromDate) params.set("from", fromDate);
       if (toDate) params.set("to", toDate);
       if (hasRemaining) params.set("hasRemaining", "true");
+      if (donorSearchDebounced) params.set("donorName", donorSearchDebounced);
       const res = await fetch(`/api/donations/cash?${params}`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
@@ -57,12 +65,13 @@ export default function CashDonationsPage() {
     onError: () => toast({ variant: "destructive", title: "Không thể xóa tài trợ" }),
   });
 
-  const hasFilter = fromDate || toDate || hasRemaining;
+  const hasFilter = fromDate || toDate || hasRemaining || donorSearch;
 
   const clearFilters = () => {
     setFromDate("");
     setToDate("");
     setHasRemaining(false);
+    setDonorSearch("");
     setPage(1);
   };
 
@@ -93,6 +102,18 @@ export default function CashDonationsPage() {
       <Card>
         <CardContent className="pt-4 pb-4">
           <div className="flex flex-wrap items-end gap-4">
+            <div className="space-y-1">
+              <Label className="text-xs">Nhà tài trợ</Label>
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Tìm theo tên..."
+                  className="w-48 h-8 text-sm pl-7"
+                  value={donorSearch}
+                  onChange={(e) => { setDonorSearch(e.target.value); setPage(1); }}
+                />
+              </div>
+            </div>
             <div className="space-y-1">
               <Label className="text-xs">Từ ngày</Label>
               <Input

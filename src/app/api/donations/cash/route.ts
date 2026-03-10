@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
     const donorId = searchParams.get("donorId");
+    const donorName = searchParams.get("donorName");
     const fromDate = searchParams.get("from");
     const toDate = searchParams.get("to");
     const hasRemaining = searchParams.get("hasRemaining"); // "true" = chưa sử dụng hết
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
     };
 
     if (donorId) where.donorId = donorId;
+    if (donorName) where.donor = { fullName: { contains: donorName, mode: "insensitive" } };
 
     if (fromDate || toDate) {
       where.receivedDate = {};
@@ -45,6 +47,10 @@ export async function GET(request: NextRequest) {
       if (donorId) {
         whereConditions.push(`dc."donorId" = $${paramIdx++}`);
         queryParams.push(donorId);
+      }
+      if (donorName) {
+        whereConditions.push(`d."fullName" ILIKE $${paramIdx++}`);
+        queryParams.push(`%${donorName}%`);
       }
       if (fromDate) {
         whereConditions.push(`dc."receivedDate" >= $${paramIdx++}`);
