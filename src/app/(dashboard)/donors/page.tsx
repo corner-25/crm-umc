@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 export default function DonorsPage() {
   const [page, setPage] = useState(1);
@@ -44,6 +45,7 @@ export default function DonorsPage() {
   const [tierFilter, setTierFilter] = useState<string>("ALL");
   const [deletingDonor, setDeletingDonor] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" | null }>({ key: "", dir: null });
   const queryClient = useQueryClient();
 
   async function handleDelete(id: string) {
@@ -58,6 +60,14 @@ export default function DonorsPage() {
       setDeletingDonor(null);
     }
   }
+
+  const handleSort = (key: string) => {
+    setSort(prev => {
+      if (prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return { key: "", dir: null };
+    });
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ["donors", page, search, typeFilter, tierFilter],
@@ -74,6 +84,23 @@ export default function DonorsPage() {
       return res.json();
     },
   });
+
+  const sortedDonors = useMemo(() => {
+    const donors = data?.donors || [];
+    if (!sort.key || !sort.dir) return donors;
+    return [...donors].sort((a, b) => {
+      let aVal: any, bVal: any;
+      if (sort.key === "fullName") { aVal = a.fullName; bVal = b.fullName; }
+      else if (sort.key === "type") { aVal = a.type; bVal = b.type; }
+      else if (sort.key === "tier") { aVal = a.tier; bVal = b.tier; }
+      else if (sort.key === "donations") {
+        aVal = a._count.cashDonations + a._count.inKindDonations + a._count.volunteerDonations;
+        bVal = b._count.cashDonations + b._count.inKindDonations + b._count.volunteerDonations;
+      }
+      if (typeof aVal === "string") return sort.dir === "asc" ? aVal.localeCompare(bVal, "vi") : bVal.localeCompare(aVal, "vi");
+      return sort.dir === "asc" ? aVal - bVal : bVal - aVal;
+    });
+  }, [data?.donors, sort]);
 
   return (
     <div className="space-y-6">
@@ -157,24 +184,32 @@ export default function DonorsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Họ tên</TableHead>
-                      <TableHead>Loại</TableHead>
-                      <TableHead className="min-w-[120px]">Cấp độ</TableHead>
+                      <SortableTableHead sortKey="fullName" currentSort={sort} onSort={handleSort}>
+                        Họ tên
+                      </SortableTableHead>
+                      <SortableTableHead sortKey="type" currentSort={sort} onSort={handleSort}>
+                        Loại
+                      </SortableTableHead>
+                      <SortableTableHead sortKey="tier" currentSort={sort} onSort={handleSort} className="min-w-[120px]">
+                        Cấp độ
+                      </SortableTableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Số điện thoại</TableHead>
-                      <TableHead>Số khoản tài trợ</TableHead>
+                      <SortableTableHead sortKey="donations" currentSort={sort} onSort={handleSort}>
+                        Số khoản tài trợ
+                      </SortableTableHead>
                       <TableHead className="text-right">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data?.donors?.length === 0 ? (
+                    {sortedDonors.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center">
                           Không có dữ liệu
                         </TableCell>
                       </TableRow>
                     ) : (
-                      data?.donors?.map((donor: any) => (
+                      sortedDonors.map((donor: any) => (
                         <TableRow key={donor.id}>
                           <TableCell className="font-medium">
                             {donor.fullName}

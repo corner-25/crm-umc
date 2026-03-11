@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -21,6 +21,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 export default function CashDonationsPage() {
   const [page, setPage] = useState(1);
@@ -30,6 +31,7 @@ export default function CashDonationsPage() {
   const [hasRemaining, setHasRemaining] = useState(false);
   const [donorSearch, setDonorSearch] = useState("");
   const [donorSearchDebounced, setDonorSearchDebounced] = useState("");
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" | null }>({ key: "", dir: null });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -64,6 +66,31 @@ export default function CashDonationsPage() {
     },
     onError: () => toast({ variant: "destructive", title: "Không thể xóa tài trợ" }),
   });
+
+  const handleSort = (key: string) => {
+    setSort(prev => {
+      if (prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return { key: "", dir: null };
+    });
+  };
+
+  const sortedDonations = useMemo(() => {
+    const donations = data?.donations || [];
+    if (!sort.key || !sort.dir) return donations;
+    return [...donations].sort((a, b) => {
+      let aVal: any, bVal: any;
+      if (sort.key === "donor") { aVal = a.donor.fullName; bVal = b.donor.fullName; }
+      else if (sort.key === "amount") { aVal = Number(a.amount); bVal = Number(b.amount); }
+      else if (sort.key === "receivedDate") { aVal = new Date(a.receivedDate).getTime(); bVal = new Date(b.receivedDate).getTime(); }
+      else if (sort.key === "remaining") {
+        aVal = Number(a.amount) - Number(a.usedAmount || 0);
+        bVal = Number(b.amount) - Number(b.usedAmount || 0);
+      }
+      if (typeof aVal === "string") return sort.dir === "asc" ? aVal.localeCompare(bVal, "vi") : bVal.localeCompare(aVal, "vi");
+      return sort.dir === "asc" ? aVal - bVal : bVal - aVal;
+    });
+  }, [data?.donations, sort]);
 
   const hasFilter = fromDate || toDate || hasRemaining || donorSearch;
 
@@ -177,23 +204,32 @@ export default function CashDonationsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="min-w-[160px]">Nhà tài trợ</TableHead>
-                      <TableHead className="min-w-[120px]">Số tiền</TableHead>
+                      <SortableTableHead sortKey="donor" currentSort={sort} onSort={handleSort} className="min-w-[160px]">
+                        Nhà tài trợ
+                      </SortableTableHead>
+                      <SortableTableHead sortKey="amount" currentSort={sort} onSort={handleSort} className="min-w-[120px]">
+                        Số tiền
+                      </SortableTableHead>
                       <TableHead className="min-w-[150px]">Sử dụng</TableHead>
-                      <TableHead className="min-w-[90px]">Ngày nhận</TableHead>
+                      <SortableTableHead sortKey="remaining" currentSort={sort} onSort={handleSort} className="min-w-[100px]">
+                        Còn lại
+                      </SortableTableHead>
+                      <SortableTableHead sortKey="receivedDate" currentSort={sort} onSort={handleSort} className="min-w-[90px]">
+                        Ngày nhận
+                      </SortableTableHead>
                       <TableHead className="min-w-[100px]">Trạng thái</TableHead>
                       <TableHead className="text-right min-w-[80px]">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data?.donations?.length === 0 ? (
+                    {sortedDonations.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           Không có dữ liệu
                         </TableCell>
                       </TableRow>
                     ) : (
-                      data?.donations?.map((donation: any) => {
+                      sortedDonations.map((donation: any) => {
                         const amount = Number(donation.amount);
                         const used = Number(donation.usedAmount || 0);
                         const remaining = amount - used;
@@ -225,6 +261,9 @@ export default function CashDonationsPage() {
                                   {formatCurrency(used.toString(), donation.currency)} / {formatCurrency(amount.toString(), donation.currency)}
                                 </div>
                               </div>
+                            </TableCell>
+                            <TableCell className="text-sm whitespace-nowrap font-medium">
+                              {remaining > 0 ? formatCurrency(remaining.toString(), donation.currency) : "—"}
                             </TableCell>
                             <TableCell className="text-sm whitespace-nowrap">{formatDate(donation.receivedDate)}</TableCell>
                             <TableCell>

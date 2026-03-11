@@ -377,121 +377,155 @@ export default function DonorDetailPage() {
                     currency: d.currency,
                     paymentMethod: d.paymentMethod,
                     usageNote: d.usageNote,
+                    usageItems: d.usageItems || [],
                   }))}
                   userName="Staff"
                 />
               )}
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Loại</TableHead>
-                    <TableHead>Mô tả</TableHead>
-                    <TableHead>Ngày</TableHead>
-                    <TableHead className="text-right">Giá trị</TableHead>
-                    <TableHead>Tình trạng</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {donor.cashDonations?.map((donation: any) => {
-                    const amount = Number(donation.amount);
-                    const used = Number(donation.usedAmount || 0);
-                    const remaining = amount - used;
-                    const usageItems: { description: string; amount: number }[] =
-                      Array.isArray(donation.usageItems) ? donation.usageItems : [];
-                    return (
-                      <TableRow key={`cash-${donation.id}`}>
-                        <TableCell>
-                          <Badge>Tiền mặt</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <p className="font-medium">{donation.purpose}</p>
-                          {usageItems.length > 0 && (
-                            <ul className="mt-1.5 space-y-0.5">
-                              {usageItems.map((item, idx) => (
-                                <li key={idx} className="flex items-center justify-between gap-4 text-xs text-muted-foreground">
-                                  <span>• {item.description}</span>
-                                  <span className="shrink-0 font-medium text-foreground">
-                                    {formatCurrency(item.amount.toString(), donation.currency)}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </TableCell>
-                        <TableCell>{formatDate(donation.receivedDate)}</TableCell>
-                        <TableCell className="text-right">
-                          <p>{formatCurrency(donation.amount.toString(), donation.currency)}</p>
-                          {remaining > 0 && (
-                            <p className="mt-0.5 text-xs font-medium text-green-600">
-                              Còn lại: {formatCurrency(remaining.toString(), donation.currency)}
-                            </p>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {used <= 0 ? (
-                            <Badge variant="outline" className="whitespace-nowrap">Đã nhận</Badge>
-                          ) : used < amount ? (
-                            <Badge variant="outline" className="border-amber-400 text-amber-700 whitespace-nowrap">Dùng một phần</Badge>
-                          ) : (
-                            <Badge variant="outline" className="border-green-500 text-green-700 whitespace-nowrap">Đã dùng hết</Badge>
-                          )}
-                        </TableCell>
+              {(() => {
+                const cashRows = (donor.cashDonations || []).map((d: any) => ({
+                  ...d,
+                  _type: "cash" as const,
+                  _sortDate: d.receivedDate ? new Date(d.receivedDate) : new Date(0),
+                }));
+                const inkindRows = (donor.inKindDonations || []).map((d: any) => ({
+                  ...d,
+                  _type: "inkind" as const,
+                  _sortDate: d.createdAt ? new Date(d.createdAt) : new Date(0),
+                }));
+                const volunteerRows = (donor.volunteerDonations || []).map((d: any) => ({
+                  ...d,
+                  _type: "volunteer" as const,
+                  _sortDate: d.startDate ? new Date(d.startDate) : new Date(0),
+                }));
+                const allRows = [...cashRows, ...inkindRows, ...volunteerRows].sort(
+                  (a, b) => b._sortDate.getTime() - a._sortDate.getTime()
+                );
+
+                return (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Ngày</TableHead>
+                        <TableHead>Mục đích tài trợ</TableHead>
+                        <TableHead className="text-right">Giá trị</TableHead>
+                        <TableHead className="text-right">Đã sử dụng</TableHead>
+                        <TableHead>Mô tả chi tiết</TableHead>
+                        <TableHead>Tình trạng</TableHead>
                       </TableRow>
-                    );
-                  })}
-                  {donor.inKindDonations?.map((donation: any) => (
-                    <TableRow key={`inkind-${donation.id}`}>
-                      <TableCell>
-                        <Badge variant="secondary">Hiện vật</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {donation.itemName} ({donation.quantity} {donation.unit})
-                      </TableCell>
-                      <TableCell>{formatDate(donation.createdAt)}</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(donation.estimatedValue.toString())}
-                      </TableCell>
-                      <TableCell>
-                        {donation.distributionStatus === "PENDING" && (
-                          <Badge variant="outline" className="whitespace-nowrap">Chờ nhận</Badge>
-                        )}
-                        {donation.distributionStatus === "RECEIVED" && (
-                          <Badge variant="outline" className="border-amber-400 text-amber-700 whitespace-nowrap">Đã nhận</Badge>
-                        )}
-                        {donation.distributionStatus === "DISTRIBUTED" && (
-                          <Badge variant="outline" className="border-green-500 text-green-700 whitespace-nowrap">Đã phân phối</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {donor.volunteerDonations?.map((donation: any) => (
-                    <TableRow key={`volunteer-${donation.id}`}>
-                      <TableCell>
-                        <Badge variant="outline">Tình nguyện</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {donation.workType} - {donation.hours} giờ
-                      </TableCell>
-                      <TableCell>{formatDate(donation.startDate)}</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(donation.totalValue.toString())}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-muted-foreground text-sm">—</span>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {totalDonations === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center">
-                        Chưa có khoản tài trợ nào
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {allRows.map((row: any) => {
+                        if (row._type === "cash") {
+                          const amount = Number(row.amount);
+                          const used = Number(row.usedAmount || 0);
+                          const usageItems: { description: string; amount: number }[] =
+                            Array.isArray(row.usageItems) ? row.usageItems : [];
+                          return (
+                            <TableRow key={`cash-${row.id}`}>
+                              <TableCell className="whitespace-nowrap">{formatDate(row.receivedDate)}</TableCell>
+                              <TableCell className="font-medium">{row.purpose}</TableCell>
+                              <TableCell className="text-right whitespace-nowrap">
+                                {formatCurrency(row.amount.toString(), row.currency)}
+                              </TableCell>
+                              <TableCell className="text-right whitespace-nowrap">
+                                {used > 0 ? formatCurrency(used.toString(), row.currency) : "—"}
+                              </TableCell>
+                              <TableCell>
+                                {usageItems.length > 0 ? (
+                                  <ul className="space-y-0.5">
+                                    {usageItems.map((item, idx) => (
+                                      <li key={idx} className="flex items-start justify-between gap-4 text-xs text-muted-foreground">
+                                        <span>• {item.description}</span>
+                                        <span className="shrink-0 font-medium text-foreground">
+                                          {formatCurrency(item.amount.toString(), row.currency)}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {used <= 0 ? (
+                                  <Badge variant="outline" className="whitespace-nowrap">Đã nhận</Badge>
+                                ) : used < amount ? (
+                                  <Badge variant="outline" className="border-amber-400 text-amber-700 whitespace-nowrap">Dùng một phần</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="border-green-500 text-green-700 whitespace-nowrap">Đã dùng hết</Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        }
+
+                        if (row._type === "inkind") {
+                          return (
+                            <TableRow key={`inkind-${row.id}`}>
+                              <TableCell className="whitespace-nowrap">{formatDate(row.createdAt)}</TableCell>
+                              <TableCell className="font-medium">
+                                {row.itemName} ({row.quantity} {row.unit})
+                              </TableCell>
+                              <TableCell className="text-right whitespace-nowrap">
+                                {formatCurrency(row.estimatedValue.toString())}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className="text-muted-foreground">—</span>
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-muted-foreground text-sm">—</span>
+                              </TableCell>
+                              <TableCell>
+                                {row.distributionStatus === "PENDING" && (
+                                  <Badge variant="outline" className="whitespace-nowrap">Chờ nhận</Badge>
+                                )}
+                                {row.distributionStatus === "RECEIVED" && (
+                                  <Badge variant="outline" className="border-amber-400 text-amber-700 whitespace-nowrap">Đã nhận</Badge>
+                                )}
+                                {row.distributionStatus === "DISTRIBUTED" && (
+                                  <Badge variant="outline" className="border-green-500 text-green-700 whitespace-nowrap">Đã phân phối</Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        }
+
+                        // volunteer
+                        return (
+                          <TableRow key={`volunteer-${row.id}`}>
+                            <TableCell className="whitespace-nowrap">{formatDate(row.startDate)}</TableCell>
+                            <TableCell className="font-medium">
+                              {row.workType} - {row.hours} giờ
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                              {formatCurrency(row.totalValue.toString())}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className="text-muted-foreground">—</span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-muted-foreground text-sm">—</span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-muted-foreground text-sm">—</span>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {totalDonations === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center">
+                            Chưa có khoản tài trợ nào
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
