@@ -397,15 +397,37 @@ export default function DonorDetailPage() {
                   {donor.cashDonations?.map((donation: any) => {
                     const amount = Number(donation.amount);
                     const used = Number(donation.usedAmount || 0);
+                    const remaining = amount - used;
+                    const usageItems: { description: string; amount: number }[] =
+                      Array.isArray(donation.usageItems) ? donation.usageItems : [];
                     return (
                       <TableRow key={`cash-${donation.id}`}>
                         <TableCell>
                           <Badge>Tiền mặt</Badge>
                         </TableCell>
-                        <TableCell>{donation.purpose}</TableCell>
+                        <TableCell>
+                          <p className="font-medium">{donation.purpose}</p>
+                          {usageItems.length > 0 && (
+                            <ul className="mt-1.5 space-y-0.5">
+                              {usageItems.map((item, idx) => (
+                                <li key={idx} className="flex items-center justify-between gap-4 text-xs text-muted-foreground">
+                                  <span>• {item.description}</span>
+                                  <span className="shrink-0 font-medium text-foreground">
+                                    {formatCurrency(item.amount.toString(), donation.currency)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </TableCell>
                         <TableCell>{formatDate(donation.receivedDate)}</TableCell>
                         <TableCell className="text-right">
-                          {formatCurrency(donation.amount.toString(), donation.currency)}
+                          <p>{formatCurrency(donation.amount.toString(), donation.currency)}</p>
+                          {remaining > 0 && (
+                            <p className="mt-0.5 text-xs font-medium text-green-600">
+                              Còn lại: {formatCurrency(remaining.toString(), donation.currency)}
+                            </p>
+                          )}
                         </TableCell>
                         <TableCell>
                           {used <= 0 ? (
