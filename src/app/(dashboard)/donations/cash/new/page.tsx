@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { CashDonationForm } from "@/components/donations/cash-donation-form";
@@ -22,6 +22,8 @@ import {
 
 export default function NewCashDonationPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefilledDonorId = searchParams.get("donorId") || undefined;
   const { toast } = useToast();
   const [duplicateInfo, setDuplicateInfo] = useState<{
     id: string;
@@ -104,6 +106,7 @@ export default function NewCashDonationPage() {
           <CashDonationForm
             onSubmit={handleSubmit}
             isLoading={createMutation.isPending}
+            defaultValues={prefilledDonorId ? { donorId: prefilledDonorId } : undefined}
           />
         </CardContent>
       </Card>

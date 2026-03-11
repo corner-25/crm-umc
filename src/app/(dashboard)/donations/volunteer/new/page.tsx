@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { VolunteerDonationForm } from "@/components/donations/volunteer-donation-form";
 import { VolunteerDonationFormValues } from "@/lib/validations/donation";
@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function NewVolunteerDonationPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefilledDonorId = searchParams.get("donorId") || undefined;
   const { toast } = useToast();
 
   const createMutation = useMutation({
@@ -63,6 +65,7 @@ export default function NewVolunteerDonationPage() {
           <VolunteerDonationForm
             onSubmit={(values) => createMutation.mutate(values)}
             isLoading={createMutation.isPending}
+            defaultValues={prefilledDonorId ? { donorId: prefilledDonorId } : undefined}
           />
         </CardContent>
       </Card>

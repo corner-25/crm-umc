@@ -15,7 +15,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Edit, Trash2, ArrowLeft, Phone, Mail, MapPin, Briefcase, Calendar, Plus, FileText, ExternalLink } from "lucide-react";
+import { Edit, Trash2, ArrowLeft, Phone, Mail, MapPin, Briefcase, Calendar, Plus, FileText, ExternalLink, ChevronDown, Banknote, Package, Heart } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { donorTypeLabels, donorTierLabels, donorTierColors } from "@/types/donor";
 import { DonorType, DonorTier } from "@prisma/client";
@@ -187,6 +193,35 @@ export default function DonorDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Plus className="mr-2 h-4 w-4" />
+                Thêm tài trợ
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/donations/cash/new?donorId=${donorId}`}>
+                  <Banknote className="mr-2 h-4 w-4 text-green-600" />
+                  Tài trợ tiền mặt
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/donations/in-kind/new?donorId=${donorId}`}>
+                  <Package className="mr-2 h-4 w-4 text-blue-600" />
+                  Tài trợ hiện vật
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/donations/volunteer/new?donorId=${donorId}`}>
+                  <Heart className="mr-2 h-4 w-4 text-rose-600" />
+                  Tình nguyện
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button asChild>
             <Link href={`/donors/${donorId}/edit`}>
               <Edit className="mr-2 h-4 w-4" />

@@ -40,13 +40,17 @@ export function ExportPDFButton({ donor, donations, userName }: ExportPDFButtonP
       const { DonationReportPDF } = await import("./donation-report-pdf");
       const React = await import("react");
 
-      // Đăng ký font với URL tuyệt đối (cần thiết cho @react-pdf/renderer client-side)
+      // Fetch font về ArrayBuffer để @react-pdf/renderer v4 nhận đúng
       const origin = window.location.origin;
+      const [regularBuffer, boldBuffer] = await Promise.all([
+        fetch(`${origin}/fonts/Roboto-Regular.ttf`).then(r => r.arrayBuffer()),
+        fetch(`${origin}/fonts/Roboto-Bold.ttf`).then(r => r.arrayBuffer()),
+      ]);
       Font.register({
         family: "Roboto",
         fonts: [
-          { src: `${origin}/fonts/Roboto-Regular.ttf`, fontWeight: 400 },
-          { src: `${origin}/fonts/Roboto-Bold.ttf`, fontWeight: 700 },
+          { src: regularBuffer as any, fontWeight: 400 },
+          { src: boldBuffer as any, fontWeight: 700 },
         ],
       });
 
