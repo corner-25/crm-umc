@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { InKindDonationForm } from "@/components/donations/in-kind-donation-form";
@@ -7,7 +8,7 @@ import { InKindDonationFormValues } from "@/lib/validations/donation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
-export default function NewInKindDonationPage() {
+function NewInKindDonationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const prefilledDonorId = searchParams.get("donorId") || undefined;
@@ -70,5 +71,13 @@ export default function NewInKindDonationPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function NewInKindDonationPage() {
+  return (
+    <Suspense fallback={<div className="space-y-6"><div className="h-8 bg-muted animate-pulse rounded" /></div>}>
+      <NewInKindDonationContent />
+    </Suspense>
   );
 }

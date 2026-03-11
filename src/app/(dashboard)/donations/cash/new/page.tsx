@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
@@ -20,7 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export default function NewCashDonationPage() {
+function NewCashDonationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const prefilledDonorId = searchParams.get("donorId") || undefined;
@@ -141,5 +142,13 @@ export default function NewCashDonationPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+export default function NewCashDonationPage() {
+  return (
+    <Suspense fallback={<div className="space-y-6"><div className="h-8 bg-muted animate-pulse rounded" /></div>}>
+      <NewCashDonationContent />
+    </Suspense>
   );
 }
