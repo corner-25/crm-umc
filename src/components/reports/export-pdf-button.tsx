@@ -36,9 +36,19 @@ export function ExportPDFButton({ donor, donations, userName }: ExportPDFButtonP
   const handleExport = async () => {
     setIsGenerating(true);
     try {
-      const { pdf } = await import("@react-pdf/renderer");
+      const { pdf, Font } = await import("@react-pdf/renderer");
       const { DonationReportPDF } = await import("./donation-report-pdf");
       const React = await import("react");
+
+      // Đăng ký font với URL tuyệt đối (cần thiết cho @react-pdf/renderer client-side)
+      const origin = window.location.origin;
+      Font.register({
+        family: "Roboto",
+        fonts: [
+          { src: `${origin}/fonts/Roboto-Regular.ttf`, fontWeight: 400 },
+          { src: `${origin}/fonts/Roboto-Bold.ttf`, fontWeight: 700 },
+        ],
+      });
 
       const blob = await pdf(
         React.createElement(DonationReportPDF, {
@@ -46,6 +56,7 @@ export function ExportPDFButton({ donor, donations, userName }: ExportPDFButtonP
           donations,
           generatedAt: format(new Date(), "dd/MM/yyyy HH:mm"),
           generatedBy: userName,
+          logoUrl: `${origin}/logo.jpg`,
         }) as any
       ).toBlob();
 

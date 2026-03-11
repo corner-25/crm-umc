@@ -6,17 +6,8 @@ import {
   Text,
   View,
   StyleSheet,
-  Font,
   Image,
 } from "@react-pdf/renderer";
-
-Font.register({
-  family: "Roboto",
-  fonts: [
-    { src: "/fonts/Roboto-Regular.ttf", fontWeight: 400 },
-    { src: "/fonts/Roboto-Bold.ttf", fontWeight: 700 },
-  ],
-});
 
 const C = {
   blue: "#1a56db",
@@ -327,6 +318,7 @@ const fmtDate = (d: string) => {
 
 interface DonationReportPDFProps {
   donor: { fullName: string; email?: string; phone?: string; type: string };
+  logoUrl?: string;
   donations: Array<{
     receivedDate: string;
     amount: number;
@@ -342,7 +334,7 @@ interface DonationReportPDFProps {
   generatedBy: string;
 }
 
-export function DonationReportPDF({ donor, donations, generatedAt, generatedBy }: DonationReportPDFProps) {
+export function DonationReportPDF({ donor, donations, generatedAt, generatedBy, logoUrl }: DonationReportPDFProps) {
   const totalAmount = donations.reduce((s, d) => s + d.amount, 0);
   const totalUsed = donations.reduce((s, d) => s + (d.usedAmount || 0), 0);
   const totalRemaining = totalAmount - totalUsed;
@@ -362,7 +354,7 @@ export function DonationReportPDF({ donor, donations, generatedAt, generatedBy }
               Ngày tạo: {generatedAt}  |  Người tạo: {generatedBy}
             </Text>
           </View>
-          <Image src="/logo.jpg" style={styles.headerLogo} />
+          {logoUrl && <Image src={logoUrl} style={styles.headerLogo} />}
         </View>
 
         <View style={styles.body}>
