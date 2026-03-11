@@ -159,13 +159,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Tính lại usedAmount từ usageItems
-    const usageItems = Array.isArray(body.usageItems) ? body.usageItems : [];
+    const { force: _force, ...donationData } = body;
+    const usageItems = Array.isArray(donationData.usageItems) ? donationData.usageItems : [];
     const usedAmount = usageItems.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
 
     const donation = await prisma.donationCash.create({
       data: {
-        ...body,
-        receivedDate: new Date(body.receivedDate),
+        ...donationData,
+        receivedDate: new Date(donationData.receivedDate),
         usedAmount,
       },
       include: {
