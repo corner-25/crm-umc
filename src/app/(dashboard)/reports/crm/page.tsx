@@ -1,746 +1,656 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format, differenceInDays } from "date-fns";
-import { CalendarIcon, FileSpreadsheet, FileText, TrendingDown } from "lucide-react";
-import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { FileSpreadsheet, TrendingDown, BarChart3, Wallet, AlertCircle, CheckCircle2 } from "lucide-react";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { CASH_PURPOSES } from "@/lib/validations/donation";
 import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+
+type ReportType = "overview" | "yearly" | "pending";
 
 export default function ReportsPage() {
-  const [startDate, setStartDate] = useState<Date>();
-  const [endDate, setEndDate] = useState<Date>();
+  const [reportType, setReportType] = useState<ReportType>("overview");
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
-  const { toast } = useToast();
 
+  // Lập kế hoạch huy động
+  const [targetAmount, setTargetAmount] = useState<string>("");
+  const [targetPurpose, setTargetPurpose] = useState<string>("");
+  const [planGenerated, setPlanGenerated] = useState(false);
+
+  const { toast } = useToast();
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 5 }, (_, i) => (currentYear - i).toString());
 
-  // Fetch all data for reports
-  const { data: donors, isLoading: loadingDonors } = useQuery({
-    queryKey: ["donors-report"],
-    queryFn: async () => {
-      const res = await fetch("/api/donors?limit=1000");
-      if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
-    },
-  });
-
-  const { data: cashDonations, isLoading: loadingCash } = useQuery({
+  const { data: cashData, isLoading } = useQuery({
     queryKey: ["cash-report"],
     queryFn: async () => {
       const res = await fetch("/api/donations/cash?limit=1000");
-      if (!res.ok) throw new Error("Failed to fetch");
+      if (!res.ok) throw new Error("Failed");
       return res.json();
     },
   });
 
-  const { data: inKindDonations, isLoading: loadingInKind } = useQuery({
-    queryKey: ["in-kind-report"],
-    queryFn: async () => {
-      const res = await fetch("/api/donations/in-kind?limit=1000");
-      if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
-    },
-  });
+  const allCash: any[] = cashData?.donations || [];
 
-  const { data: volunteerDonations, isLoading: loadingVolunteer } = useQuery({
-    queryKey: ["volunteer-report"],
-    queryFn: async () => {
-      const res = await fetch("/api/donations/volunteer?limit=1000");
-      if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
-    },
-  });
-
-  const isLoading = loadingDonors || loadingCash || loadingInKind || loadingVolunteer;
-
-  // Filter data by date range
-  const filterByDate = (items: any[], dateField: string = "date") => {
-    if (!items) return [];
-    return items.filter((item) => {
-      const itemDate = new Date(item[dateField] || item.createdAt);
-      if (startDate && itemDate < startDate) return false;
-      if (endDate && itemDate > endDate) return false;
-      return true;
-    });
-  };
-
-  const filteredCash = filterByDate(cashDonations?.donations || [], "receivedDate");
-  const filteredInKind = filterByDate(inKindDonations?.donations || [], "date");
-  const filteredVolunteer = filterByDate(volunteerDonations?.donations || [], "startDate");
-
-  // Export to Excel
-  const exportToExcel = () => {
-    try {
-      const wb = XLSX.utils.book_new();
-
-      // Sheet 1: Donors
-      const donorsData = (donors?.donors || []).map((d: any) => ({
-        "Họ tên": d.fullName || "",
-        "Loại": d.type || "",
-        "Cấp độ": d.tier || "",
-        "Email": d.email || "",
-        "Số điện thoại": d.phone || "",
-        "Địa chỉ": d.address || "",
-        "Ngày tạo": d.createdAt ? formatDate(d.createdAt) : "",
-      }));
-      const ws1 = XLSX.utils.json_to_sheet(donorsData.length > 0 ? donorsData : [{"Thông báo": "Không có dữ liệu"}]);
-      XLSX.utils.book_append_sheet(wb, ws1, "Nhà tài trợ");
-
-      // Sheet 2: Cash Donations
-      const cashData = filteredCash.map((d: any) => ({
-        "Nhà tài trợ": d.donor?.fullName || "",
-        "Số tiền": d.amount || 0,
-        "Loại tiền": d.currency || "",
-        "Phương thức": d.paymentMethod || "",
-        "Ngày nhận": d.receivedDate ? formatDate(d.receivedDate) : "",
-        "Mục đích": d.purpose || "",
-        "Trạng thái": d.status || "",
-      }));
-      const ws2 = XLSX.utils.json_to_sheet(cashData.length > 0 ? cashData : [{"Thông báo": "Không có dữ liệu"}]);
-      XLSX.utils.book_append_sheet(wb, ws2, "Tài trợ tiền mặt");
-
-      // Sheet 3: In-Kind Donations
-      const inKindData = filteredInKind.map((d: any) => ({
-        "Nhà tài trợ": d.donor?.fullName || "",
-        "Vật phẩm": d.itemName || "",
-        "Danh mục": d.category || "",
-        "Số lượng": d.quantity || 0,
-        "Đơn vị": d.unit || "",
-        "Giá trị ước tính": d.estimatedValue || 0,
-        "Ngày nhận": d.date ? formatDate(d.date) : "",
-        "Trạng thái": d.distributionStatus || "",
-      }));
-      const ws3 = XLSX.utils.json_to_sheet(inKindData.length > 0 ? inKindData : [{"Thông báo": "Không có dữ liệu"}]);
-      XLSX.utils.book_append_sheet(wb, ws3, "Tài trợ hiện vật");
-
-      // Sheet 4: Volunteer
-      const volunteerData = filteredVolunteer.map((d: any) => ({
-        "Tình nguyện viên": d.donor?.fullName || "",
-        "Loại công việc": d.workType || "",
-        "Ngày bắt đầu": d.startDate ? formatDate(d.startDate) : "",
-        "Ngày kết thúc": d.endDate ? formatDate(d.endDate) : "",
-        "Số giờ": d.hours || 0,
-        "Giá trị/giờ": d.hourlyRate || 0,
-        "Tổng giá trị": d.totalValue || 0,
-        "Đánh giá": d.rating || "",
-      }));
-      const ws4 = XLSX.utils.json_to_sheet(volunteerData.length > 0 ? volunteerData : [{"Thông báo": "Không có dữ liệu"}]);
-      XLSX.utils.book_append_sheet(wb, ws4, "Công tác tình nguyện");
-
-      // Download
-      const fileName = `Bao_cao_${startDate ? format(startDate, "dd-MM-yyyy") : "tat_ca"}_${endDate ? format(endDate, "dd-MM-yyyy") : "den_nay"}.xlsx`;
-      XLSX.writeFile(wb, fileName);
-
-      toast({
-        title: "Thành công",
-        description: "Đã xuất báo cáo Excel",
-      });
-    } catch (error) {
-      console.error("Excel export error:", error);
-      toast({
-        variant: "destructive",
-        title: "Lỗi",
-        description: `Không thể xuất Excel: ${error instanceof Error ? error.message : "Lỗi không xác định"}`,
-      });
-    }
-  };
-
-  // Export to PDF
-  const exportToPDF = () => {
-    try {
-      const doc = new jsPDF();
-
-      // Add UTF-8 font support (you may need to add Vietnamese font)
-      doc.setFont("helvetica");
-
-      // Title
-      doc.setFontSize(18);
-      doc.text("BAO CAO TAI TRO BENH VIEN", 105, 15, { align: "center" });
-
-      doc.setFontSize(10);
-      const dateRange = `${startDate ? format(startDate, "dd/MM/yyyy") : "Tat ca"} - ${endDate ? format(endDate, "dd/MM/yyyy") : "Den nay"}`;
-      doc.text(dateRange, 105, 22, { align: "center" });
-
-      let yPos = 30;
-
-      // Summary
-      doc.setFontSize(12);
-      doc.text("TONG QUAN", 14, yPos);
-      yPos += 7;
-
-      doc.setFontSize(10);
-      const totalCash = filteredCash.reduce((sum: number, d: any) => sum + Number(d.amount), 0);
-      const totalInKind = filteredInKind.reduce((sum: number, d: any) => sum + Number(d.estimatedValue), 0);
-      const totalVolunteer = filteredVolunteer.reduce((sum: number, d: any) => sum + Number(d.totalValue), 0);
-
-      doc.text(`Tong tien mat: ${formatCurrency(totalCash.toString())}`, 14, yPos);
-      yPos += 6;
-      doc.text(`Tong hien vat: ${formatCurrency(totalInKind.toString())}`, 14, yPos);
-      yPos += 6;
-      doc.text(`Tong tinh nguyen: ${formatCurrency(totalVolunteer.toString())}`, 14, yPos);
-      yPos += 6;
-      doc.text(`TONG CONG: ${formatCurrency((totalCash + totalInKind + totalVolunteer).toString())}`, 14, yPos);
-      yPos += 10;
-
-      // Cash Donations Table
-      if (filteredCash.length > 0) {
-        doc.setFontSize(12);
-        doc.text("TAI TRO TIEN MAT", 14, yPos);
-        yPos += 5;
-
-        autoTable(doc, {
-          startY: yPos,
-          head: [["Nha tai tro", "So tien", "Phuong thuc", "Ngay nhan"]],
-          body: filteredCash.slice(0, 20).map((d: any) => [
-            d.donor?.fullName || "",
-            formatCurrency(d.amount.toString()),
-            d.paymentMethod,
-            formatDate(d.receivedDate),
-          ]),
-          styles: { fontSize: 8 },
-          headStyles: { fillColor: [66, 139, 202] },
-        });
-
-        yPos = (doc as any).lastAutoTable.finalY + 10;
-      }
-
-      // Add page if needed
-      if (yPos > 250) {
-        doc.addPage();
-        yPos = 20;
-      }
-
-      // In-Kind Donations Table
-      if (filteredInKind.length > 0 && yPos < 250) {
-        doc.setFontSize(12);
-        doc.text("TAI TRO HIEN VAT", 14, yPos);
-        yPos += 5;
-
-        autoTable(doc, {
-          startY: yPos,
-          head: [["Nha tai tro", "Vat pham", "So luong", "Gia tri"]],
-          body: filteredInKind.slice(0, 20).map((d: any) => [
-            d.donor?.fullName || "",
-            d.itemName,
-            `${d.quantity} ${d.unit}`,
-            formatCurrency(d.estimatedValue.toString()),
-          ]),
-          styles: { fontSize: 8 },
-          headStyles: { fillColor: [92, 184, 92] },
-        });
-      }
-
-      // Save PDF
-      const fileName = `Bao_cao_${startDate ? format(startDate, "dd-MM-yyyy") : "tat_ca"}_${endDate ? format(endDate, "dd-MM-yyyy") : "den_nay"}.pdf`;
-      doc.save(fileName);
-
-      toast({
-        title: "Thành công",
-        description: "Đã xuất báo cáo PDF",
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể xuất PDF",
-      });
-    }
-  };
-
-  // ===== BÁO CÁO TIỀN MẶT =====
-  const allCash: any[] = cashDonations?.donations || [];
+  // ===== DỮ LIỆU BÁO CÁO =====
 
   // 1. Tổng quan
-  const exportCashOverview = () => {
+  const overviewData = useMemo(() => {
+    const total = allCash.reduce((s, d) => s + Number(d.amount), 0);
+    const used = allCash.reduce((s, d) => s + Number(d.usedAmount || 0), 0);
+    const remaining = total - used;
+
+    const byPurpose: Record<string, { total: number; used: number; count: number }> = {};
+    allCash.forEach((d) => {
+      const p = d.purposeOther || d.purpose || "Không rõ";
+      if (!byPurpose[p]) byPurpose[p] = { total: 0, used: 0, count: 0 };
+      byPurpose[p].total += Number(d.amount);
+      byPurpose[p].used += Number(d.usedAmount || 0);
+      byPurpose[p].count += 1;
+    });
+
+    const byCustodian: Record<string, { total: number; used: number; count: number }> = {};
+    allCash.forEach((d) => {
+      const c = d.custodian || "Không rõ";
+      if (!byCustodian[c]) byCustodian[c] = { total: 0, used: 0, count: 0 };
+      byCustodian[c].total += Number(d.amount);
+      byCustodian[c].used += Number(d.usedAmount || 0);
+      byCustodian[c].count += 1;
+    });
+
+    return { total, used, remaining, byPurpose, byCustodian };
+  }, [allCash]);
+
+  // 2. Theo năm
+  const yearlyData = useMemo(() => {
+    const year = parseInt(selectedYear);
+    const yearItems = allCash.filter((d) => new Date(d.receivedDate).getFullYear() === year);
+    const months: { received: number; used: number; count: number }[] = Array.from({ length: 12 }, () => ({ received: 0, used: 0, count: 0 }));
+    yearItems.forEach((d) => {
+      const m = new Date(d.receivedDate).getMonth();
+      months[m].received += Number(d.amount);
+      months[m].used += Number(d.usedAmount || 0);
+      months[m].count += 1;
+    });
+    return { months, items: yearItems };
+  }, [allCash, selectedYear]);
+
+  // 3. Tồn đọng
+  const pendingData = useMemo(() => {
+    return allCash
+      .filter((d) => Number(d.usedAmount || 0) < Number(d.amount))
+      .sort((a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
+  }, [allCash]);
+
+  // ===== LẬP KẾ HOẠCH HUY ĐỘNG =====
+  const mobilizationPlan = useMemo(() => {
+    if (!planGenerated || !targetAmount) return null;
+    const target = parseFloat(targetAmount.replace(/[^\d.]/g, "")) * 1_000_000;
+    if (!target || target <= 0) return null;
+
+    // Lọc theo mục đích nếu có
+    let pool = allCash.filter((d) => Number(d.usedAmount || 0) < Number(d.amount));
+    if (targetPurpose && targetPurpose !== "all") {
+      pool = pool.filter((d) => (d.purposeOther || d.purpose) === targetPurpose);
+    }
+
+    // Nhóm 1: chưa dùng gì (usedAmount = 0), cũ nhất trước
+    const unused = pool
+      .filter((d) => Number(d.usedAmount || 0) === 0)
+      .sort((a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
+
+    // Nhóm 2: đang dùng dở, cũ nhất trước
+    const partial = pool
+      .filter((d) => Number(d.usedAmount || 0) > 0)
+      .sort((a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
+
+    const sorted = [...unused, ...partial];
+    let accumulated = 0;
+    const selected: any[] = [];
+
+    for (const d of sorted) {
+      if (accumulated >= target) break;
+      const avail = Number(d.amount) - Number(d.usedAmount || 0);
+      const take = Math.min(avail, target - accumulated);
+      accumulated += take;
+      selected.push({ ...d, _take: take, _avail: avail, _isPartial: take < avail });
+    }
+
+    const totalAvail = pool.reduce((s, d) => s + Number(d.amount) - Number(d.usedAmount || 0), 0);
+
+    return { selected, accumulated, target, shortage: Math.max(0, target - accumulated), totalAvail };
+  }, [planGenerated, targetAmount, targetPurpose, allCash]);
+
+  // ===== XUẤT EXCEL =====
+  const exportOverview = () => {
     try {
-      const total = allCash.reduce((s: number, d: any) => s + Number(d.amount), 0);
-      const used = allCash.reduce((s: number, d: any) => s + Number(d.usedAmount || 0), 0);
-      const remaining = total - used;
-      const usedPct = total > 0 ? ((used / total) * 100).toFixed(1) : "0";
-      const remainingPct = total > 0 ? ((remaining / total) * 100).toFixed(1) : "0";
-
-      // Breakdown theo mục đích
-      const byPurpose: Record<string, { total: number; used: number; count: number }> = {};
-      allCash.forEach((d: any) => {
-        const p = d.purposeOther || d.purpose || "Không rõ";
-        if (!byPurpose[p]) byPurpose[p] = { total: 0, used: 0, count: 0 };
-        byPurpose[p].total += Number(d.amount);
-        byPurpose[p].used += Number(d.usedAmount || 0);
-        byPurpose[p].count += 1;
-      });
-
-      // Breakdown theo người giữ
-      const byCustodian: Record<string, { total: number; used: number; count: number }> = {};
-      allCash.forEach((d: any) => {
-        const c = d.custodian || "Không rõ";
-        if (!byCustodian[c]) byCustodian[c] = { total: 0, used: 0, count: 0 };
-        byCustodian[c].total += Number(d.amount);
-        byCustodian[c].used += Number(d.usedAmount || 0);
-        byCustodian[c].count += 1;
-      });
-
+      const { total, used, remaining, byPurpose, byCustodian } = overviewData;
       const wb = XLSX.utils.book_new();
-
-      // Sheet 1: Tổng quan
-      const overviewRows = [
+      const rows = [
         ["BÁO CÁO TỔNG QUAN TÌNH HÌNH SỬ DỤNG TIỀN MẶT"],
-        ["Ngày xuất báo cáo", format(new Date(), "dd/MM/yyyy HH:mm")],
+        ["Ngày xuất", format(new Date(), "dd/MM/yyyy HH:mm")],
         [],
         ["Chỉ số", "Giá trị", "Tỷ lệ"],
         ["Tổng tiền nhận", total, "100%"],
-        ["Tổng đã sử dụng", used, `${usedPct}%`],
-        ["Tổng còn lại (tồn đọng)", remaining, `${remainingPct}%`],
+        ["Tổng đã sử dụng", used, total > 0 ? `${((used / total) * 100).toFixed(1)}%` : "0%"],
+        ["Tổng còn lại", remaining, total > 0 ? `${((remaining / total) * 100).toFixed(1)}%` : "0%"],
         ["Số khoản tài trợ", allCash.length, ""],
-        ["Số khoản còn tồn", allCash.filter((d: any) => Number(d.usedAmount || 0) < Number(d.amount)).length, ""],
+        ["Số khoản còn tồn", pendingData.length, ""],
         [],
         ["BREAKDOWN THEO MỤC ĐÍCH"],
         ["Mục đích", "Số khoản", "Tổng tiền", "Đã dùng", "Còn lại", "% Sử dụng"],
-        ...Object.entries(byPurpose).map(([p, v]) => [
-          p, v.count, v.total, v.used, v.total - v.used,
-          v.total > 0 ? `${((v.used / v.total) * 100).toFixed(1)}%` : "0%",
-        ]),
+        ...Object.entries(byPurpose).map(([p, v]) => [p, v.count, v.total, v.used, v.total - v.used, v.total > 0 ? `${((v.used / v.total) * 100).toFixed(1)}%` : "0%"]),
         [],
         ["BREAKDOWN THEO NGƯỜI GIỮ TIỀN"],
         ["Người giữ", "Số khoản", "Tổng tiền", "Đã dùng", "Còn lại", "% Sử dụng"],
-        ...Object.entries(byCustodian).map(([c, v]) => [
-          c, v.count, v.total, v.used, v.total - v.used,
-          v.total > 0 ? `${((v.used / v.total) * 100).toFixed(1)}%` : "0%",
-        ]),
+        ...Object.entries(byCustodian).map(([c, v]) => [c, v.count, v.total, v.used, v.total - v.used, v.total > 0 ? `${((v.used / v.total) * 100).toFixed(1)}%` : "0%"]),
       ];
-      const ws1 = XLSX.utils.aoa_to_sheet(overviewRows);
-      ws1["!cols"] = [{ wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 15 }];
-      XLSX.utils.book_append_sheet(wb, ws1, "Tổng quan");
-
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws["!cols"] = [{ wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 15 }];
+      XLSX.utils.book_append_sheet(wb, ws, "Tổng quan");
       XLSX.writeFile(wb, `BC_TongQuan_TienMat_${format(new Date(), "dd-MM-yyyy")}.xlsx`);
       toast({ title: "Thành công", description: "Đã xuất báo cáo tổng quan" });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Lỗi", description: "Không thể xuất báo cáo" });
-    }
+    } catch { toast({ variant: "destructive", title: "Lỗi", description: "Không thể xuất báo cáo" }); }
   };
 
-  // 2. Theo năm
-  const exportCashByYear = () => {
+  const exportYearly = () => {
     try {
-      const year = parseInt(selectedYear);
-      const yearData = allCash.filter((d: any) => new Date(d.receivedDate).getFullYear() === year);
-
-      const months: Record<number, { received: number; used: number; count: number }> = {};
-      for (let m = 1; m <= 12; m++) months[m] = { received: 0, used: 0, count: 0 };
-
-      yearData.forEach((d: any) => {
-        const m = new Date(d.receivedDate).getMonth() + 1;
-        months[m].received += Number(d.amount);
-        months[m].used += Number(d.usedAmount || 0);
-        months[m].count += 1;
-      });
-
-      const totalReceived = yearData.reduce((s: number, d: any) => s + Number(d.amount), 0);
-      const totalUsed = yearData.reduce((s: number, d: any) => s + Number(d.usedAmount || 0), 0);
-
+      const { months, items } = yearlyData;
+      const year = selectedYear;
       const wb = XLSX.utils.book_new();
-
       const rows = [
         [`BÁO CÁO TÌNH HÌNH SỬ DỤNG TIỀN MẶT NĂM ${year}`],
         ["Ngày xuất", format(new Date(), "dd/MM/yyyy HH:mm")],
         [],
-        ["Tháng", "Số khoản nhận", "Tổng tiền nhận", "Tổng đã dùng", "Còn lại", "% Sử dụng"],
-        ...Array.from({ length: 12 }, (_, i) => {
-          const m = i + 1;
-          const v = months[m];
-          return [
-            `Tháng ${m}`, v.count, v.received, v.used, v.received - v.used,
-            v.received > 0 ? `${((v.used / v.received) * 100).toFixed(1)}%` : "0%",
-          ];
-        }),
+        ["Tháng", "Số khoản", "Tổng tiền nhận", "Đã dùng", "Còn lại", "% Sử dụng"],
+        ...months.map((v, i) => [`Tháng ${i + 1}`, v.count, v.received, v.used, v.received - v.used, v.received > 0 ? `${((v.used / v.received) * 100).toFixed(1)}%` : "0%"]),
         [],
-        ["TỔNG NĂM", yearData.length, totalReceived, totalUsed, totalReceived - totalUsed,
-          totalReceived > 0 ? `${((totalUsed / totalReceived) * 100).toFixed(1)}%` : "0%"],
+        ["TỔNG", items.length,
+          items.reduce((s, d) => s + Number(d.amount), 0),
+          items.reduce((s, d) => s + Number(d.usedAmount || 0), 0),
+          items.reduce((s, d) => s + Number(d.amount) - Number(d.usedAmount || 0), 0), ""],
         [],
-        ["CHI TIẾT CÁC KHOẢN NĂM " + year],
+        ["CHI TIẾT CÁC KHOẢN"],
         ["Nhà tài trợ", "Ngày nhận", "Mục đích", "Số tiền", "Đã dùng", "Còn lại", "% SD", "Người giữ"],
-        ...yearData.map((d: any) => {
-          const amt = Number(d.amount);
-          const usd = Number(d.usedAmount || 0);
-          return [
-            d.donor?.fullName || "",
-            formatDate(d.receivedDate),
-            d.purposeOther || d.purpose || "",
-            amt, usd, amt - usd,
-            amt > 0 ? `${((usd / amt) * 100).toFixed(1)}%` : "0%",
-            d.custodian || "",
-          ];
+        ...items.map((d) => {
+          const amt = Number(d.amount), usd = Number(d.usedAmount || 0);
+          return [d.donor?.fullName || "", formatDate(d.receivedDate), d.purposeOther || d.purpose || "", amt, usd, amt - usd, amt > 0 ? `${((usd / amt) * 100).toFixed(1)}%` : "0%", d.custodian || ""];
         }),
       ];
       const ws = XLSX.utils.aoa_to_sheet(rows);
       ws["!cols"] = [{ wch: 30 }, { wch: 15 }, { wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 25 }];
       XLSX.utils.book_append_sheet(wb, ws, `Năm ${year}`);
-
       XLSX.writeFile(wb, `BC_TienMat_Nam${year}_${format(new Date(), "dd-MM-yyyy")}.xlsx`);
       toast({ title: "Thành công", description: `Đã xuất báo cáo năm ${year}` });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Lỗi", description: "Không thể xuất báo cáo" });
-    }
+    } catch { toast({ variant: "destructive", title: "Lỗi", description: "Không thể xuất báo cáo" }); }
   };
 
-  // 3. Tồn đọng chi tiết
-  const exportCashPending = () => {
+  const exportPending = () => {
     try {
-      const pending = allCash.filter((d: any) => Number(d.usedAmount || 0) < Number(d.amount));
       const today = new Date();
-
       const wb = XLSX.utils.book_new();
-
-      // Sheet 1: Danh sách tồn đọng
       const summaryRows = [
         ["BÁO CÁO CÁC KHOẢN TIỀN MẶT TỒN ĐỌNG"],
         ["Ngày xuất", format(today, "dd/MM/yyyy HH:mm")],
-        [`Số khoản tồn đọng: ${pending.length}`],
         [],
-        ["STT", "Nhà tài trợ", "Ngày nhận", "Mục đích", "Tổng tiền", "Đã sử dụng", "Còn lại", "% Đã dùng", "Số ngày tồn", "Người giữ", "Ghi chú"],
-        ...pending.map((d: any, i: number) => {
-          const amt = Number(d.amount);
-          const usd = Number(d.usedAmount || 0);
-          const rem = amt - usd;
-          const days = differenceInDays(today, new Date(d.receivedDate));
-          return [
-            i + 1,
-            d.donor?.fullName || "",
-            formatDate(d.receivedDate),
-            d.purposeOther || d.purpose || "",
-            amt, usd, rem,
-            amt > 0 ? `${((usd / amt) * 100).toFixed(1)}%` : "0%",
-            days,
-            d.custodian || "",
-            d.usageNote || "",
-          ];
+        ["STT", "Nhà tài trợ", "Ngày nhận", "Mục đích", "Tổng tiền", "Đã dùng", "Còn lại", "% Đã dùng", "Số ngày tồn", "Người giữ"],
+        ...pendingData.map((d, i) => {
+          const amt = Number(d.amount), usd = Number(d.usedAmount || 0);
+          return [i + 1, d.donor?.fullName || "", formatDate(d.receivedDate), d.purposeOther || d.purpose || "", amt, usd, amt - usd, amt > 0 ? `${((usd / amt) * 100).toFixed(1)}%` : "0%", differenceInDays(today, new Date(d.receivedDate)), d.custodian || ""];
         }),
         [],
-        ["TỔNG", "", "", "",
-          pending.reduce((s: number, d: any) => s + Number(d.amount), 0),
-          pending.reduce((s: number, d: any) => s + Number(d.usedAmount || 0), 0),
-          pending.reduce((s: number, d: any) => s + Number(d.amount) - Number(d.usedAmount || 0), 0),
-        ],
+        ["TỔNG", "", "", "", pendingData.reduce((s, d) => s + Number(d.amount), 0), pendingData.reduce((s, d) => s + Number(d.usedAmount || 0), 0), pendingData.reduce((s, d) => s + Number(d.amount) - Number(d.usedAmount || 0), 0)],
       ];
       const ws1 = XLSX.utils.aoa_to_sheet(summaryRows);
-      ws1["!cols"] = [{ wch: 5 }, { wch: 30 }, { wch: 15 }, { wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 25 }, { wch: 30 }];
+      ws1["!cols"] = [{ wch: 5 }, { wch: 30 }, { wch: 15 }, { wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 25 }];
       XLSX.utils.book_append_sheet(wb, ws1, "Tồn đọng");
 
-      // Sheet 2: Chi tiết từng khoản đã chi
-      const detailRows: any[] = [
-        ["CHI TIẾT SỬ DỤNG TỪNG KHOẢN TỒN ĐỌNG"],
-        [],
-      ];
-      pending.forEach((d: any, i: number) => {
-        const amt = Number(d.amount);
-        const usd = Number(d.usedAmount || 0);
-        const rem = amt - usd;
-        const days = differenceInDays(today, new Date(d.receivedDate));
+      const detailRows: any[] = [["CHI TIẾT SỬ DỤNG TỪNG KHOẢN TỒN ĐỌNG"], []];
+      pendingData.forEach((d, i) => {
+        const amt = Number(d.amount), usd = Number(d.usedAmount || 0);
         detailRows.push([`${i + 1}. ${d.donor?.fullName || "Không rõ"} — ${formatDate(d.receivedDate)}`]);
-        detailRows.push(["   Mục đích:", d.purposeOther || d.purpose || "Không rõ"]);
-        detailRows.push(["   Tổng tiền:", amt, "   Đã dùng:", usd, "   Còn lại:", rem, `(${amt > 0 ? ((usd / amt) * 100).toFixed(1) : 0}%)`]);
-        detailRows.push(["   Số ngày tồn đọng:", `${days} ngày`]);
-        detailRows.push(["   Người giữ tiền:", d.custodian || "Không rõ"]);
-
+        detailRows.push(["Mục đích:", d.purposeOther || d.purpose || "Không rõ"]);
+        detailRows.push(["Tổng tiền:", amt, "Đã dùng:", usd, "Còn lại:", amt - usd, amt > 0 ? `${((usd / amt) * 100).toFixed(1)}%` : "0%"]);
+        detailRows.push(["Tồn đọng:", `${differenceInDays(today, new Date(d.receivedDate))} ngày`, "Người giữ:", d.custodian || ""]);
         const items: any[] = Array.isArray(d.usageItems) ? d.usageItems : [];
         if (items.length > 0) {
-          detailRows.push(["   Lịch sử sử dụng:"]);
-          detailRows.push(["   ", "STT", "Nội dung chi", "Số tiền"]);
-          items.forEach((item: any, j: number) => {
-            detailRows.push(["   ", j + 1, item.description || "", Number(item.amount || 0)]);
-          });
+          detailRows.push(["Lịch sử sử dụng:"]);
+          detailRows.push(["", "STT", "Nội dung chi", "Số tiền"]);
+          items.forEach((item: any, j: number) => detailRows.push(["", j + 1, item.description || "", Number(item.amount || 0)]));
         } else {
-          detailRows.push(["   Chưa có lịch sử sử dụng"]);
+          detailRows.push(["Chưa có lịch sử sử dụng"]);
         }
-        if (d.usageNote) detailRows.push(["   Ghi chú:", d.usageNote]);
         detailRows.push([]);
       });
-
       const ws2 = XLSX.utils.aoa_to_sheet(detailRows);
       ws2["!cols"] = [{ wch: 5 }, { wch: 5 }, { wch: 50 }, { wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 15 }];
       XLSX.utils.book_append_sheet(wb, ws2, "Chi tiết sử dụng");
-
       XLSX.writeFile(wb, `BC_TonDong_TienMat_${format(today, "dd-MM-yyyy")}.xlsx`);
-      toast({ title: "Thành công", description: `Đã xuất ${pending.length} khoản tồn đọng` });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Lỗi", description: "Không thể xuất báo cáo" });
-    }
+      toast({ title: "Thành công", description: `Đã xuất ${pendingData.length} khoản tồn đọng` });
+    } catch { toast({ variant: "destructive", title: "Lỗi", description: "Không thể xuất báo cáo" }); }
+  };
+
+  const exportMobilizationPlan = () => {
+    if (!mobilizationPlan) return;
+    try {
+      const { selected, accumulated, target, shortage } = mobilizationPlan;
+      const wb = XLSX.utils.book_new();
+      const rows = [
+        ["KẾ HOẠCH HUY ĐỘNG VỐN"],
+        ["Ngày lập", format(new Date(), "dd/MM/yyyy HH:mm")],
+        ["Mục đích sử dụng", targetPurpose || "Tất cả"],
+        ["Số tiền cần huy động", target],
+        ["Số tiền có thể huy động", accumulated],
+        shortage > 0 ? ["Còn thiếu", shortage] : ["Trạng thái", "ĐỦ TIỀN"],
+        [],
+        ["STT", "Nhà tài trợ", "Ngày nhận", "Mục đích gốc", "Tổng khoản", "Đã dùng", "Còn lại", "Lấy bao nhiêu", "Ghi chú"],
+        ...selected.map((d, i) => [
+          i + 1, d.donor?.fullName || "", formatDate(d.receivedDate), d.purposeOther || d.purpose || "",
+          Number(d.amount), Number(d.usedAmount || 0), d._avail, d._take,
+          Number(d.usedAmount || 0) === 0 ? "Chưa sử dụng" : "Đang sử dụng dở",
+        ]),
+        [],
+        ["TỔNG LẤY", "", "", "", "", "", "", accumulated, ""],
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws["!cols"] = [{ wch: 5 }, { wch: 30 }, { wch: 15 }, { wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 20 }];
+      XLSX.utils.book_append_sheet(wb, ws, "Kế hoạch huy động");
+      XLSX.writeFile(wb, `KeHoach_HuyDong_${format(new Date(), "dd-MM-yyyy")}.xlsx`);
+      toast({ title: "Thành công", description: "Đã xuất kế hoạch huy động" });
+    } catch { toast({ variant: "destructive", title: "Lỗi", description: "Không thể xuất" }); }
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Báo cáo & Xuất dữ liệu</h2>
-        <p className="text-muted-foreground">
-          Xuất báo cáo tài trợ dưới dạng Excel hoặc PDF
-        </p>
+        <h2 className="text-3xl font-bold tracking-tight">Báo cáo & Thống kê</h2>
+        <p className="text-muted-foreground">Xem và xuất báo cáo tình hình sử dụng tiền tài trợ</p>
       </div>
 
-      {/* Date Range Filter */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Chọn khoảng thời gian</CardTitle>
-          <CardDescription>
-            Lọc dữ liệu theo ngày (để trống để lấy tất cả)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">Từ ngày</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !startDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "dd/MM/yyyy") : "Chọn ngày"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={startDate}
-                    onSelect={setStartDate}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+      <Tabs defaultValue="reports">
+        <TabsList>
+          <TabsTrigger value="reports"><BarChart3 className="h-4 w-4 mr-2" />Báo cáo</TabsTrigger>
+          <TabsTrigger value="mobilize"><Wallet className="h-4 w-4 mr-2" />Lập kế hoạch huy động</TabsTrigger>
+        </TabsList>
 
-            <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">Đến ngày</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !endDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, "dd/MM/yyyy") : "Chọn ngày"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={endDate}
-                    onSelect={setEndDate}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+        {/* ===== TAB BÁO CÁO ===== */}
+        <TabsContent value="reports" className="space-y-4 mt-4">
 
-            <Button
-              variant="outline"
-              onClick={() => {
-                setStartDate(undefined);
-                setEndDate(undefined);
-              }}
-            >
-              Xóa bộ lọc
-            </Button>
+          {/* Chọn loại báo cáo */}
+          <div className="flex gap-2">
+            {([
+              { key: "overview", label: "Tổng quan", icon: BarChart3 },
+              { key: "yearly", label: "Theo năm", icon: FileSpreadsheet },
+              { key: "pending", label: "Tồn đọng", icon: TrendingDown },
+            ] as { key: ReportType; label: string; icon: any }[]).map(({ key, label, icon: Icon }) => (
+              <Button
+                key={key}
+                variant={reportType === key ? "default" : "outline"}
+                onClick={() => setReportType(key)}
+                size="sm"
+              >
+                <Icon className="h-4 w-4 mr-2" />
+                {label}
+              </Button>
+            ))}
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Tiền mặt</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(
-                filteredCash.reduce((sum: number, d: any) => sum + Number(d.amount), 0).toString()
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {filteredCash.length} khoản tài trợ
-            </p>
-          </CardContent>
-        </Card>
+          {/* BÁO CÁO 1: TỔNG QUAN */}
+          {reportType === "overview" && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Tổng quan tình hình sử dụng tiền mặt</CardTitle>
+                <Button onClick={exportOverview} disabled={isLoading} size="sm">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />Xuất Excel
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {isLoading ? <p className="text-muted-foreground text-sm">Đang tải...</p> : (
+                  <>
+                    {/* Tóm tắt */}
+                    <div className="grid grid-cols-3 gap-4">
+                      {[
+                        { label: "Tổng tiền nhận", value: overviewData.total, sub: `${allCash.length} khoản`, color: "" },
+                        { label: "Đã sử dụng", value: overviewData.used, sub: overviewData.total > 0 ? `${((overviewData.used / overviewData.total) * 100).toFixed(1)}%` : "0%", color: "text-blue-600" },
+                        { label: "Còn lại (tồn đọng)", value: overviewData.remaining, sub: `${pendingData.length} khoản tồn`, color: "text-orange-600" },
+                      ].map((item) => (
+                        <div key={item.label} className="border rounded-lg p-4">
+                          <p className="text-sm text-muted-foreground">{item.label}</p>
+                          <p className={`text-xl font-bold ${item.color}`}>{formatCurrency(item.value.toString())}</p>
+                          <p className="text-xs text-muted-foreground">{item.sub}</p>
+                        </div>
+                      ))}
+                    </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Hiện vật</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(
-                filteredInKind.reduce((sum: number, d: any) => sum + Number(d.estimatedValue), 0).toString()
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {filteredInKind.length} khoản tài trợ
-            </p>
-          </CardContent>
-        </Card>
+                    {/* Breakdown mục đích */}
+                    <div>
+                      <h4 className="text-sm font-semibold mb-2">Theo mục đích</h4>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Mục đích</TableHead>
+                            <TableHead className="text-right">Số khoản</TableHead>
+                            <TableHead className="text-right">Tổng tiền</TableHead>
+                            <TableHead className="text-right">Đã dùng</TableHead>
+                            <TableHead className="text-right">Còn lại</TableHead>
+                            <TableHead className="text-right">% SD</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {Object.entries(overviewData.byPurpose).map(([p, v]) => (
+                            <TableRow key={p}>
+                              <TableCell className="font-medium">{p}</TableCell>
+                              <TableCell className="text-right">{v.count}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(v.total.toString())}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(v.used.toString())}</TableCell>
+                              <TableCell className="text-right">{formatCurrency((v.total - v.used).toString())}</TableCell>
+                              <TableCell className="text-right">
+                                <Badge variant={v.total > 0 && v.used / v.total >= 0.9 ? "default" : "secondary"}>
+                                  {v.total > 0 ? `${((v.used / v.total) * 100).toFixed(1)}%` : "0%"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Tình nguyện</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(
-                filteredVolunteer.reduce((sum: number, d: any) => sum + Number(d.totalValue), 0).toString()
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {filteredVolunteer.length} hoạt động
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+                    {/* Breakdown người giữ */}
+                    <div>
+                      <h4 className="text-sm font-semibold mb-2">Theo người giữ tiền</h4>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Người giữ</TableHead>
+                            <TableHead className="text-right">Số khoản</TableHead>
+                            <TableHead className="text-right">Tổng tiền</TableHead>
+                            <TableHead className="text-right">Còn lại</TableHead>
+                            <TableHead className="text-right">% SD</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {Object.entries(overviewData.byCustodian).map(([c, v]) => (
+                            <TableRow key={c}>
+                              <TableCell className="font-medium">{c}</TableCell>
+                              <TableCell className="text-right">{v.count}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(v.total.toString())}</TableCell>
+                              <TableCell className="text-right">{formatCurrency((v.total - v.used).toString())}</TableCell>
+                              <TableCell className="text-right">
+                                <Badge variant="outline">
+                                  {v.total > 0 ? `${((v.used / v.total) * 100).toFixed(1)}%` : "0%"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-      {/* Export Buttons */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Xuất báo cáo tổng hợp</CardTitle>
-          <CardDescription>
-            Tải xuống dữ liệu dưới định dạng Excel hoặc PDF
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex gap-4">
-          <Button
-            onClick={exportToExcel}
-            disabled={isLoading}
-            className="flex-1"
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Xuất Excel (4 sheets)
-          </Button>
-          <Button
-            onClick={exportToPDF}
-            disabled={isLoading}
-            variant="secondary"
-            className="flex-1"
-          >
-            <FileText className="mr-2 h-4 w-4" />
-            Xuất PDF (Tóm tắt)
-          </Button>
-        </CardContent>
-      </Card>
+          {/* BÁO CÁO 2: THEO NĂM */}
+          {reportType === "yearly" && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CardTitle>Tình hình sử dụng tiền mặt theo năm</CardTitle>
+                  <Select value={selectedYear} onValueChange={setSelectedYear}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {yearOptions.map((y) => <SelectItem key={y} value={y}>Năm {y}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={exportYearly} disabled={isLoading} size="sm">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />Xuất Excel
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoading ? <p className="text-muted-foreground text-sm">Đang tải...</p> : (
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Tháng</TableHead>
+                          <TableHead className="text-right">Số khoản</TableHead>
+                          <TableHead className="text-right">Tổng tiền nhận</TableHead>
+                          <TableHead className="text-right">Đã dùng</TableHead>
+                          <TableHead className="text-right">Còn lại</TableHead>
+                          <TableHead className="text-right">% Sử dụng</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {yearlyData.months.map((v, i) => (
+                          <TableRow key={i} className={v.count === 0 ? "opacity-40" : ""}>
+                            <TableCell className="font-medium">Tháng {i + 1}</TableCell>
+                            <TableCell className="text-right">{v.count}</TableCell>
+                            <TableCell className="text-right">{v.received > 0 ? formatCurrency(v.received.toString()) : "—"}</TableCell>
+                            <TableCell className="text-right">{v.used > 0 ? formatCurrency(v.used.toString()) : "—"}</TableCell>
+                            <TableCell className="text-right">{v.received > 0 ? formatCurrency((v.received - v.used).toString()) : "—"}</TableCell>
+                            <TableCell className="text-right">
+                              {v.received > 0 ? (
+                                <Badge variant="outline">{((v.used / v.received) * 100).toFixed(1)}%</Badge>
+                              ) : "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="font-bold bg-muted/50">
+                          <TableCell>TỔNG</TableCell>
+                          <TableCell className="text-right">{yearlyData.items.length}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(yearlyData.items.reduce((s, d) => s + Number(d.amount), 0).toString())}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(yearlyData.items.reduce((s, d) => s + Number(d.usedAmount || 0), 0).toString())}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(yearlyData.items.reduce((s, d) => s + Number(d.amount) - Number(d.usedAmount || 0), 0).toString())}</TableCell>
+                          <TableCell className="text-right">
+                            {(() => {
+                              const t = yearlyData.items.reduce((s, d) => s + Number(d.amount), 0);
+                              const u = yearlyData.items.reduce((s, d) => s + Number(d.usedAmount || 0), 0);
+                              return t > 0 ? <Badge>{((u / t) * 100).toFixed(1)}%</Badge> : "—";
+                            })()}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-      {/* Báo cáo tiền mặt chi tiết */}
-      <div>
-        <h3 className="text-xl font-bold tracking-tight mb-1">Báo cáo tiền mặt</h3>
-        <p className="text-sm text-muted-foreground mb-4">Xuất báo cáo chi tiết về tình hình sử dụng tiền tài trợ</p>
-      </div>
+          {/* BÁO CÁO 3: TỒN ĐỌNG */}
+          {reportType === "pending" && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Các khoản tiền mặt tồn đọng</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {pendingData.length} khoản · Tổng còn: {formatCurrency(pendingData.reduce((s, d) => s + Number(d.amount) - Number(d.usedAmount || 0), 0).toString())}
+                  </p>
+                </div>
+                <Button onClick={exportPending} disabled={isLoading} size="sm">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />Xuất Excel (2 sheets)
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? <p className="text-muted-foreground text-sm">Đang tải...</p> : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nhà tài trợ</TableHead>
+                        <TableHead>Ngày nhận</TableHead>
+                        <TableHead>Mục đích</TableHead>
+                        <TableHead className="text-right">Tổng tiền</TableHead>
+                        <TableHead className="text-right">Đã dùng</TableHead>
+                        <TableHead className="text-right">Còn lại</TableHead>
+                        <TableHead className="text-right">Tồn (ngày)</TableHead>
+                        <TableHead>Người giữ</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pendingData.map((d) => {
+                        const amt = Number(d.amount), usd = Number(d.usedAmount || 0);
+                        const days = differenceInDays(new Date(), new Date(d.receivedDate));
+                        return (
+                          <TableRow key={d.id}>
+                            <TableCell className="font-medium">{d.donor?.fullName || "—"}</TableCell>
+                            <TableCell>{formatDate(d.receivedDate)}</TableCell>
+                            <TableCell className="max-w-[150px] truncate">{d.purposeOther || d.purpose || "—"}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(amt.toString())}</TableCell>
+                            <TableCell className="text-right">{usd > 0 ? formatCurrency(usd.toString()) : "—"}</TableCell>
+                            <TableCell className="text-right font-medium text-orange-600">{formatCurrency((amt - usd).toString())}</TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant={days > 180 ? "destructive" : days > 90 ? "secondary" : "outline"}>{days}d</Badge>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">{d.custodian || "—"}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {/* Báo cáo 1: Tổng quan */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileSpreadsheet className="h-4 w-4 text-green-600" />
-              Tổng quan sử dụng
-            </CardTitle>
-            <CardDescription>
-              Tổng tiền nhận, đã dùng, còn lại, % sử dụng — breakdown theo mục đích và người giữ tiền
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {!isLoading && (
-              <div className="text-sm text-muted-foreground space-y-1">
-                <p>Tổng khoản: <span className="font-medium text-foreground">{allCash.length}</span></p>
-                <p>Tổng tiền: <span className="font-medium text-foreground">{formatCurrency(allCash.reduce((s: number, d: any) => s + Number(d.amount), 0).toString())}</span></p>
-                <p>Tồn đọng: <span className="font-medium text-orange-600">{allCash.filter((d: any) => Number(d.usedAmount || 0) < Number(d.amount)).length} khoản</span></p>
+        {/* ===== TAB LẬP KẾ HOẠCH HUY ĐỘNG ===== */}
+        <TabsContent value="mobilize" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Lập kế hoạch huy động vốn</CardTitle>
+              <p className="text-sm text-muted-foreground">Nhập số tiền cần huy động, hệ thống sẽ gợi ý các khoản theo thứ tự ưu tiên</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Số tiền cần huy động (triệu VNĐ)</label>
+                  <Input
+                    type="number"
+                    placeholder="VD: 300"
+                    value={targetAmount}
+                    onChange={(e) => { setTargetAmount(e.target.value); setPlanGenerated(false); }}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Lọc theo mục đích (tuỳ chọn)</label>
+                  <Select value={targetPurpose} onValueChange={(v) => { setTargetPurpose(v); setPlanGenerated(false); }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tất cả mục đích" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả mục đích</SelectItem>
+                      {CASH_PURPOSES.filter(p => p !== "Khác").map((p) => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            )}
-            <Button onClick={exportCashOverview} disabled={isLoading} className="w-full" variant="outline">
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Xuất Excel
-            </Button>
-          </CardContent>
-        </Card>
+              <Button
+                onClick={() => setPlanGenerated(true)}
+                disabled={!targetAmount || isLoading}
+                className="w-full"
+              >
+                Tạo kế hoạch huy động
+              </Button>
+            </CardContent>
+          </Card>
 
-        {/* Báo cáo 2: Theo năm */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-4 w-4 text-blue-600" />
-              Theo năm
-            </CardTitle>
-            <CardDescription>
-              Thống kê theo từng tháng trong năm, % sử dụng, chi tiết từng khoản
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <label className="text-sm font-medium mb-1 block">Chọn năm</label>
-              <Select value={selectedYear} onValueChange={setSelectedYear}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {yearOptions.map((y) => (
-                    <SelectItem key={y} value={y}>Năm {y}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {!isLoading && (
-              <p className="text-sm text-muted-foreground">
-                {allCash.filter((d: any) => new Date(d.receivedDate).getFullYear() === parseInt(selectedYear)).length} khoản trong năm {selectedYear}
-              </p>
-            )}
-            <Button onClick={exportCashByYear} disabled={isLoading} className="w-full" variant="outline">
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Xuất Excel
-            </Button>
-          </CardContent>
-        </Card>
+          {/* Kết quả kế hoạch */}
+          {planGenerated && mobilizationPlan && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    {mobilizationPlan.shortage === 0 ? (
+                      <><CheckCircle2 className="h-5 w-5 text-green-600" />Đủ tiền huy động</>
+                    ) : (
+                      <><AlertCircle className="h-5 w-5 text-orange-500" />Không đủ tiền</>
+                    )}
+                  </CardTitle>
+                  <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
+                    <span>Cần: <span className="font-semibold text-foreground">{formatCurrency((mobilizationPlan.target).toString())}</span></span>
+                    <span>Huy động được: <span className="font-semibold text-green-600">{formatCurrency(mobilizationPlan.accumulated.toString())}</span></span>
+                    {mobilizationPlan.shortage > 0 && (
+                      <span>Còn thiếu: <span className="font-semibold text-red-600">{formatCurrency(mobilizationPlan.shortage.toString())}</span></span>
+                    )}
+                  </div>
+                </div>
+                <Button onClick={exportMobilizationPlan} size="sm">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />Xuất Excel
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nhà tài trợ</TableHead>
+                      <TableHead>Ngày nhận</TableHead>
+                      <TableHead>Mục đích gốc</TableHead>
+                      <TableHead className="text-right">Tổng khoản</TableHead>
+                      <TableHead className="text-right">Còn lại</TableHead>
+                      <TableHead className="text-right">Lấy bao nhiêu</TableHead>
+                      <TableHead>Trạng thái</TableHead>
+                      <TableHead>Người giữ</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {mobilizationPlan.selected.map((d) => (
+                      <TableRow key={d.id} className={d._take < d._avail ? "bg-yellow-50 dark:bg-yellow-950/20" : ""}>
+                        <TableCell className="font-medium">{d.donor?.fullName || "—"}</TableCell>
+                        <TableCell>{formatDate(d.receivedDate)}</TableCell>
+                        <TableCell className="max-w-[150px] truncate text-sm">{d.purposeOther || d.purpose || "—"}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(Number(d.amount).toString())}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(d._avail.toString())}</TableCell>
+                        <TableCell className="text-right font-bold text-green-700">{formatCurrency(d._take.toString())}</TableCell>
+                        <TableCell>
+                          {Number(d.usedAmount || 0) === 0
+                            ? <Badge variant="outline" className="text-xs">Chưa dùng</Badge>
+                            : <Badge variant="secondary" className="text-xs">Đang dùng dở</Badge>
+                          }
+                          {d._take < d._avail && <Badge variant="outline" className="text-xs ml-1 border-yellow-500 text-yellow-700">Lấy một phần</Badge>}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{d.custodian || "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="font-bold bg-muted/50">
+                      <TableCell colSpan={5}>TỔNG HUY ĐỘNG</TableCell>
+                      <TableCell className="text-right text-green-700">{formatCurrency(mobilizationPlan.accumulated.toString())}</TableCell>
+                      <TableCell colSpan={2}>{mobilizationPlan.selected.length} khoản</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+                <p className="text-xs text-muted-foreground mt-3">
+                  * Ưu tiên khoản chưa sử dụng → đang sử dụng dở, sắp xếp theo ngày nhận cũ nhất trước
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
-        {/* Báo cáo 3: Tồn đọng */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-red-600" />
-              Tồn đọng chi tiết
-            </CardTitle>
-            <CardDescription>
-              Từng khoản còn số dư: đã chi gì, còn lại bao nhiêu, tồn bao nhiêu ngày
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {!isLoading && (
-              <div className="text-sm text-muted-foreground space-y-1">
-                <p>Số khoản tồn: <span className="font-medium text-red-600">{allCash.filter((d: any) => Number(d.usedAmount || 0) < Number(d.amount)).length}</span></p>
-                <p>Tổng còn lại: <span className="font-medium text-red-600">
-                  {formatCurrency(allCash.reduce((s: number, d: any) => s + Math.max(0, Number(d.amount) - Number(d.usedAmount || 0)), 0).toString())}
-                </span></p>
-              </div>
-            )}
-            <Button onClick={exportCashPending} disabled={isLoading} className="w-full" variant="outline">
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Xuất Excel (2 sheets)
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+          {planGenerated && mobilizationPlan && mobilizationPlan.selected.length === 0 && (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                <AlertCircle className="h-8 w-8 mx-auto mb-2 text-orange-500" />
+                <p>Không tìm thấy khoản nào phù hợp với mục đích đã chọn.</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
