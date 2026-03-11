@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -41,13 +41,17 @@ export default function CashDonationsPage() {
   }, [donorSearch]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["cash-donations", page, fromDate, toDate, hasRemaining, donorSearchDebounced],
+    queryKey: ["cash-donations", page, fromDate, toDate, hasRemaining, donorSearchDebounced, sort],
     queryFn: async () => {
       const params = new URLSearchParams({ page: page.toString(), limit: "20" });
       if (fromDate) params.set("from", fromDate);
       if (toDate) params.set("to", toDate);
       if (hasRemaining) params.set("hasRemaining", "true");
       if (donorSearchDebounced) params.set("donorName", donorSearchDebounced);
+      if (sort.key && sort.dir) {
+        params.set("sortBy", sort.key);
+        params.set("sortDir", sort.dir);
+      }
       const res = await fetch(`/api/donations/cash?${params}`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
@@ -75,22 +79,6 @@ export default function CashDonationsPage() {
     });
   };
 
-  const sortedDonations = useMemo(() => {
-    const donations = data?.donations || [];
-    if (!sort.key || !sort.dir) return donations;
-    return [...donations].sort((a, b) => {
-      let aVal: any, bVal: any;
-      if (sort.key === "donor") { aVal = a.donor.fullName; bVal = b.donor.fullName; }
-      else if (sort.key === "amount") { aVal = Number(a.amount); bVal = Number(b.amount); }
-      else if (sort.key === "receivedDate") { aVal = new Date(a.receivedDate).getTime(); bVal = new Date(b.receivedDate).getTime(); }
-      else if (sort.key === "remaining") {
-        aVal = Number(a.amount) - Number(a.usedAmount || 0);
-        bVal = Number(b.amount) - Number(b.usedAmount || 0);
-      }
-      if (typeof aVal === "string") return sort.dir === "asc" ? aVal.localeCompare(bVal, "vi") : bVal.localeCompare(aVal, "vi");
-      return sort.dir === "asc" ? aVal - bVal : bVal - aVal;
-    });
-  }, [data?.donations, sort]);
 
   const hasFilter = fromDate || toDate || hasRemaining || donorSearch;
 
@@ -222,14 +210,14 @@ export default function CashDonationsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedDonations.length === 0 ? (
+                    {data?.donations.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           Không có dữ liệu
                         </TableCell>
                       </TableRow>
                     ) : (
-                      sortedDonations.map((donation: any) => {
+                      data?.donations.map((donation: any) => {
                         const amount = Number(donation.amount);
                         const used = Number(donation.usedAmount || 0);
                         const remaining = amount - used;

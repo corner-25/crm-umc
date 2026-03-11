@@ -17,6 +17,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || "";
     const type = searchParams.get("type") || "";
     const tier = searchParams.get("tier") || "";
+    const sortBy = searchParams.get("sortBy") || "";
+    const sortDir = searchParams.get("sortDir") === "asc" ? "ASC" : "DESC";
 
     const skip = (page - 1) * limit;
 
@@ -73,14 +75,15 @@ export async function GET(request: NextRequest) {
         ${type ? Prisma.sql`AND d.type = ${type}::"DonorType"` : Prisma.empty}
         ${tier ? Prisma.sql`AND d.tier = ${tier}::"DonorTier"` : Prisma.empty}
         ORDER BY
-          CASE d.tier
-            WHEN 'VIP' THEN 1
-            WHEN 'REGULAR' THEN 2
-            WHEN 'NEW' THEN 3
-            WHEN 'POTENTIAL' THEN 4
-          END,
-          total_donations DESC,
-          d."createdAt" DESC
+          ${sortBy === "fullName" ? (sortDir === "ASC" ? Prisma.sql`d."fullName" ASC` : Prisma.sql`d."fullName" DESC`) :
+            sortBy === "type" ? (sortDir === "ASC" ? Prisma.sql`d.type ASC` : Prisma.sql`d.type DESC`) :
+            sortBy === "donations" ? (sortDir === "ASC" ? Prisma.sql`total_donations ASC` : Prisma.sql`total_donations DESC`) :
+            Prisma.sql`CASE d.tier
+              WHEN 'VIP' THEN 1
+              WHEN 'REGULAR' THEN 2
+              WHEN 'NEW' THEN 3
+              WHEN 'POTENTIAL' THEN 4
+            END, total_donations DESC, d."createdAt" DESC`}
         LIMIT ${limit} OFFSET ${skip}
       `,
       prisma.donor.count({ where }),

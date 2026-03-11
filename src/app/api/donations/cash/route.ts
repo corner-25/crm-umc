@@ -18,6 +18,8 @@ export async function GET(request: NextRequest) {
     const fromDate = searchParams.get("from");
     const toDate = searchParams.get("to");
     const hasRemaining = searchParams.get("hasRemaining"); // "true" = chưa sử dụng hết
+    const sortBy = searchParams.get("sortBy") || "";
+    const sortDir = (searchParams.get("sortDir") === "asc" ? "asc" : "desc") as "asc" | "desc";
 
     const skip = (page - 1) * limit;
 
@@ -65,12 +67,18 @@ export async function GET(request: NextRequest) {
 
       const whereClause = whereConditions.join(" AND ");
 
+      const orderClause =
+        sortBy === "amount" ? `dc.amount ${sortDir === "asc" ? "ASC" : "DESC"}` :
+        sortBy === "donor" ? `d."fullName" ${sortDir === "asc" ? "ASC" : "DESC"}` :
+        sortBy === "remaining" ? `(dc.amount - dc."usedAmount") ${sortDir === "asc" ? "ASC" : "DESC"}` :
+        `dc."receivedDate" DESC`;
+
       const [donations, countResult] = await Promise.all([
         prisma.$queryRawUnsafe<any[]>(
           `SELECT dc.*, row_to_json(d) as donor FROM donation_cash dc
            JOIN donors d ON d.id = dc."donorId"
            WHERE ${whereClause}
-           ORDER BY dc."receivedDate" DESC
+           ORDER BY ${orderClause}
            LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
           ...queryParams, limit, skip
         ),
@@ -102,7 +110,10 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        orderBy: { receivedDate: "desc" },
+        orderBy: sortBy === "amount" ? { amount: sortDir } :
+                 sortBy === "receivedDate" ? { receivedDate: sortDir } :
+                 sortBy === "donor" ? { donor: { fullName: sortDir } } :
+                 { receivedDate: "desc" },
       }),
       prisma.donationCash.count({ where }),
     ]);

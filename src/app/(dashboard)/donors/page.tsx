@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,7 +70,7 @@ export default function DonorsPage() {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ["donors", page, search, typeFilter, tierFilter],
+    queryKey: ["donors", page, search, typeFilter, tierFilter, sort],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -78,29 +78,13 @@ export default function DonorsPage() {
         ...(search && { search }),
         ...(typeFilter && typeFilter !== "ALL" && { type: typeFilter }),
         ...(tierFilter && tierFilter !== "ALL" && { tier: tierFilter }),
+        ...(sort.key && sort.dir ? { sortBy: sort.key, sortDir: sort.dir } : {}),
       });
       const res = await fetch(`/api/donors?${params}`);
       if (!res.ok) throw new Error("Failed to fetch donors");
       return res.json();
     },
   });
-
-  const sortedDonors = useMemo(() => {
-    const donors = data?.donors || [];
-    if (!sort.key || !sort.dir) return donors;
-    return [...donors].sort((a, b) => {
-      let aVal: any, bVal: any;
-      if (sort.key === "fullName") { aVal = a.fullName; bVal = b.fullName; }
-      else if (sort.key === "type") { aVal = a.type; bVal = b.type; }
-      else if (sort.key === "tier") { aVal = a.tier; bVal = b.tier; }
-      else if (sort.key === "donations") {
-        aVal = a._count.cashDonations + a._count.inKindDonations + a._count.volunteerDonations;
-        bVal = b._count.cashDonations + b._count.inKindDonations + b._count.volunteerDonations;
-      }
-      if (typeof aVal === "string") return sort.dir === "asc" ? aVal.localeCompare(bVal, "vi") : bVal.localeCompare(aVal, "vi");
-      return sort.dir === "asc" ? aVal - bVal : bVal - aVal;
-    });
-  }, [data?.donors, sort]);
 
   return (
     <div className="space-y-6">
@@ -202,14 +186,14 @@ export default function DonorsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedDonors.length === 0 ? (
+                    {data?.donors.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center">
                           Không có dữ liệu
                         </TableCell>
                       </TableRow>
                     ) : (
-                      sortedDonors.map((donor: any) => (
+                      data?.donors.map((donor: any) => (
                         <TableRow key={donor.id}>
                           <TableCell className="font-medium">
                             {donor.fullName}
