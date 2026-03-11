@@ -310,8 +310,6 @@ export default function DashboardPage() {
                   style={{ fontSize: "12px" }}
                 />
                 <Tooltip
-                  formatter={(value: any, name: string) => [formatCurrency(value), name]}
-                  labelStyle={{ color: "#000" }}
                   content={({ active, payload, label }) => {
                     if (!active || !payload?.length) return null;
                     const total = payload.reduce((sum: number, p: any) => sum + (Number(p.value) || 0), 0);
