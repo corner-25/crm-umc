@@ -113,8 +113,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // Kiểm tra trùng lắp tên hoặc SĐT
-    if (!body.isAnonymous) {
+    // Kiểm tra trùng lắp tên hoặc SĐT (bỏ qua nếu force=true)
+    if (!body.isAnonymous && !body.force) {
       const duplicateWhere: any[] = [];
       if (body.fullName) duplicateWhere.push({ fullName: { equals: body.fullName, mode: "insensitive" } });
       if (body.phone) duplicateWhere.push({ phone: body.phone });

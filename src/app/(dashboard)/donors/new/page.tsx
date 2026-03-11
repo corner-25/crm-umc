@@ -25,11 +25,11 @@ export default function NewDonorPage() {
   const [pendingValues, setPendingValues] = useState<DonorFormValues | null>(null);
 
   const createMutation = useMutation({
-    mutationFn: async (values: DonorFormValues) => {
+    mutationFn: async ({ values, force = false }: { values: DonorFormValues; force?: boolean }) => {
       const res = await fetch("/api/donors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({ ...values, force }),
       });
 
       if (res.status === 409) {
@@ -54,7 +54,6 @@ export default function NewDonorPage() {
     onError: (error: any) => {
       if (error.message === "DUPLICATE" && error.duplicate) {
         setDuplicateInfo(error.duplicate);
-        setPendingValues(null);
         return;
       }
       toast({
@@ -68,7 +67,13 @@ export default function NewDonorPage() {
 
   const handleSubmit = (values: DonorFormValues) => {
     setPendingValues(values);
-    createMutation.mutate(values);
+    createMutation.mutate({ values });
+  };
+
+  const handleForceCreate = () => {
+    if (!pendingValues) return;
+    setDuplicateInfo(null);
+    createMutation.mutate({ values: pendingValues, force: true });
   };
 
   return (
@@ -97,19 +102,28 @@ export default function NewDonorPage() {
 
       {/* Popup cảnh báo trùng lắp */}
       <AlertDialog open={!!duplicateInfo} onOpenChange={() => setDuplicateInfo(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>Phát hiện trùng lắp!</AlertDialogTitle>
             <AlertDialogDescription>
               Đã tồn tại nhà tài trợ <strong>{duplicateInfo?.fullName}</strong>
               {duplicateInfo?.phone && ` (SĐT: ${duplicateInfo.phone})`} trong hệ thống.
-              Bạn có muốn xem hồ sơ đó không?
+              Bạn muốn xem hồ sơ đó hay vẫn tiếp tục thêm mới?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Tiếp tục nhập mới</AlertDialogCancel>
-            <AlertDialogAction onClick={() => router.push(`/donors/${duplicateInfo?.id}`)}>
+            <AlertDialogCancel>Huỷ</AlertDialogCancel>
+            <AlertDialogAction
+              className="border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={() => router.push(`/donors/${duplicateInfo?.id}`)}
+            >
               Xem hồ sơ trùng
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={handleForceCreate}
+              disabled={createMutation.isPending}
+            >
+              {createMutation.isPending ? "Đang lưu..." : "Vẫn thêm mới"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

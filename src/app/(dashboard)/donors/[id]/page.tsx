@@ -19,7 +19,7 @@ import { Edit, Trash2, ArrowLeft, Phone, Mail, MapPin, Briefcase, Calendar, Plus
 import Link from "next/link";
 import { donorTypeLabels, donorTierLabels, donorTierColors } from "@/types/donor";
 import { DonorType, DonorTier } from "@prisma/client";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { format, isWithinInterval, addDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -390,21 +390,35 @@ export default function DonorDetailPage() {
                     <TableHead>Mô tả</TableHead>
                     <TableHead>Ngày</TableHead>
                     <TableHead className="text-right">Giá trị</TableHead>
+                    <TableHead>Tình trạng</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {donor.cashDonations?.map((donation: any) => (
-                    <TableRow key={`cash-${donation.id}`}>
-                      <TableCell>
-                        <Badge>Tiền mặt</Badge>
-                      </TableCell>
-                      <TableCell>{donation.purpose}</TableCell>
-                      <TableCell>{formatDate(donation.receivedDate)}</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(donation.amount.toString(), donation.currency)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {donor.cashDonations?.map((donation: any) => {
+                    const amount = Number(donation.amount);
+                    const used = Number(donation.usedAmount || 0);
+                    return (
+                      <TableRow key={`cash-${donation.id}`}>
+                        <TableCell>
+                          <Badge>Tiền mặt</Badge>
+                        </TableCell>
+                        <TableCell>{donation.purpose}</TableCell>
+                        <TableCell>{formatDate(donation.receivedDate)}</TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(donation.amount.toString(), donation.currency)}
+                        </TableCell>
+                        <TableCell>
+                          {used <= 0 ? (
+                            <Badge variant="outline" className="whitespace-nowrap">Đã nhận</Badge>
+                          ) : used < amount ? (
+                            <Badge variant="outline" className="border-amber-400 text-amber-700 whitespace-nowrap">Dùng một phần</Badge>
+                          ) : (
+                            <Badge variant="outline" className="border-green-500 text-green-700 whitespace-nowrap">Đã dùng hết</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {donor.inKindDonations?.map((donation: any) => (
                     <TableRow key={`inkind-${donation.id}`}>
                       <TableCell>
@@ -416,6 +430,17 @@ export default function DonorDetailPage() {
                       <TableCell>{formatDate(donation.createdAt)}</TableCell>
                       <TableCell className="text-right">
                         {formatCurrency(donation.estimatedValue.toString())}
+                      </TableCell>
+                      <TableCell>
+                        {donation.distributionStatus === "PENDING" && (
+                          <Badge variant="outline" className="whitespace-nowrap">Chờ nhận</Badge>
+                        )}
+                        {donation.distributionStatus === "RECEIVED" && (
+                          <Badge variant="outline" className="border-amber-400 text-amber-700 whitespace-nowrap">Đã nhận</Badge>
+                        )}
+                        {donation.distributionStatus === "DISTRIBUTED" && (
+                          <Badge variant="outline" className="border-green-500 text-green-700 whitespace-nowrap">Đã phân phối</Badge>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -431,11 +456,14 @@ export default function DonorDetailPage() {
                       <TableCell className="text-right">
                         {formatCurrency(donation.totalValue.toString())}
                       </TableCell>
+                      <TableCell>
+                        <span className="text-muted-foreground text-sm">—</span>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {totalDonations === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center">
+                      <TableCell colSpan={5} className="text-center">
                         Chưa có khoản tài trợ nào
                       </TableCell>
                     </TableRow>

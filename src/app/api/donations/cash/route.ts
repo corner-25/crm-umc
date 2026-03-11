@@ -129,6 +129,35 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
+    // Kiểm tra trùng lắp: cùng nhà tài trợ + cùng số tiền (bỏ qua nếu force=true)
+    if (!body.force && body.donorId && body.amount) {
+      const existing = await prisma.donationCash.findFirst({
+        where: {
+          deletedAt: null,
+          donorId: body.donorId,
+          amount: body.amount,
+        },
+        include: {
+          donor: { select: { fullName: true } },
+        },
+      });
+      if (existing) {
+        return NextResponse.json(
+          {
+            error: "DUPLICATE",
+            duplicate: {
+              id: existing.id,
+              donorName: existing.donor.fullName,
+              amount: Number(existing.amount),
+              currency: existing.currency,
+              receivedDate: existing.receivedDate,
+            },
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     // Tính lại usedAmount từ usageItems
     const usageItems = Array.isArray(body.usageItems) ? body.usageItems : [];
     const usedAmount = usageItems.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
