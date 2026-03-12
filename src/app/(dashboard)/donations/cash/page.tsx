@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit, Trash2, FilterX, Zap, Search } from "lucide-react";
+import { Plus, Edit, Trash2, FilterX, Zap, Search, Download } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { donationStatusLabels, paymentMethodLabels } from "@/lib/validations/donation";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import * as XLSX from "xlsx";
 
 export default function CashDonationsPage() {
   const [page, setPage] = useState(1);
@@ -80,6 +81,42 @@ export default function CashDonationsPage() {
   };
 
 
+  const handleExportExcel = async () => {
+    // Fetch all data (no pagination limit)
+    const params = new URLSearchParams({ page: "1", limit: "9999" });
+    if (fromDate) params.set("from", fromDate);
+    if (toDate) params.set("to", toDate);
+    if (hasRemaining) params.set("hasRemaining", "true");
+    if (donorSearchDebounced) params.set("donorName", donorSearchDebounced);
+    if (sort.key && sort.dir) {
+      params.set("sortBy", sort.key);
+      params.set("sortDir", sort.dir);
+    }
+    const res = await fetch(`/api/donations/cash?${params}`);
+    const result = await res.json();
+    const rows = result.donations.map((d: any, i: number) => {
+      const amount = Number(d.amount);
+      const used = Number(d.usedAmount || 0);
+      const remaining = amount - used;
+      const status = used <= 0 ? "Đã nhận" : used < amount ? "Dùng một phần" : "Đã dùng hết";
+      return {
+        "STT": i + 1,
+        "Nhà tài trợ": d.donor?.fullName || "",
+        "Mục đích": d.purpose || "",
+        "Số tiền": amount,
+        "Tiền tệ": d.currency || "VND",
+        "Đã sử dụng": used,
+        "Còn lại": remaining,
+        "Ngày nhận": d.receivedDate ? new Date(d.receivedDate).toLocaleDateString("vi-VN") : "",
+        "Trạng thái": status,
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Tài trợ tiền mặt");
+    XLSX.writeFile(wb, `tai-tro-tien-mat-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   const hasFilter = fromDate || toDate || hasRemaining || donorSearch;
 
   const clearFilters = () => {
@@ -98,6 +135,10 @@ export default function CashDonationsPage() {
           <p className="text-muted-foreground">Quản lý các khoản tài trợ tiền mặt, chuyển khoản</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportExcel}>
+            <Download className="mr-2 h-4 w-4" />
+            Xuất Excel
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/donations/cash/quick">
               <Zap className="mr-2 h-4 w-4 text-amber-500" />

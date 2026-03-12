@@ -95,34 +95,63 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const [donations, total] = await Promise.all([
-      prisma.donationCash.findMany({
-        where,
-        skip,
-        take: limit,
-        include: {
-          donor: {
-            select: {
-              id: true,
-              fullName: true,
-              email: true,
-              phone: true,
-            },
-          },
-        },
-        orderBy: sortBy === "amount" ? { amount: sortDir } :
-                 sortBy === "receivedDate" ? { receivedDate: sortDir } :
-                 sortBy === "donor" ? { donor: { fullName: sortDir } } :
-                 { receivedDate: "desc" },
-      }),
-      prisma.donationCash.count({ where }),
+    // Use raw query to support sorting by computed "remaining" column
+    const whereConditions: string[] = [`dc."deletedAt" IS NULL`];
+    const queryParams: any[] = [];
+    let paramIdx = 1;
+
+    if (donorId) {
+      whereConditions.push(`dc."donorId" = $${paramIdx++}`);
+      queryParams.push(donorId);
+    }
+    if (donorName) {
+      whereConditions.push(`d."fullName" ILIKE $${paramIdx++}`);
+      queryParams.push(`%${donorName}%`);
+    }
+    if (fromDate) {
+      whereConditions.push(`dc."receivedDate" >= $${paramIdx++}`);
+      queryParams.push(new Date(fromDate));
+    }
+    if (toDate) {
+      const to = new Date(toDate);
+      to.setHours(23, 59, 59, 999);
+      whereConditions.push(`dc."receivedDate" <= $${paramIdx++}`);
+      queryParams.push(to);
+    }
+
+    const whereClause = whereConditions.join(" AND ");
+
+    const orderClause =
+      sortBy === "amount" ? `dc.amount ${sortDir === "asc" ? "ASC" : "DESC"}` :
+      sortBy === "donor" ? `d."fullName" ${sortDir === "asc" ? "ASC" : "DESC"}` :
+      sortBy === "remaining" ? `(dc.amount - dc."usedAmount") ${sortDir === "asc" ? "ASC" : "DESC"}` :
+      sortBy === "receivedDate" ? `dc."receivedDate" ${sortDir === "asc" ? "ASC" : "DESC"}` :
+      `dc."receivedDate" DESC`;
+
+    const [donations, countResult] = await Promise.all([
+      prisma.$queryRawUnsafe<any[]>(
+        `SELECT dc.*, row_to_json(d) as donor FROM donation_cash dc
+         JOIN donors d ON d.id = dc."donorId"
+         WHERE ${whereClause}
+         ORDER BY ${orderClause}
+         LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+        ...queryParams, limit, skip
+      ),
+      prisma.$queryRawUnsafe<[{ count: bigint }]>(
+        `SELECT COUNT(*) as count FROM donation_cash dc
+         JOIN donors d ON d.id = dc."donorId"
+         WHERE ${whereClause}`,
+        ...queryParams
+      ),
     ]);
+
+    const total = Number(countResult[0].count);
 
     return NextResponse.json({
       donations,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching cash donations:", error);
     return NextResponse.json(
       { error: "Internal server error" },
