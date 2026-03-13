@@ -143,7 +143,10 @@ export default function ReportsPage() {
       };
     }
 
-    // === Ưu tiên 2 & 3 ===
+    // === Logic chính ===
+    // Khoản nguyên (chưa dùng gì): chỉ lấy FULL, không bao giờ xé lẻ
+    // Khoản tồn đọng (đang dùng dở): lấy một phần nếu cần, dùng để lấp đầy khi khoản nguyên không vừa
+
     const partial = avails
       .filter((d) => d._isPartial)
       .sort((a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
@@ -152,68 +155,48 @@ export default function ReportsPage() {
       .filter((d) => !d._isPartial)
       .sort((a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
 
-    // Giai đoạn 1: dùng hết tất cả khoản tồn đọng (lấy toàn bộ avail)
     let accumulated = 0;
     const selected: any[] = [];
     const usedIds = new Set<string>();
 
-    for (const d of partial) {
+    // Vòng lặp: lần lượt lấy khoản nguyên full, nếu không đủ thì tìm tồn đọng lấp vào
+    // Cứ lặp cho đến khi đủ tiền hoặc hết pool
+    let changed = true;
+    while (accumulated < target && changed) {
+      changed = false;
+      const need = target - accumulated;
+
+      // Bước A: lấy tất cả khoản nguyên có avail <= need (lấy full, cũ nhất trước)
+      for (const d of unused) {
+        if (usedIds.has(d.id)) continue;
+        if (accumulated >= target) break;
+        if (d._avail <= target - accumulated) {
+          accumulated += d._avail;
+          selected.push({ ...d, _take: d._avail });
+          usedIds.add(d.id);
+          changed = true;
+        }
+      }
+
       if (accumulated >= target) break;
-      const take = Math.min(d._avail, target - accumulated);
-      accumulated += take;
-      selected.push({ ...d, _take: take });
-      usedIds.add(d.id);
-    }
 
-    // Giai đoạn 2: nếu chưa đủ, dùng khoản nguyên — nhưng chỉ lấy FULL (không xé lẻ)
-    // Nếu khoản nguyên phải xé lẻ → bỏ qua, tiếp tục tìm khoản nguyên khác vừa khít hơn
-    // Sau khi duyệt hết khoản nguyên full, nếu vẫn còn thiếu → mới xé lẻ khoản nguyên cuối cùng
-    const remaining_needed = () => target - accumulated;
-
-    // Ưu tiên khoản nguyên lấy full (avail <= phần còn thiếu), cũ nhất trước
-    const unusedFull = unused.filter((d) => d._avail <= remaining_needed());
-    for (const d of unusedFull) {
-      if (accumulated >= target) break;
-      accumulated += d._avail;
-      selected.push({ ...d, _take: d._avail });
-      usedIds.add(d.id);
-    }
-
-    // Nếu vẫn chưa đủ sau khi dùng hết khoản nguyên vừa khít:
-    // → Tìm thêm khoản tồn đọng còn sót (chưa dùng ở giai đoạn 1 vì đã đủ target lúc đó)
-    // (thực ra partial đã dùng hết ở giai đoạn 1, nên đây là fallback xé lẻ khoản nguyên)
-    if (accumulated < target) {
-      // Thử tìm khoản tồn đọng chưa được chọn (nếu có — trường hợp giai đoạn 1 dừng sớm)
-      const remainingPartial = partial.filter((d) => !usedIds.has(d.id));
-      for (const d of remainingPartial) {
+      // Bước B: không còn khoản nguyên nào vừa khít nữa
+      // → dùng khoản tồn đọng để lấp phần còn thiếu (lấy một phần nếu cần)
+      const needNow = target - accumulated;
+      let filledByPartial = false;
+      for (const d of partial) {
+        if (usedIds.has(d.id)) continue;
         if (accumulated >= target) break;
         const take = Math.min(d._avail, target - accumulated);
         accumulated += take;
         selected.push({ ...d, _take: take });
         usedIds.add(d.id);
+        changed = true;
+        filledByPartial = true;
       }
 
-      // Nếu vẫn thiếu → buộc phải xé lẻ một khoản nguyên (chọn khoản nhỏ nhất đủ lấp)
-      if (accumulated < target) {
-        const need = target - accumulated;
-        const unusedRemaining = unused.filter((d) => !usedIds.has(d.id));
-        // Ưu tiên khoản nguyên nhỏ nhất mà avail >= need (để xé ít nhất)
-        const bestPartialUnused = unusedRemaining
-          .filter((d) => d._avail >= need)
-          .sort((a, b) => a._avail - b._avail)[0]; // nhỏ nhất đủ lấp
-        if (bestPartialUnused) {
-          accumulated += need;
-          selected.push({ ...bestPartialUnused, _take: need });
-        } else {
-          // Không tìm được khoản đủ → lấy tất cả còn lại
-          for (const d of unusedRemaining) {
-            if (accumulated >= target) break;
-            const take = Math.min(d._avail, target - accumulated);
-            accumulated += take;
-            selected.push({ ...d, _take: take });
-          }
-        }
-      }
+      // Nếu đã dùng hết tồn đọng mà vẫn chưa đủ → không còn gì để lấp, thoát
+      if (!filledByPartial && needNow === target - accumulated) break;
     }
 
     const totalAvail = avails.reduce((s, d) => s + d._avail, 0);
