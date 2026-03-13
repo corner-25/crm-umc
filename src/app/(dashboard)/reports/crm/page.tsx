@@ -125,13 +125,11 @@ export default function ReportsPage() {
       _isPartial: Number(d.usedAmount || 0) > 0,
     }));
 
-    // === Ưu tiên 1: Khoản khít đúng target (chọn khoản có avail <= target và gần target nhất) ===
-    const exactOrLess = avails
-      .filter((d) => d._avail <= target)
-      .sort((a, b) => b._avail - a._avail); // lớn nhất trước (gần target nhất)
-
-    // Thử dùng một khoản khít (avail === target)
-    const exactMatch = avails.find((d) => d._avail === target);
+    // === Ưu tiên 1: Khoản khít đúng target ===
+    // Ưu tiên khoản nguyên (chưa dùng gì) trước, sau đó mới tồn đọng
+    const exactUnused = avails.find((d) => d._avail === target && !d._isPartial);
+    const exactPartial = avails.find((d) => d._avail === target && d._isPartial);
+    const exactMatch = exactUnused || exactPartial;
     if (exactMatch) {
       return {
         selected: [{ ...exactMatch, _take: exactMatch._avail }],
