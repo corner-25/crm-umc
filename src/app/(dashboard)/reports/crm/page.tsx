@@ -10,17 +10,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format, differenceInDays } from "date-fns";
-import { FileSpreadsheet, TrendingDown, BarChart3, Wallet, AlertCircle, CheckCircle2 } from "lucide-react";
+import { FileSpreadsheet, TrendingDown, BarChart3, Wallet, AlertCircle, CheckCircle2, Eye } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { CASH_PURPOSES } from "@/lib/validations/donation";
 import * as XLSX from "xlsx";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import Link from "next/link";
 
 type ReportType = "overview" | "yearly" | "pending";
+
+type DrilldownGroup = { label: string; items: any[] } | null;
 
 export default function ReportsPage() {
   const [reportType, setReportType] = useState<ReportType>("overview");
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+
+  const [drilldown, setDrilldown] = useState<DrilldownGroup>(null);
 
   // Lập kế hoạch huy động
   const [targetAmount, setTargetAmount] = useState<string>("");
@@ -354,6 +360,7 @@ export default function ReportsPage() {
                             <TableHead className="text-right">Đã dùng</TableHead>
                             <TableHead className="text-right">Còn lại</TableHead>
                             <TableHead className="text-right">% SD</TableHead>
+                            <TableHead className="w-10"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -368,6 +375,17 @@ export default function ReportsPage() {
                                 <Badge variant={v.total > 0 && v.used / v.total >= 0.9 ? "default" : "secondary"}>
                                   {v.total > 0 ? `${((v.used / v.total) * 100).toFixed(1)}%` : "0%"}
                                 </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost" size="icon" className="h-7 w-7"
+                                  onClick={() => setDrilldown({
+                                    label: `Mục đích: ${p}`,
+                                    items: allCash.filter((d) => (d.purposeOther || d.purpose || "Không rõ") === p),
+                                  })}
+                                >
+                                  <Eye className="h-4 w-4 text-muted-foreground" />
+                                </Button>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -386,6 +404,7 @@ export default function ReportsPage() {
                             <TableHead className="text-right">Tổng tiền</TableHead>
                             <TableHead className="text-right">Còn lại</TableHead>
                             <TableHead className="text-right">% SD</TableHead>
+                            <TableHead className="w-10"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -399,6 +418,17 @@ export default function ReportsPage() {
                                 <Badge variant="outline">
                                   {v.total > 0 ? `${((v.used / v.total) * 100).toFixed(1)}%` : "0%"}
                                 </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost" size="icon" className="h-7 w-7"
+                                  onClick={() => setDrilldown({
+                                    label: `Người giữ: ${c}`,
+                                    items: allCash.filter((d) => (d.custodian || "Không rõ") === c),
+                                  })}
+                                >
+                                  <Eye className="h-4 w-4 text-muted-foreground" />
+                                </Button>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -675,6 +705,61 @@ export default function ReportsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Drilldown sheet */}
+      <Sheet open={!!drilldown} onOpenChange={() => setDrilldown(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{drilldown?.label} ({drilldown?.items.length} khoản)</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nhà tài trợ</TableHead>
+                  <TableHead>Ngày nhận</TableHead>
+                  <TableHead>Mục đích</TableHead>
+                  <TableHead>Người giữ</TableHead>
+                  <TableHead className="text-right">Số tiền</TableHead>
+                  <TableHead className="text-right">Còn lại</TableHead>
+                  <TableHead className="text-right">% SD</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {drilldown?.items.map((d) => {
+                  const amt = Number(d.amount);
+                  const used = Number(d.usedAmount || 0);
+                  const remaining = amt - used;
+                  return (
+                    <TableRow key={d.id}>
+                      <TableCell>
+                        <Link href={`/donors/${d.donor?.id || d.donorId}`} className="font-medium hover:underline" onClick={() => setDrilldown(null)}>
+                          {d.donor?.fullName || "—"}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{formatDate(d.receivedDate)}</TableCell>
+                      <TableCell className="text-sm max-w-[150px] truncate">{d.purposeOther || d.purpose || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{d.custodian || "—"}</TableCell>
+                      <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(amt.toString())}</TableCell>
+                      <TableCell className={`text-right whitespace-nowrap ${remaining > 0 ? "text-orange-600 font-medium" : "text-muted-foreground"}`}>
+                        {remaining > 0 ? formatCurrency(remaining.toString()) : "—"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={amt > 0 && used / amt >= 0.9 ? "default" : used > 0 ? "secondary" : "outline"} className="text-xs">
+                          {amt > 0 ? `${((used / amt) * 100).toFixed(0)}%` : "0%"}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+            {drilldown?.items.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">Không có khoản nào</p>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
