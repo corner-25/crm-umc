@@ -110,7 +110,7 @@ export default function ReportsPage() {
     const target = parseFloat(targetAmount.replace(/[^\d.]/g, "")) * 1_000_000;
     if (!target || target <= 0) return null;
 
-    // Lọc theo mục đích nếu có
+    // Lọc pool
     let pool = allCash.filter((d) => Number(d.usedAmount || 0) < Number(d.amount));
     if (targetPurpose && targetPurpose !== "all") {
       pool = pool.filter((d) => (d.purposeOther || d.purpose) === targetPurpose);
@@ -119,31 +119,63 @@ export default function ReportsPage() {
       pool = pool.filter((d) => (d.custodian || "Không rõ") === targetCustodian);
     }
 
-    // Nhóm 1: chưa dùng gì (usedAmount = 0), cũ nhất trước
-    const unused = pool
-      .filter((d) => Number(d.usedAmount || 0) === 0)
+    const avails = pool.map((d) => ({
+      ...d,
+      _avail: Number(d.amount) - Number(d.usedAmount || 0),
+      _isPartial: Number(d.usedAmount || 0) > 0,
+    }));
+
+    // === Ưu tiên 1: Khoản khít đúng target (chọn khoản có avail <= target và gần target nhất) ===
+    const exactOrLess = avails
+      .filter((d) => d._avail <= target)
+      .sort((a, b) => b._avail - a._avail); // lớn nhất trước (gần target nhất)
+
+    // Thử dùng một khoản khít (avail === target)
+    const exactMatch = avails.find((d) => d._avail === target);
+    if (exactMatch) {
+      return {
+        selected: [{ ...exactMatch, _take: exactMatch._avail }],
+        accumulated: exactMatch._avail,
+        target,
+        shortage: 0,
+        totalAvail: avails.reduce((s, d) => s + d._avail, 0),
+        strategy: "exact",
+      };
+    }
+
+    // === Ưu tiên 2 & 3: Tồn đọng (đang dùng dở) trước, rồi mới phá khoản nguyên ===
+    // Lý do: nếu phải dùng khoản nguyên để lấp đầy => khoản đó thành tồn đọng
+    // => ưu tiên dọn sạch tồn đọng cũ trước
+    const partial = avails
+      .filter((d) => d._isPartial)
       .sort((a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
 
-    // Nhóm 2: đang dùng dở, cũ nhất trước
-    const partial = pool
-      .filter((d) => Number(d.usedAmount || 0) > 0)
+    const unused = avails
+      .filter((d) => !d._isPartial)
       .sort((a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
 
-    const sorted = [...unused, ...partial];
+    // Giai đoạn 1: dùng hết tất cả khoản tồn đọng trước
     let accumulated = 0;
     const selected: any[] = [];
 
-    for (const d of sorted) {
+    for (const d of partial) {
       if (accumulated >= target) break;
-      const avail = Number(d.amount) - Number(d.usedAmount || 0);
-      const take = Math.min(avail, target - accumulated);
+      const take = Math.min(d._avail, target - accumulated);
       accumulated += take;
-      selected.push({ ...d, _take: take, _avail: avail, _isPartial: take < avail });
+      selected.push({ ...d, _take: take });
     }
 
-    const totalAvail = pool.reduce((s, d) => s + Number(d.amount) - Number(d.usedAmount || 0), 0);
+    // Giai đoạn 2: nếu chưa đủ, dùng khoản chưa dùng gì (cũ nhất trước)
+    for (const d of unused) {
+      if (accumulated >= target) break;
+      const take = Math.min(d._avail, target - accumulated);
+      accumulated += take;
+      selected.push({ ...d, _take: take });
+    }
 
-    return { selected, accumulated, target, shortage: Math.max(0, target - accumulated), totalAvail };
+    const totalAvail = avails.reduce((s, d) => s + d._avail, 0);
+
+    return { selected, accumulated, target, shortage: Math.max(0, target - accumulated), totalAvail, strategy: "sequential" };
   }, [planGenerated, targetAmount, targetPurpose, targetCustodian, allCash]);
 
   // ===== XUẤT EXCEL =====
@@ -689,7 +721,7 @@ export default function ReportsPage() {
                   </TableBody>
                 </Table>
                 <p className="text-xs text-muted-foreground mt-3">
-                  * Ưu tiên khoản chưa sử dụng → đang sử dụng dở, sắp xếp theo ngày nhận cũ nhất trước
+                  * Thứ tự ưu tiên: (1) Khoản khít đúng số tiền cần → (2) Dọn hết các khoản tồn đọng (đang dùng dở) → (3) Dùng khoản chưa sử dụng, cũ nhất trước
                 </p>
               </CardContent>
             </Card>
