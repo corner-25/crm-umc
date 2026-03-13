@@ -15,7 +15,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { CASH_PURPOSES } from "@/lib/validations/donation";
 import * as XLSX from "xlsx";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Link from "next/link";
 
 type ReportType = "overview" | "yearly" | "pending";
@@ -706,60 +706,60 @@ export default function ReportsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Drilldown sheet */}
-      <Sheet open={!!drilldown} onOpenChange={() => setDrilldown(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{drilldown?.label} ({drilldown?.items.length} khoản)</SheetTitle>
-          </SheetHeader>
-          <div className="mt-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nhà tài trợ</TableHead>
-                  <TableHead>Ngày nhận</TableHead>
-                  <TableHead>Mục đích</TableHead>
-                  <TableHead>Người giữ</TableHead>
-                  <TableHead className="text-right">Số tiền</TableHead>
-                  <TableHead className="text-right">Còn lại</TableHead>
-                  <TableHead className="text-right">% SD</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {drilldown?.items.map((d) => {
-                  const amt = Number(d.amount);
-                  const used = Number(d.usedAmount || 0);
-                  const remaining = amt - used;
-                  return (
-                    <TableRow key={d.id}>
-                      <TableCell>
-                        <Link href={`/donors/${d.donor?.id || d.donorId}`} className="font-medium hover:underline" onClick={() => setDrilldown(null)}>
-                          {d.donor?.fullName || "—"}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-sm whitespace-nowrap">{formatDate(d.receivedDate)}</TableCell>
-                      <TableCell className="text-sm max-w-[150px] truncate">{d.purposeOther || d.purpose || "—"}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{d.custodian || "—"}</TableCell>
-                      <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(amt.toString())}</TableCell>
-                      <TableCell className={`text-right whitespace-nowrap ${remaining > 0 ? "text-orange-600 font-medium" : "text-muted-foreground"}`}>
-                        {remaining > 0 ? formatCurrency(remaining.toString()) : "—"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant={amt > 0 && used / amt >= 0.9 ? "default" : used > 0 ? "secondary" : "outline"} className="text-xs">
-                          {amt > 0 ? `${((used / amt) * 100).toFixed(0)}%` : "0%"}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-            {drilldown?.items.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">Không có khoản nào</p>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Drilldown dialog */}
+      <Dialog open={!!drilldown} onOpenChange={() => setDrilldown(null)}>
+        <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{drilldown?.label} — {drilldown?.items.length} khoản</DialogTitle>
+          </DialogHeader>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nhà tài trợ</TableHead>
+                <TableHead>Ngày nhận</TableHead>
+                <TableHead>Mục đích</TableHead>
+                <TableHead>Người giữ</TableHead>
+                <TableHead className="text-right">Số tiền</TableHead>
+                <TableHead className="text-right">Đã dùng</TableHead>
+                <TableHead className="text-right">Còn lại</TableHead>
+                <TableHead className="text-right">% SD</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {drilldown?.items.map((d) => {
+                const amt = Number(d.amount);
+                const used = Number(d.usedAmount || 0);
+                const remaining = amt - used;
+                return (
+                  <TableRow key={d.id}>
+                    <TableCell>
+                      <Link href={`/donors/${d.donor?.id || d.donorId}`} className="font-medium hover:underline" onClick={() => setDrilldown(null)}>
+                        {d.donor?.fullName || "—"}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-sm whitespace-nowrap">{formatDate(d.receivedDate)}</TableCell>
+                    <TableCell className="text-sm max-w-[180px] truncate">{d.purposeOther || d.purpose || "—"}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{d.custodian || "—"}</TableCell>
+                    <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(amt.toString())}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap text-muted-foreground">{used > 0 ? formatCurrency(used.toString()) : "—"}</TableCell>
+                    <TableCell className={`text-right whitespace-nowrap ${remaining > 0 ? "text-orange-600 font-medium" : "text-muted-foreground"}`}>
+                      {remaining > 0 ? formatCurrency(remaining.toString()) : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant={amt > 0 && used / amt >= 0.9 ? "default" : used > 0 ? "secondary" : "outline"} className="text-xs">
+                        {amt > 0 ? `${((used / amt) * 100).toFixed(0)}%` : "0%"}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+          {drilldown?.items.length === 0 && (
+            <p className="text-center text-muted-foreground py-8">Không có khoản nào</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
