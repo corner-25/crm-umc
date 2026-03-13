@@ -25,6 +25,7 @@ export default function ReportsPage() {
   // Lập kế hoạch huy động
   const [targetAmount, setTargetAmount] = useState<string>("");
   const [targetPurpose, setTargetPurpose] = useState<string>("");
+  const [targetCustodian, setTargetCustodian] = useState<string>("");
   const [planGenerated, setPlanGenerated] = useState(false);
 
   const { toast } = useToast();
@@ -68,7 +69,12 @@ export default function ReportsPage() {
       byCustodian[c].count += 1;
     });
 
-    return { total, used, remaining, byPurpose, byCustodian };
+    // Danh sách custodian duy nhất
+    const custodians = Array.from(
+      new Set(allCash.map((d) => d.custodian || "Không rõ").filter(Boolean))
+    ).sort();
+
+    return { total, used, remaining, byPurpose, byCustodian, custodians };
   }, [allCash]);
 
   // 2. Theo năm
@@ -103,6 +109,9 @@ export default function ReportsPage() {
     if (targetPurpose && targetPurpose !== "all") {
       pool = pool.filter((d) => (d.purposeOther || d.purpose) === targetPurpose);
     }
+    if (targetCustodian && targetCustodian !== "all") {
+      pool = pool.filter((d) => (d.custodian || "Không rõ") === targetCustodian);
+    }
 
     // Nhóm 1: chưa dùng gì (usedAmount = 0), cũ nhất trước
     const unused = pool
@@ -129,7 +138,7 @@ export default function ReportsPage() {
     const totalAvail = pool.reduce((s, d) => s + Number(d.amount) - Number(d.usedAmount || 0), 0);
 
     return { selected, accumulated, target, shortage: Math.max(0, target - accumulated), totalAvail };
-  }, [planGenerated, targetAmount, targetPurpose, allCash]);
+  }, [planGenerated, targetAmount, targetPurpose, targetCustodian, allCash]);
 
   // ===== XUẤT EXCEL =====
   const exportOverview = () => {
@@ -248,7 +257,8 @@ export default function ReportsPage() {
       const rows = [
         ["KẾ HOẠCH HUY ĐỘNG VỐN"],
         ["Ngày lập", format(new Date(), "dd/MM/yyyy HH:mm")],
-        ["Mục đích sử dụng", targetPurpose || "Tất cả"],
+        ["Mục đích sử dụng", targetPurpose && targetPurpose !== "all" ? targetPurpose : "Tất cả"],
+        ["Người giữ tiền", targetCustodian && targetCustodian !== "all" ? targetCustodian : "Tất cả"],
         ["Số tiền cần huy động", target],
         ["Số tiền có thể huy động", accumulated],
         shortage > 0 ? ["Còn thiếu", shortage] : ["Trạng thái", "ĐỦ TIỀN"],
@@ -535,7 +545,7 @@ export default function ReportsPage() {
               <p className="text-sm text-muted-foreground">Nhập số tiền cần huy động, hệ thống sẽ gợi ý các khoản theo thứ tự ưu tiên</p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium mb-1 block">Số tiền cần huy động (triệu VNĐ)</label>
                   <Input
@@ -555,6 +565,20 @@ export default function ReportsPage() {
                       <SelectItem value="all">Tất cả mục đích</SelectItem>
                       {CASH_PURPOSES.filter(p => p !== "Khác").map((p) => (
                         <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Lọc theo người giữ tiền (tuỳ chọn)</label>
+                  <Select value={targetCustodian} onValueChange={(v) => { setTargetCustodian(v); setPlanGenerated(false); }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tất cả nguồn" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả người giữ</SelectItem>
+                      {overviewData.custodians.map((c) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
