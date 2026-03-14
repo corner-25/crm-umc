@@ -28,13 +28,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const templateTypeLabels = {
+const templateTypeLabels: Record<string, string> = {
   THANK_YOU: "Cảm ơn",
   RECEIPT: "Biên nhận",
   BIRTHDAY: "Sinh nhật",
   ANNIVERSARY: "Kỷ niệm",
   REMINDER: "Nhắc nhở",
   NEWSLETTER: "Bản tin",
+  RECONNECT: "Kết nối lại",
+  REPORT: "Báo cáo",
+  OTHER: "Khác",
 };
 
 export default function EmailTemplatesPage() {

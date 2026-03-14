@@ -42,6 +42,7 @@ import {
 import { InteractionFormDialog, InteractionFormValues } from "@/components/interactions/interaction-form-dialog";
 import { InteractionTimeline } from "@/components/interactions/interaction-timeline";
 import { ExportPDFButton } from "@/components/reports/export-pdf-button";
+import { ThankYouLetterButton } from "@/components/donors/thank-you-letter-button";
 
 export default function DonorDetailPage() {
   const params = useParams();
@@ -193,6 +194,7 @@ export default function DonorDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <ThankYouLetterButton donor={donor} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">

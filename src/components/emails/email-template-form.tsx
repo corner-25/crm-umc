@@ -27,7 +27,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const emailTemplateSchema = z.object({
   name: z.string().min(1, "Tên mẫu email là bắt buộc"),
-  type: z.enum(["THANK_YOU", "RECEIPT", "BIRTHDAY", "ANNIVERSARY", "REMINDER", "NEWSLETTER"]),
+  type: z.enum(["THANK_YOU", "RECEIPT", "BIRTHDAY", "ANNIVERSARY", "REMINDER", "NEWSLETTER", "RECONNECT", "REPORT", "OTHER"]),
   subject: z.string().min(1, "Tiêu đề email là bắt buộc"),
   body: z.string().min(10, "Nội dung email phải có ít nhất 10 ký tự"),
   description: z.string().optional(),
@@ -37,11 +37,10 @@ export type EmailTemplateFormValues = z.infer<typeof emailTemplateSchema>;
 
 const templateTypeLabels = {
   THANK_YOU: "Cảm ơn",
-  RECEIPT: "Biên nhận",
   BIRTHDAY: "Sinh nhật",
-  ANNIVERSARY: "Kỷ niệm",
-  REMINDER: "Nhắc nhở",
-  NEWSLETTER: "Bản tin",
+  RECONNECT: "Kết nối lại",
+  REPORT: "Báo cáo",
+  OTHER: "Khác",
 };
 
 const availableVariables = [

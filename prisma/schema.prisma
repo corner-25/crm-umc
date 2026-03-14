@@ -414,6 +414,7 @@ enum TemplateType {
   THANK_YOU         // Cảm ơn
   BIRTHDAY          // Sinh nhật
   REPORT            // Báo cáo
+  RECONNECT         // Kết nối lại
   OTHER             // Khác
 }
 
