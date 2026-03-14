@@ -19,7 +19,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FileText, Printer } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
 
 interface ThankYouLetterButtonProps {
   donor: {
@@ -109,105 +108,81 @@ export function ThankYouLetterButton({ donor }: ThankYouLetterButtonProps) {
 
     const shortName = donor.fullName.split(" ").pop() || donor.fullName;
 
-    // Build letter body based on type
-    let body = "";
+    // Xưng hô ngắn (lấy tên cuối)
+    const pronoun = isCompany ? "Quý vị" : (donor.fullName.startsWith("Anh") || donor.fullName.startsWith("Chú") || donor.fullName.startsWith("Ông") ? "Anh/Ông" : "Chị");
+    const shortTitle = `${pronoun} ${shortName}`;
+
+    // Đoạn 3 — số tiền in nghiêng theo đúng file Word: "3.000.000 đồng (<i>Ba triệu đồng</i>)"
+    const amountHtml = `${amountFormatted} đồng (<i>${amountText}</i>)`;
+
+    // Build paragraphs as HTML strings (số tiền dùng <i>)
+    let paragraphs: string[];
     if (letterType === "first") {
-      body = `Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh chân thành cảm ơn sự đồng hành của ${salutation} trong công tác hỗ trợ người bệnh có hoàn cảnh khó khăn đang điều trị tại Bệnh viện.
-
-Trong rất nhiều sự lựa chọn, chân thành cảm ơn ${isCompany ? "Quý vị" : `${donor.fullName.includes("Anh") || donor.fullName.includes("Chú") ? "Anh/Chú" : "Chị"} ${shortName}`} đã tin tưởng, lựa chọn Bệnh viện chúng tôi để đồng hành. Sự ghi nhận của ${isCompany && donor.company ? `${donor.fullName} và ${donor.company}` : `${donor.fullName.split(" ").slice(-2).join(" ")}`} chính là nguồn động lực để đội ngũ Bác sĩ, Điều dưỡng, Nhân viên y tế Bệnh viện ngày càng phấn đấu hơn, hoàn thiện hơn, thực hiện tốt sứ mệnh chăm sóc sức khỏe cộng đồng.
-
-Ngày ${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}, Phòng Công tác xã hội đã tiếp nhận số tiền ${amountFormatted} đồng (${amountText}) từ ${isCompany ? "Quý vị" : `${donor.fullName.split(" ").slice(-2).join(" ")}`} và chuyển đến ${recipientCount} trường hợp người bệnh có hoàn cảnh khó khăn, mắc bệnh hiểm nghèo đang điều trị tại Bệnh viện. Sự hỗ trợ về vật chất và tinh thần của ${isCompany ? "Quý vị" : "Chị/Anh"} là lời cổ vũ vô cùng quý giá gửi đến gia đình người bệnh khó khăn, giúp họ có thêm niềm tin và động lực để tiếp tục vươn lên trong cuộc sống.${customNote ? "\n\n" + customNote : ""}
-
-Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh xin kính chúc ${salutation} sức khỏe, bình an và hạnh phúc. Rất mong ${isCompany ? "Quý vị" : `${donor.fullName.split(" ").slice(-2).join(" ")}`} sẽ tiếp tục chung tay cùng Bệnh viện trong những hoạt động hỗ trợ người bệnh khác.`;
+      paragraphs = [
+        `Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh chân thành cảm ơn sự đồng hành của ${salutation} trong công tác hỗ trợ người bệnh có hoàn cảnh khó khăn đang điều trị tại Bệnh viện.`,
+        `Trong rất nhiều sự lựa chọn, chân thành cảm ơn ${shortTitle} đã tin tưởng, lựa chọn Bệnh viện chúng tôi để đồng hành. Sự ghi nhận của ${isCompany && donor.company ? `${donor.fullName} và ${donor.company}` : donor.fullName} chính là nguồn động lực để đội ngũ Bác sĩ, Điều dưỡng, Nhân viên y tế Bệnh viện ngày càng phấn đấu hơn, hoàn thiện hơn, thực hiện tốt sứ mệnh chăm sóc sức khỏe cộng đồng.`,
+        `Ngày ${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}, Phòng Công tác xã hội đã tiếp nhận số tiền ${amountHtml} từ ${shortTitle} và chuyển đến ${recipientCount} trường hợp người bệnh có hoàn cảnh khó khăn, mắc bệnh hiểm nghèo đang điều trị tại Bệnh viện. Sự hỗ trợ về vật chất và tinh thần của ${pronoun} là lời cổ vũ vô cùng quý giá gửi đến gia đình người bệnh khó khăn, giúp họ có thêm niềm tin và động lực để tiếp tục vươn lên trong cuộc sống.`,
+        ...(customNote ? [customNote] : []),
+        `Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh xin kính chúc ${salutation} sức khỏe, bình an và hạnh phúc. Rất mong ${shortTitle} sẽ tiếp tục chung tay cùng Bệnh viện trong những hoạt động hỗ trợ người bệnh khác.`,
+      ];
     } else {
-      body = `Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh chân thành cảm ơn sự đồng hành của ${salutation} trong công tác hỗ trợ người bệnh có hoàn cảnh khó khăn đang điều trị tại Bệnh viện.
-
-Trong nhiều năm qua, ${salutation} đã tin tưởng, lựa chọn Bệnh viện chúng tôi để đồng hành trong các hoạt động hỗ trợ người bệnh. Sự ghi nhận của ${isCompany && donor.company ? `${donor.fullName} và ${donor.company}` : `${donor.fullName.split(" ").slice(-2).join(" ")}`} chính là nguồn động lực để đội ngũ Bác sĩ, Điều dưỡng, Nhân viên y tế Bệnh viện ngày càng phấn đấu, hoàn thiện hơn để thực hiện tốt sứ mệnh chăm sóc sức khỏe cộng đồng.
-
-Ngày ${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}, Phòng Công tác xã hội đã tiếp nhận số tiền ${amountFormatted} đồng (${amountText}) từ ${isCompany ? "Quý vị" : `${donor.fullName.split(" ").slice(-2).join(" ")}`} để hỗ trợ cho người bệnh có hoàn cảnh khó khăn, mắc bệnh hiểm nghèo đang điều trị tại Bệnh viện. Sự hỗ trợ về vật chất và tinh thần của ${isCompany ? "Quý vị" : "Chị/Anh"} là lời cổ vũ vô cùng quý giá gửi đến gia đình người bệnh khó khăn, giúp họ có thêm niềm tin và động lực để tiếp tục vươn lên trong cuộc sống.${customNote ? "\n\n" + customNote : ""}
-
-Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh xin kính chúc ${salutation} thật nhiều sức khỏe, bình an và hạnh phúc${isCompany && donor.company ? `; kính chúc ${donor.company} ngày càng phát triển bền vững, thịnh vượng` : ""}. Rất mong ${isCompany ? "Quý vị" : `${donor.fullName.split(" ").slice(-2).join(" ")}`} sẽ tiếp tục chung tay cùng Bệnh viện trong những hoạt động hỗ trợ người bệnh khác sắp tới.`;
+      paragraphs = [
+        `Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh chân thành cảm ơn sự đồng hành của ${salutation} trong công tác hỗ trợ người bệnh có hoàn cảnh khó khăn đang điều trị tại Bệnh viện.`,
+        `Trong nhiều năm qua, ${salutation} đã tin tưởng, lựa chọn Bệnh viện chúng tôi để đồng hành trong các hoạt động hỗ trợ người bệnh. Sự ghi nhận của ${isCompany && donor.company ? `${donor.fullName} và ${donor.company}` : donor.fullName} chính là nguồn động lực để đội ngũ Bác sĩ, Điều dưỡng, Nhân viên y tế Bệnh viện ngày càng phấn đấu, hoàn thiện hơn để thực hiện tốt sứ mệnh chăm sóc sức khỏe cộng đồng.`,
+        `Ngày ${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}, Phòng Công tác xã hội đã tiếp nhận số tiền ${amountHtml} từ ${shortTitle} để hỗ trợ cho người bệnh có hoàn cảnh khó khăn, mắc bệnh hiểm nghèo đang điều trị tại Bệnh viện. Sự hỗ trợ về vật chất và tinh thần của ${pronoun} là lời cổ vũ vô cùng quý giá gửi đến gia đình người bệnh khó khăn, giúp họ có thêm niềm tin và động lực để tiếp tục vươn lên trong cuộc sống.`,
+        ...(customNote ? [customNote] : []),
+        `Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh xin kính chúc ${salutation} thật nhiều sức khỏe, bình an và hạnh phúc${isCompany && donor.company ? `; kính chúc ${donor.company} ngày càng phát triển bền vững, thịnh vượng` : ""}. Rất mong ${shortTitle} sẽ tiếp tục chung tay cùng Bệnh viện trong những hoạt động hỗ trợ người bệnh khác sắp tới.`,
+      ];
     }
 
-    // HTML in đúng 1:1 theo file Word (CSS đo từ textutil -convert html)
-    const printHtml = `<!DOCTYPE html>
+    // CSS copy y chang từ textutil -convert html của file Word gốc
+    const printHtml = `<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 <head>
-<meta charset="utf-8"/>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Content-Style-Type" content="text/css">
 <title>Thư cảm ơn - ${donor.fullName}</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+<style type="text/css">
   @page { size: A4 portrait; margin: 2cm 2cm 2cm 3cm; }
-  body {
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 14px;
-    color: #000;
-    background: #fff;
-  }
-  /* Ngày tháng: right, italic, 13px, line-height 17px */
-  .p-date {
-    margin: 0; text-align: right; line-height: 17px;
-    font-size: 13px; font-style: italic;
-  }
-  /* Dòng trống sau ngày */
-  .spacer-sm { height: 17px; }
-  .spacer-md { height: 34px; }
-  /* THƯ CẢM ƠN: center, bold, 16px, margin-bottom 12px, line-height 23px */
-  .p-title {
-    margin: 0 0 12px 0; text-align: center; line-height: 23px;
-    font-size: 16px; font-weight: bold;
-  }
-  /* Kính gửi: center, text-indent 28.4px, line-height 23px, 14px, margin-bottom 12px */
-  .p-recipient {
-    margin: 0 0 12px 0; text-align: center; text-indent: 28.4px;
-    line-height: 23px; font-size: 14px;
-  }
-  /* Body paragraphs: justify, text-indent 28.4px, line-height 17px, margin 6px top/bottom */
-  .p-body {
-    margin: 6px 0; text-align: justify; text-indent: 28.4px;
-    line-height: 17px; font-size: 14px;
-  }
-  /* Số tiền in nghiêng */
-  .p-body i { font-style: italic; }
-  /* Trân trọng: margin-left 28.4px, justify, line-height 23px, margin-bottom 6px */
-  .p-closing {
-    margin: 0 0 6px 28.4px; text-align: justify;
-    line-height: 23px; font-size: 14px;
-  }
-  /* Chữ ký: margin-left 17.9px, line-height 17px, 13px, bold */
-  .p-sig {
-    margin: 0 0 0 17.9px; text-align: justify;
-    line-height: 17px; font-size: 13px; font-weight: bold;
-  }
-  .p-sig-space { margin: 0 0 0 17.9px; line-height: 17px; height: 17px; }
-  /* 5 dòng trống giữa chức danh và tên ký */
-  .sig-gap { height: 85px; }
-  @media print {
-    body { -webkit-print-color-adjust: exact; }
-  }
+  p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; text-align: center; line-height: 17.0px; font: 1.0px 'Times New Roman'; min-height: 1.0px}
+  p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; text-align: center; line-height: 17.0px; font: 12.0px 'Times New Roman'; min-height: 15.0px}
+  p.p3 {margin: 0.0px 0.0px 0.0px 0.0px; text-align: right; line-height: 17.0px; font: 13.0px 'Times New Roman'; min-height: 16.0px}
+  p.p4 {margin: 0.0px 0.0px 0.0px 0.0px; text-align: right; line-height: 17.0px; font: 13.0px 'Times New Roman'}
+  p.p5 {margin: 0.0px 0.0px 0.0px 0.0px; text-align: center; line-height: 17.0px; font: 11.0px 'Times New Roman'; min-height: 12.0px}
+  p.p6 {margin: 0.0px 0.0px 12.0px 0.0px; text-align: center; line-height: 23.0px; font: 16.0px 'Times New Roman'}
+  p.p7 {margin: 0.0px 0.0px 0.0px 0.0px; text-align: right; line-height: 17.0px; font: 4.0px 'Times New Roman'; min-height: 5.0px}
+  p.p8 {margin: 0.0px 0.0px 12.0px 0.0px; text-align: center; text-indent: 28.4px; line-height: 23.0px; font: 14.0px 'Times New Roman'}
+  p.p9 {margin: 6.0px 0.0px 6.0px 0.0px; text-align: justify; text-indent: 28.4px; line-height: 17.0px; font: 14.0px 'Times New Roman'}
+  p.p10 {margin: 0.0px 0.0px 6.0px 28.4px; text-align: justify; text-indent: -0.6px; line-height: 23.0px; font: 14.0px 'Times New Roman'}
+  p.p11 {margin: 0.0px 0.0px 6.0px 28.4px; text-align: justify; text-indent: -0.6px; line-height: 23.0px; font: 14.0px 'Times New Roman'; min-height: 16.0px}
+  p.p12 {margin: 0.0px 0.0px 0.0px 17.9px; text-align: justify; line-height: 17.0px; font: 13.0px 'Times New Roman'}
+  p.p13 {margin: 0.0px 0.0px 0.0px 17.9px; text-align: justify; line-height: 17.0px; font: 13.0px 'Times New Roman'; min-height: 16.0px}
+  p.p14 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px 'Times New Roman'; min-height: 15.0px}
+  span.Apple-tab-span {white-space:pre}
 </style>
 </head>
 <body>
-
-<p class="p-date">Thành phố Hồ Chí Minh, ngày ${String(day).padStart(2, "0")} tháng ${String(month).padStart(2, "0")} năm ${year}</p>
-<div class="spacer-md"></div>
-<div class="spacer-sm"></div>
-
-<p class="p-title">THƯ CẢM ƠN</p>
-<div class="spacer-sm" style="height:23px"></div>
-
-<p class="p-recipient">Kính gửi: ${salutation}</p>
-
-${body.split("\n\n").map(p => `<p class="p-body">${p.trim()}</p>`).join("\n")}
-
-<p class="p-closing">Trân trọng kính chào./.</p>
-<div class="spacer-sm"></div>
-
-<p class="p-sig">&nbsp;&nbsp;&nbsp;&nbsp;KT. GIÁM ĐỐC</p>
-<p class="p-sig">&nbsp;&nbsp;&nbsp;&nbsp;PHÓ GIÁM ĐỐC</p>
-<div class="sig-gap"></div>
-<p class="p-sig">&nbsp;&nbsp;&nbsp;&nbsp;Nguyễn Hoàng Định</p>
-
+<p class="p1"><br></p>
+<p class="p2"><br></p>
+<p class="p3"><i></i><br></p>
+<p class="p3"><i></i><br></p>
+<p class="p4"><i>Thành phố Hồ Chí Minh, ngày ${String(day).padStart(2, "0")} tháng ${String(month).padStart(2, "0")} năm ${year}</i></p>
+<p class="p5"><br></p>
+<p class="p2"><br></p>
+<p class="p6"><b>THƯ CẢM ƠN</b></p>
+<p class="p7"><br></p>
+<p class="p8">Kính gửi: ${salutation}</p>
+${paragraphs.map(p => `<p class="p9">${p}</p>`).join("\n")}
+<p class="p10">Trân trọng kính chào./.</p>
+<p class="p11"><br></p>
+<p class="p12"><b><span class="Apple-tab-span">	</span>KT. GIÁM ĐỐC</b></p>
+<p class="p12"><b><span class="Apple-tab-span">	</span>PHÓ GIÁM ĐỐC</b></p>
+<p class="p13"><b></b><br></p>
+<p class="p13"><b></b><br></p>
+<p class="p13"><b></b><br></p>
+<p class="p13"><b></b><br></p>
+<p class="p13"><b></b><br></p>
+<p class="p12"><b><span class="Apple-tab-span">	</span>Nguyễn Hoàng Định</b></p>
 </body>
 </html>`;
 
