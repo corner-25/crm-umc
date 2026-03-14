@@ -144,8 +144,6 @@ Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh xin kính chúc
     color: #000;
     background: #fff;
   }
-  /* Dòng trống đầu (file gốc có 4 dòng trống trước ngày tháng) */
-  .top-spacer { height: 68px; }
   /* Ngày tháng: right, italic, 13px, line-height 17px */
   .p-date {
     margin: 0; text-align: right; line-height: 17px;
@@ -190,8 +188,6 @@ Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh xin kính chúc
 </style>
 </head>
 <body>
-
-<div class="top-spacer"></div>
 
 <p class="p-date">Thành phố Hồ Chí Minh, ngày ${String(day).padStart(2, "0")} tháng ${String(month).padStart(2, "0")} năm ${year}</p>
 <div class="spacer-md"></div>
