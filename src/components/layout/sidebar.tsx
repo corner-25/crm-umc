@@ -12,8 +12,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Activity,
-  ScrollText,
-  UserPlus,
   Facebook,
   Warehouse,
 } from "lucide-react";
@@ -25,11 +23,19 @@ const navigation = [
     name: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
+    children: [
+      { name: "Tổng quan", href: "/dashboard" },
+    ],
   },
   {
     name: "Nhà tài trợ",
     href: "/donors",
     icon: Users,
+    children: [
+      { name: "Danh sách", href: "/donors" },
+      { name: "Lead", href: "/leads" },
+      { name: "Hợp đồng", href: "/contracts" },
+    ],
   },
   {
     name: "Tài trợ",
@@ -42,52 +48,52 @@ const navigation = [
     ],
   },
   {
+    name: "Kho (Hầm B2)",
+    href: "/warehouse",
+    icon: Warehouse,
+    children: [
+      { name: "Tồn kho", href: "/warehouse" },
+      { name: "Lịch sử xuất nhập", href: "/warehouse?tab=history" },
+    ],
+  },
+  {
     name: "Tri ân",
     href: "/gratitude",
     icon: Heart,
     children: [
+      { name: "In thư cảm ơn", href: "/gratitude/thank-you-letter" },
       { name: "Gửi email", href: "/gratitude/send-email" },
       { name: "Mẫu email", href: "/gratitude/templates" },
       { name: "Nhắc nhở", href: "/gratitude/reminders" },
     ],
   },
   {
-    name: "Chương trình hỗ trợ thuốc",
+    name: "Hỗ trợ thuốc",
     href: "/cancer-support",
     icon: Activity,
     children: [
       { name: "Người bệnh", href: "/cancer-support/patients" },
       { name: "Thuốc", href: "/cancer-support/medications" },
-      { name: "Theo dõi", href: "/cancer-support/tracking" },
+      { name: "Theo dõi chu kỳ", href: "/cancer-support/tracking" },
     ],
   },
   {
     name: "Fanpage",
     href: "/fanpage",
     icon: Facebook,
-  },
-  {
-    name: "Lead",
-    href: "/leads",
-    icon: UserPlus,
-  },
-  {
-    name: "Hợp đồng",
-    href: "/contracts",
-    icon: ScrollText,
-  },
-  {
-    name: "Kho (Hầm B2)",
-    href: "/warehouse",
-    icon: Warehouse,
+    children: [
+      { name: "Tổng quan", href: "/fanpage" },
+      { name: "Hội thoại", href: "/inbox" },
+    ],
   },
   {
     name: "Báo cáo",
     href: "/reports",
     icon: FileText,
     children: [
-      { name: "Báo cáo CRM", href: "/reports/crm" },
-      { name: "Báo cáo Hỗ trợ thuốc", href: "/reports/drug-support" },
+      { name: "Tiền mặt & Huy động", href: "/reports/crm" },
+      { name: "Hỗ trợ thuốc", href: "/reports/drug-support" },
+      { name: "Kho", href: "/reports/warehouse" },
     ],
   },
 ];
@@ -112,7 +118,11 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
         {navigation.map((item) => {
-          const isActive = pathname.startsWith(item.href);
+          // isActive: true nếu đang ở route của item HOẶC bất kỳ child nào
+          const childHrefs = item.children?.map((c) => c.href.split("?")[0]) || [];
+          const isActive =
+            pathname.startsWith(item.href) ||
+            childHrefs.some((h) => pathname === h || pathname.startsWith(h + "/"));
           const Icon = item.icon;
 
           return (
@@ -139,7 +149,7 @@ export function Sidebar() {
                       href={child.href}
                       className={cn(
                         "block rounded-lg px-3 py-2 text-sm transition-colors",
-                        pathname === child.href
+                        pathname === child.href.split("?")[0]
                           ? "bg-slate-200 font-medium text-slate-900"
                           : "text-slate-600 hover:bg-slate-100"
                       )}
