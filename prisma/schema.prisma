@@ -790,6 +790,71 @@ enum MessageContentType {
   STICKER
 }
 
+// ================================
+// WAREHOUSE MANAGEMENT (Hầm B2)
+// ================================
+
+// Mặt hàng trong kho
+model WarehouseItem {
+  id                String                @id @default(cuid())
+  code              String                @unique  // Mã hàng
+  name              String                         // Tên hàng
+  unit              String                         // Đơn vị (cái, hộp, kg,...)
+  category          WarehouseCategory     @default(OTHER)
+  currentQuantity   Int                   @default(0)  // Tồn kho hiện tại
+  minQuantity       Int                   @default(0)  // Ngưỡng cảnh báo tồn thấp
+  expiryDate        DateTime?                        // Hạn sử dụng (tuỳ chọn)
+  notes             String?                          // Ghi chú tình trạng hàng
+  donorUnit         String?                          // Đơn vị tài trợ
+
+  transactions      WarehouseTransaction[]
+
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  deletedAt         DateTime?
+
+  @@index([code])
+  @@index([name])
+  @@index([category])
+  @@map("warehouse_items")
+}
+
+enum WarehouseCategory {
+  FOOD              // Thực phẩm
+  MEDICINE          // Thuốc / Vật tư y tế
+  GIFT              // Quà tặng
+  EQUIPMENT         // Thiết bị
+  OTHER             // Khác
+}
+
+// Giao dịch nhập/xuất kho
+model WarehouseTransaction {
+  id                String                @id @default(cuid())
+  itemId            String
+  item              WarehouseItem         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  type              WarehouseTransactionType  // IMPORT | EXPORT
+  quantity          Int                        // Số lượng nhập/xuất
+  donorUnit         String?                    // Đơn vị tài trợ
+  purpose           String?                    // Mục đích tài trợ / xuất kho
+  handledBy         String?                    // Người thực hiện (nhận/giao)
+  transactionDate   DateTime              @default(now())
+  notes             String?
+
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([itemId])
+  @@index([type])
+  @@index([transactionDate])
+  @@map("warehouse_transactions")
+}
+
+enum WarehouseTransactionType {
+  IMPORT            // Nhập kho
+  EXPORT            // Xuất kho
+}
+
 model CustomOption {
   id        String   @id @default(cuid())
   type      String   // cash_purpose, usage_method

@@ -15,6 +15,7 @@ import {
   ScrollText,
   UserPlus,
   Facebook,
+  Warehouse,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,11 @@ const navigation = [
     name: "Hợp đồng",
     href: "/contracts",
     icon: ScrollText,
+  },
+  {
+    name: "Kho (Hầm B2)",
+    href: "/warehouse",
+    icon: Warehouse,
   },
   {
     name: "Báo cáo",
