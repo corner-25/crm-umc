@@ -32,6 +32,9 @@ export default function ReportsPage() {
   const [targetAmount, setTargetAmount] = useState<string>("");
   const [targetPurpose, setTargetPurpose] = useState<string>("");
   const [targetCustodian, setTargetCustodian] = useState<string>("");
+  const [targetYear, setTargetYear] = useState<string>("all");
+  // "unused_first" = ưu tiên khoản nguyên (mặc định), "partial_first" = ưu tiên khoản dang dở
+  const [priorityMode, setPriorityMode] = useState<"unused_first" | "partial_first">("unused_first");
   const [planGenerated, setPlanGenerated] = useState(false);
 
   const { toast } = useToast();
@@ -118,6 +121,10 @@ export default function ReportsPage() {
     if (targetCustodian && targetCustodian !== "all") {
       pool = pool.filter((d) => (d.custodian || "Không rõ") === targetCustodian);
     }
+    if (targetYear && targetYear !== "all") {
+      const yr = parseInt(targetYear);
+      pool = pool.filter((d) => new Date(d.receivedDate).getFullYear() === yr);
+    }
 
     const avails = pool.map((d) => ({
       ...d,
@@ -142,8 +149,10 @@ export default function ReportsPage() {
     }
 
     // === Logic chính ===
-    // Khoản nguyên (chưa dùng gì): chỉ lấy FULL, không bao giờ xé lẻ
-    // Khoản tồn đọng (đang dùng dở): lấy một phần nếu cần, dùng để lấp đầy khi khoản nguyên không vừa
+    // priorityMode = "unused_first": dùng khoản nguyên trước, lấp bằng khoản dang dở
+    // priorityMode = "partial_first": dùng khoản dang dở trước, lấp bằng khoản nguyên
+    // Khoản nguyên: chỉ lấy FULL, không bao giờ xé lẻ
+    // Khoản dang dở: lấy một phần nếu cần để lấp đầy
 
     const partial = avails
       .filter((d) => d._isPartial)
@@ -153,19 +162,20 @@ export default function ReportsPage() {
       .filter((d) => !d._isPartial)
       .sort((a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
 
+    // primary = loại lấy trước (full), secondary = loại dùng để lấp
+    const primary = priorityMode === "unused_first" ? unused : partial;
+    const secondary = priorityMode === "unused_first" ? partial : unused;
+
     let accumulated = 0;
     const selected: any[] = [];
     const usedIds = new Set<string>();
 
-    // Vòng lặp: lần lượt lấy khoản nguyên full, nếu không đủ thì tìm tồn đọng lấp vào
-    // Cứ lặp cho đến khi đủ tiền hoặc hết pool
     let changed = true;
     while (accumulated < target && changed) {
       changed = false;
-      const need = target - accumulated;
 
-      // Bước A: lấy tất cả khoản nguyên có avail <= need (lấy full, cũ nhất trước)
-      for (const d of unused) {
+      // Bước A: lấy full từ danh sách ưu tiên (avail <= phần còn thiếu)
+      for (const d of primary) {
         if (usedIds.has(d.id)) continue;
         if (accumulated >= target) break;
         if (d._avail <= target - accumulated) {
@@ -178,11 +188,10 @@ export default function ReportsPage() {
 
       if (accumulated >= target) break;
 
-      // Bước B: không còn khoản nguyên nào vừa khít nữa
-      // → dùng khoản tồn đọng để lấp phần còn thiếu (lấy một phần nếu cần)
+      // Bước B: lấp phần còn thiếu bằng danh sách phụ (có thể lấy một phần)
       const needNow = target - accumulated;
-      let filledByPartial = false;
-      for (const d of partial) {
+      let filledBySecondary = false;
+      for (const d of secondary) {
         if (usedIds.has(d.id)) continue;
         if (accumulated >= target) break;
         const take = Math.min(d._avail, target - accumulated);
@@ -190,17 +199,16 @@ export default function ReportsPage() {
         selected.push({ ...d, _take: take });
         usedIds.add(d.id);
         changed = true;
-        filledByPartial = true;
+        filledBySecondary = true;
       }
 
-      // Nếu đã dùng hết tồn đọng mà vẫn chưa đủ → không còn gì để lấp, thoát
-      if (!filledByPartial && needNow === target - accumulated) break;
+      if (!filledBySecondary && needNow === target - accumulated) break;
     }
 
     const totalAvail = avails.reduce((s, d) => s + d._avail, 0);
 
     return { selected, accumulated, target, shortage: Math.max(0, target - accumulated), totalAvail, strategy: "sequential" };
-  }, [planGenerated, targetAmount, targetPurpose, targetCustodian, allCash]);
+  }, [planGenerated, targetAmount, targetPurpose, targetCustodian, targetYear, priorityMode, allCash]);
 
   // ===== XUẤT EXCEL =====
   const exportOverview = () => {
@@ -321,6 +329,8 @@ export default function ReportsPage() {
         ["Ngày lập", format(new Date(), "dd/MM/yyyy HH:mm")],
         ["Mục đích sử dụng", targetPurpose && targetPurpose !== "all" ? targetPurpose : "Tất cả"],
         ["Người giữ tiền", targetCustodian && targetCustodian !== "all" ? targetCustodian : "Tất cả"],
+        ["Năm khoản tài trợ", targetYear && targetYear !== "all" ? targetYear : "Tất cả"],
+        ["Logic ưu tiên", priorityMode === "unused_first" ? "Khoản nguyên trước" : "Khoản dang dở trước"],
         ["Số tiền cần huy động", target],
         ["Số tiền có thể huy động", accumulated],
         shortage > 0 ? ["Còn thiếu", shortage] : ["Trạng thái", "ĐỦ TIỀN"],
@@ -669,6 +679,48 @@ export default function ReportsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Lọc theo năm khoản tài trợ (tuỳ chọn)</label>
+                  <Select value={targetYear} onValueChange={(v) => { setTargetYear(v); setPlanGenerated(false); }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tất cả năm" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả năm</SelectItem>
+                      {yearOptions.map((y) => (
+                        <SelectItem key={y} value={y}>Năm {y}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-sm font-medium mb-1 block">Ưu tiên loại khoản (bước 2.1)</label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={priorityMode === "unused_first" ? "default" : "outline"}
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => { setPriorityMode("unused_first"); setPlanGenerated(false); }}
+                    >
+                      Khoản còn nguyên trước
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={priorityMode === "partial_first" ? "default" : "outline"}
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => { setPriorityMode("partial_first"); setPlanGenerated(false); }}
+                    >
+                      Khoản dang dở trước
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {priorityMode === "unused_first"
+                      ? "Ưu tiên dùng khoản chưa đụng tới, khoản dang dở dùng để lấp đầy phần còn thiếu"
+                      : "Ưu tiên giải phóng khoản đang dùng dở, khoản nguyên dùng để lấp đầy phần còn thiếu"}
+                  </p>
+                </div>
               </div>
               <Button
                 onClick={() => setPlanGenerated(true)}
@@ -745,7 +797,10 @@ export default function ReportsPage() {
                   </TableBody>
                 </Table>
                 <p className="text-xs text-muted-foreground mt-3">
-                  * Thứ tự ưu tiên: (1) Khoản khít đúng số tiền cần → (2) Dọn hết các khoản tồn đọng (đang dùng dở) → (3) Dùng khoản chưa sử dụng, cũ nhất trước
+                  * Thứ tự ưu tiên: (1) Khoản khít đúng số tiền cần →{" "}
+                  {priorityMode === "unused_first"
+                    ? "(2) Khoản còn nguyên (lấy full, cũ nhất trước) → (3) Khoản dang dở để lấp đầy phần còn thiếu"
+                    : "(2) Khoản dang dở (cũ nhất trước) → (3) Khoản còn nguyên để lấp đầy phần còn thiếu"}
                 </p>
               </CardContent>
             </Card>

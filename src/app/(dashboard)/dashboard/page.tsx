@@ -166,7 +166,9 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.totalDonors || 0}</div>
-            <p className="text-xs text-muted-foreground">Tổng số nhà tài trợ</p>
+            <p className="text-xs text-muted-foreground">
+              {selectedYear ? `Tài trợ lần đầu năm ${selectedYear}` : "Tổng số nhà tài trợ"}
+            </p>
           </CardContent>
         </Card>
 

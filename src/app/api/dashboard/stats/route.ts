@@ -19,10 +19,34 @@ export async function GET(request: NextRequest) {
     const inKindDateFilter = hasDateFilter ? { createdAt: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } } : {};
     const volunteerDateFilter = hasDateFilter ? { startDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } } : {};
 
-    // Count donors (always total, not filtered by date)
-    const totalDonors = await prisma.donor.count({
-      where: { deletedAt: null },
-    });
+    // Count donors — nếu có filter năm thì tính theo năm tài trợ đầu tiên của donor
+    let totalDonors: number;
+    if (hasDateFilter && from && to) {
+      // Lấy donors có khoản tài trợ đầu tiên (bất kỳ loại) trong khoảng năm được chọn
+      const donorsWithFirstDonationInRange = await prisma.donor.findMany({
+        where: { deletedAt: null },
+        select: {
+          id: true,
+          cashDonations: { where: { deletedAt: null }, select: { receivedDate: true }, orderBy: { receivedDate: "asc" }, take: 1 },
+          inKindDonations: { where: { deletedAt: null }, select: { createdAt: true }, orderBy: { createdAt: "asc" }, take: 1 },
+          volunteerDonations: { where: { deletedAt: null }, select: { startDate: true }, orderBy: { startDate: "asc" }, take: 1 },
+        },
+      });
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+      totalDonors = donorsWithFirstDonationInRange.filter((donor) => {
+        const dates: Date[] = [
+          ...(donor.cashDonations[0] ? [new Date(donor.cashDonations[0].receivedDate)] : []),
+          ...(donor.inKindDonations[0] ? [new Date(donor.inKindDonations[0].createdAt)] : []),
+          ...(donor.volunteerDonations[0] ? [new Date(donor.volunteerDonations[0].startDate)] : []),
+        ];
+        if (dates.length === 0) return false;
+        const firstDonation = new Date(Math.min(...dates.map((d) => d.getTime())));
+        return firstDonation >= fromDate && firstDonation <= toDate;
+      }).length;
+    } else {
+      totalDonors = await prisma.donor.count({ where: { deletedAt: null } });
+    }
 
     // Count + sum donations (filtered by date if set)
     const [cashCount, inKindCount, volunteerCount, cashSum, inKindSum, volunteerSum, usedSum] = await Promise.all([
