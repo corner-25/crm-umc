@@ -129,8 +129,7 @@ Ngày ${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year},
 Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh xin kính chúc ${salutation} thật nhiều sức khỏe, bình an và hạnh phúc${isCompany && donor.company ? `; kính chúc ${donor.company} ngày càng phát triển bền vững, thịnh vượng` : ""}. Rất mong ${isCompany ? "Quý vị" : `${donor.fullName.split(" ").slice(-2).join(" ")}`} sẽ tiếp tục chung tay cùng Bệnh viện trong những hoạt động hỗ trợ người bệnh khác sắp tới.`;
     }
 
-    // Generate printable HTML — chuẩn văn bản hành chính VN
-    // Lề: trên 2cm, dưới 2cm, trái 3cm, phải 2cm (theo Nghị định 30/2020)
+    // HTML in đúng 1:1 theo file Word (CSS đo từ textutil -convert html)
     const printHtml = `<!DOCTYPE html>
 <html>
 <head>
@@ -138,142 +137,81 @@ Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh xin kính chúc
 <title>Thư cảm ơn - ${donor.fullName}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  @page {
-    size: A4 portrait;
-    margin: 0;
-  }
-  html, body {
-    width: 210mm;
-    min-height: 297mm;
+  @page { size: A4 portrait; margin: 2cm 2cm 2cm 3cm; }
+  body {
     font-family: 'Times New Roman', Times, serif;
-    font-size: 13pt;
-    line-height: 1.8;
+    font-size: 14px;
     color: #000;
     background: #fff;
   }
-  .page {
-    width: 210mm;
-    min-height: 297mm;
-    padding: 20mm 20mm 20mm 30mm;
+  /* Dòng trống đầu (file gốc có 4 dòng trống trước ngày tháng) */
+  .top-spacer { height: 68px; }
+  /* Ngày tháng: right, italic, 13px, line-height 17px */
+  .p-date {
+    margin: 0; text-align: right; line-height: 17px;
+    font-size: 13px; font-style: italic;
   }
-  /* Header: 2 cột - trái là cơ quan, phải là địa điểm ngày tháng */
-  .header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 8mm;
+  /* Dòng trống sau ngày */
+  .spacer-sm { height: 17px; }
+  .spacer-md { height: 34px; }
+  /* THƯ CẢM ƠN: center, bold, 16px, margin-bottom 12px, line-height 23px */
+  .p-title {
+    margin: 0 0 12px 0; text-align: center; line-height: 23px;
+    font-size: 16px; font-weight: bold;
   }
-  .org-block {
-    text-align: center;
-    width: 55%;
+  /* Kính gửi: center, text-indent 28.4px, line-height 23px, 14px, margin-bottom 12px */
+  .p-recipient {
+    margin: 0 0 12px 0; text-align: center; text-indent: 28.4px;
+    line-height: 23px; font-size: 14px;
   }
-  .org-block .ministry {
-    font-size: 12pt;
-    font-weight: normal;
-    text-transform: uppercase;
+  /* Body paragraphs: justify, text-indent 28.4px, line-height 17px, margin 6px top/bottom */
+  .p-body {
+    margin: 6px 0; text-align: justify; text-indent: 28.4px;
+    line-height: 17px; font-size: 14px;
   }
-  .org-block .hospital {
-    font-size: 12pt;
-    font-weight: bold;
-    text-transform: uppercase;
+  /* Số tiền in nghiêng */
+  .p-body i { font-style: italic; }
+  /* Trân trọng: margin-left 28.4px, justify, line-height 23px, margin-bottom 6px */
+  .p-closing {
+    margin: 0 0 6px 28.4px; text-align: justify;
+    line-height: 23px; font-size: 14px;
   }
-  .org-block .dept {
-    font-size: 11pt;
-    font-weight: bold;
-    text-decoration: underline;
-    margin-top: 2px;
+  /* Chữ ký: margin-left 17.9px, line-height 17px, 13px, bold */
+  .p-sig {
+    margin: 0 0 0 17.9px; text-align: justify;
+    line-height: 17px; font-size: 13px; font-weight: bold;
   }
-  .date-block {
-    text-align: center;
-    font-size: 12pt;
-    font-style: italic;
-    padding-top: 2px;
-    width: 44%;
-  }
-  /* Tiêu đề thư */
-  .letter-title {
-    text-align: center;
-    font-size: 15pt;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin: 6mm 0 5mm;
-  }
-  /* Kính gửi */
-  .recipient {
-    font-size: 13pt;
-    margin-bottom: 5mm;
-  }
-  /* Nội dung */
-  .body-para {
-    text-align: justify;
-    text-indent: 10mm;
-    margin-bottom: 4mm;
-    font-size: 13pt;
-  }
-  /* Lời chào cuối */
-  .closing {
-    text-align: justify;
-    text-indent: 10mm;
-    margin-top: 3mm;
-    font-size: 13pt;
-  }
-  /* Chữ ký */
-  .signature-block {
-    margin-top: 8mm;
-    display: flex;
-    justify-content: flex-end;
-  }
-  .signature-inner {
-    text-align: center;
-    width: 45%;
-  }
-  .sig-title {
-    font-size: 12pt;
-    font-style: italic;
-    line-height: 1.5;
-  }
-  .sig-name {
-    font-size: 13pt;
-    font-weight: bold;
-    margin-top: 18mm;
-  }
+  .p-sig-space { margin: 0 0 0 17.9px; line-height: 17px; height: 17px; }
+  /* 5 dòng trống giữa chức danh và tên ký */
+  .sig-gap { height: 85px; }
   @media print {
-    html, body { width: 210mm; }
-    .page { padding: 20mm 20mm 20mm 30mm; }
+    body { -webkit-print-color-adjust: exact; }
   }
 </style>
 </head>
 <body>
-<div class="page">
 
-  <div class="header-row">
-    <div class="org-block">
-      <div class="ministry">BỘ Y TẾ</div>
-      <div class="hospital">BỆNH VIỆN ĐẠI HỌC Y DƯỢC<br>THÀNH PHỐ HỒ CHÍ MINH</div>
-      <div class="dept">Phòng Công tác xã hội</div>
-    </div>
-    <div class="date-block">
-      Thành phố Hồ Chí Minh, ngày ${String(day).padStart(2, "0")} tháng ${String(month).padStart(2, "0")} năm ${year}
-    </div>
-  </div>
+<div class="top-spacer"></div>
 
-  <div class="letter-title">Thư cảm ơn</div>
+<p class="p-date">Thành phố Hồ Chí Minh, ngày ${String(day).padStart(2, "0")} tháng ${String(month).padStart(2, "0")} năm ${year}</p>
+<div class="spacer-md"></div>
+<div class="spacer-sm"></div>
 
-  <div class="recipient"><strong>Kính gửi:</strong> ${salutation}</div>
+<p class="p-title">THƯ CẢM ƠN</p>
+<div class="spacer-sm" style="height:23px"></div>
 
-  ${body.split("\n\n").map(p => `<div class="body-para">${p.trim()}</div>`).join("\n  ")}
+<p class="p-recipient">Kính gửi: ${salutation}</p>
 
-  <div class="closing">Trân trọng kính chào./.</div>
+${body.split("\n\n").map(p => `<p class="p-body">${p.trim()}</p>`).join("\n")}
 
-  <div class="signature-block">
-    <div class="signature-inner">
-      <div class="sig-title">KT. GIÁM ĐỐC<br>PHÓ GIÁM ĐỐC</div>
-      <div class="sig-name">Nguyễn Hoàng Định</div>
-    </div>
-  </div>
+<p class="p-closing">Trân trọng kính chào./.</p>
+<div class="spacer-sm"></div>
 
-</div>
+<p class="p-sig">&nbsp;&nbsp;&nbsp;&nbsp;KT. GIÁM ĐỐC</p>
+<p class="p-sig">&nbsp;&nbsp;&nbsp;&nbsp;PHÓ GIÁM ĐỐC</p>
+<div class="sig-gap"></div>
+<p class="p-sig">&nbsp;&nbsp;&nbsp;&nbsp;Nguyễn Hoàng Định</p>
+
 </body>
 </html>`;
 
