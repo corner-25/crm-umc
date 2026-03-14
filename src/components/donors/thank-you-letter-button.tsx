@@ -129,54 +129,150 @@ Ngày ${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year},
 Bệnh viện Đại học Y Dược Thành phố Hồ Chí Minh xin kính chúc ${salutation} thật nhiều sức khỏe, bình an và hạnh phúc${isCompany && donor.company ? `; kính chúc ${donor.company} ngày càng phát triển bền vững, thịnh vượng` : ""}. Rất mong ${isCompany ? "Quý vị" : `${donor.fullName.split(" ").slice(-2).join(" ")}`} sẽ tiếp tục chung tay cùng Bệnh viện trong những hoạt động hỗ trợ người bệnh khác sắp tới.`;
     }
 
-    // Generate printable HTML
+    // Generate printable HTML — chuẩn văn bản hành chính VN
+    // Lề: trên 2cm, dưới 2cm, trái 3cm, phải 2cm (theo Nghị định 30/2020)
     const printHtml = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8"/>
+<title>Thư cảm ơn - ${donor.fullName}</title>
 <style>
-  @page { margin: 2.5cm 3cm 2.5cm 3cm; size: A4; }
-  body { font-family: 'Times New Roman', serif; font-size: 14pt; line-height: 1.6; color: #000; }
-  .header { text-align: center; margin-bottom: 10px; }
-  .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
-  .ministry { font-size: 12pt; text-align: center; }
-  .ministry p { margin: 2px 0; }
-  .ministry .bold { font-weight: bold; }
-  .ministry .underline { text-decoration: underline; font-size: 11pt; }
-  .date { text-align: right; font-style: italic; margin-bottom: 20px; }
-  .title { text-align: center; font-weight: bold; font-size: 16pt; text-decoration: underline; margin: 20px 0 10px; text-transform: uppercase; }
-  .recipient { margin-bottom: 20px; font-weight: bold; }
-  .body-text { text-align: justify; white-space: pre-line; }
-  .body-text p { margin-bottom: 12px; }
-  .signature { margin-top: 40px; text-align: right; }
-  .signature p { margin: 4px 0; }
-  .signature .title-sig { font-style: italic; }
-  .signature .name { font-weight: bold; margin-top: 60px; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  html, body {
+    width: 210mm;
+    min-height: 297mm;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 13pt;
+    line-height: 1.8;
+    color: #000;
+    background: #fff;
+  }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 20mm 20mm 20mm 30mm;
+  }
+  /* Header: 2 cột - trái là cơ quan, phải là địa điểm ngày tháng */
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8mm;
+  }
+  .org-block {
+    text-align: center;
+    width: 55%;
+  }
+  .org-block .ministry {
+    font-size: 12pt;
+    font-weight: normal;
+    text-transform: uppercase;
+  }
+  .org-block .hospital {
+    font-size: 12pt;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .org-block .dept {
+    font-size: 11pt;
+    font-weight: bold;
+    text-decoration: underline;
+    margin-top: 2px;
+  }
+  .date-block {
+    text-align: center;
+    font-size: 12pt;
+    font-style: italic;
+    padding-top: 2px;
+    width: 44%;
+  }
+  /* Tiêu đề thư */
+  .letter-title {
+    text-align: center;
+    font-size: 15pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 6mm 0 5mm;
+  }
+  /* Kính gửi */
+  .recipient {
+    font-size: 13pt;
+    margin-bottom: 5mm;
+  }
+  /* Nội dung */
+  .body-para {
+    text-align: justify;
+    text-indent: 10mm;
+    margin-bottom: 4mm;
+    font-size: 13pt;
+  }
+  /* Lời chào cuối */
+  .closing {
+    text-align: justify;
+    text-indent: 10mm;
+    margin-top: 3mm;
+    font-size: 13pt;
+  }
+  /* Chữ ký */
+  .signature-block {
+    margin-top: 8mm;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .signature-inner {
+    text-align: center;
+    width: 45%;
+  }
+  .sig-title {
+    font-size: 12pt;
+    font-style: italic;
+    line-height: 1.5;
+  }
+  .sig-name {
+    font-size: 13pt;
+    font-weight: bold;
+    margin-top: 18mm;
+  }
+  @media print {
+    html, body { width: 210mm; }
+    .page { padding: 20mm 20mm 20mm 30mm; }
+  }
 </style>
 </head>
 <body>
-<div class="header-top">
-  <div class="ministry">
-    <p>BỘ Y TẾ</p>
-    <p class="bold">BỆNH VIỆN ĐẠI HỌC Y DƯỢC</p>
-    <p class="bold">THÀNH PHỐ HỒ CHÍ MINH</p>
-    <p class="underline">Phòng Công tác xã hội</p>
+<div class="page">
+
+  <div class="header-row">
+    <div class="org-block">
+      <div class="ministry">BỘ Y TẾ</div>
+      <div class="hospital">BỆNH VIỆN ĐẠI HỌC Y DƯỢC<br>THÀNH PHỐ HỒ CHÍ MINH</div>
+      <div class="dept">Phòng Công tác xã hội</div>
+    </div>
+    <div class="date-block">
+      Thành phố Hồ Chí Minh, ngày ${String(day).padStart(2, "0")} tháng ${String(month).padStart(2, "0")} năm ${year}
+    </div>
   </div>
-  <div class="date">
-    Thành phố Hồ Chí Minh, ngày ${String(day).padStart(2, "0")} tháng ${String(month).padStart(2, "0")} năm ${year}
+
+  <div class="letter-title">Thư cảm ơn</div>
+
+  <div class="recipient"><strong>Kính gửi:</strong> ${salutation}</div>
+
+  ${body.split("\n\n").map(p => `<div class="body-para">${p.trim()}</div>`).join("\n  ")}
+
+  <div class="closing">Trân trọng kính chào./.</div>
+
+  <div class="signature-block">
+    <div class="signature-inner">
+      <div class="sig-title">KT. GIÁM ĐỐC<br>PHÓ GIÁM ĐỐC</div>
+      <div class="sig-name">Nguyễn Hoàng Định</div>
+    </div>
   </div>
-</div>
 
-<div class="title">Thư cảm ơn</div>
-
-<div class="recipient">Kính gửi: ${salutation}</div>
-
-<div class="body-text">${body.split("\n\n").map(p => `<p>${p}</p>`).join("")}</div>
-
-<div class="signature">
-  <p class="title-sig">KT. GIÁM ĐỐC</p>
-  <p class="title-sig">PHÓ GIÁM ĐỐC</p>
-  <p class="name">Nguyễn Hoàng Định</p>
 </div>
 </body>
 </html>`;

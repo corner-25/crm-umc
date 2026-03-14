@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mail, FileText, Bell, Send } from "lucide-react";
+import { Mail, FileText, Bell, Send, Printer } from "lucide-react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
@@ -30,7 +30,27 @@ export default function GratitudePage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Thư cảm ơn
+            </CardTitle>
+            <Printer className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              In thư cảm ơn theo mẫu bệnh viện (lần đầu / lần tiếp theo)
+            </p>
+            <Button asChild className="w-full" variant="outline">
+              <Link href="/gratitude/thank-you-letter">
+                <Printer className="mr-2 h-4 w-4" />
+                In thư cảm ơn
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
