@@ -149,10 +149,11 @@ export default function ReportsPage() {
     }
 
     // === Logic chính ===
-    // priorityMode = "unused_first": dùng khoản nguyên trước, lấp bằng khoản dang dở
-    // priorityMode = "partial_first": dùng khoản dang dở trước, lấp bằng khoản nguyên
-    // Khoản nguyên: chỉ lấy FULL, không bao giờ xé lẻ
-    // Khoản dang dở: lấy một phần nếu cần để lấp đầy
+    // Khoản dang dở: luôn lấy full, không xé lẻ
+    // Chỉ chấp nhận lấy thừa (vượt target) nếu khoản cuối là "Kế toán đang giữ"
+    // (vì lấy tiền kế toán phải làm tờ trình → lấy 1 lần cho gọn)
+
+    const CUSTODIAN_KE_TOAN = "Kế toán đang giữ";
 
     const partial = avails
       .filter((d) => d._isPartial)
@@ -162,47 +163,57 @@ export default function ReportsPage() {
       .filter((d) => !d._isPartial)
       .sort((a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
 
-    // primary = loại lấy trước (full), secondary = loại dùng để lấp
-    const primary = priorityMode === "unused_first" ? unused : partial;
-    const secondary = priorityMode === "unused_first" ? partial : unused;
-
     let accumulated = 0;
     const selected: any[] = [];
     const usedIds = new Set<string>();
 
-    let changed = true;
-    while (accumulated < target && changed) {
-      changed = false;
-
-      // Bước A: lấy full từ danh sách ưu tiên (avail <= phần còn thiếu)
-      for (const d of primary) {
-        if (usedIds.has(d.id)) continue;
+    if (priorityMode === "partial_first") {
+      // Bước A: lấy hết khoản dang dở, full, cũ nhất trước
+      for (const d of partial) {
         if (accumulated >= target) break;
-        if (d._avail <= target - accumulated) {
+        const need = target - accumulated;
+        // Chỉ lấy thừa nếu kế toán đang giữ, còn lại chỉ lấy khi vừa đủ
+        if (d._avail <= need || d.custodian === CUSTODIAN_KE_TOAN) {
           accumulated += d._avail;
           selected.push({ ...d, _take: d._avail });
           usedIds.add(d.id);
-          changed = true;
         }
       }
 
-      if (accumulated >= target) break;
-
-      // Bước B: lấp phần còn thiếu bằng danh sách phụ (có thể lấy một phần)
-      const needNow = target - accumulated;
-      let filledBySecondary = false;
-      for (const d of secondary) {
-        if (usedIds.has(d.id)) continue;
+      // Bước B: vẫn chưa đủ → lấy khoản nguyên full, cũ nhất trước
+      for (const d of unused) {
         if (accumulated >= target) break;
-        const take = Math.min(d._avail, target - accumulated);
-        accumulated += take;
-        selected.push({ ...d, _take: take });
-        usedIds.add(d.id);
-        changed = true;
-        filledBySecondary = true;
+        const need = target - accumulated;
+        if (d._avail <= need || d.custodian === CUSTODIAN_KE_TOAN) {
+          accumulated += d._avail;
+          selected.push({ ...d, _take: d._avail });
+          usedIds.add(d.id);
+        }
+      }
+    } else {
+      // unused_first
+      // Bước A: lấy khoản nguyên full, chỉ lấy khi avail <= phần còn thiếu
+      // Ngoại lệ: kế toán đang giữ → lấy full luôn dù vượt target
+      for (const d of unused) {
+        if (accumulated >= target) break;
+        const need = target - accumulated;
+        if (d._avail <= need || d.custodian === CUSTODIAN_KE_TOAN) {
+          accumulated += d._avail;
+          selected.push({ ...d, _take: d._avail });
+          usedIds.add(d.id);
+        }
       }
 
-      if (!filledBySecondary && needNow === target - accumulated) break;
+      // Bước B: vẫn chưa đủ → lấy khoản dang dở full, cũ nhất trước
+      for (const d of partial) {
+        if (accumulated >= target) break;
+        const need = target - accumulated;
+        if (d._avail <= need || d.custodian === CUSTODIAN_KE_TOAN) {
+          accumulated += d._avail;
+          selected.push({ ...d, _take: d._avail });
+          usedIds.add(d.id);
+        }
+      }
     }
 
     const totalAvail = avails.reduce((s, d) => s + d._avail, 0);
@@ -799,8 +810,8 @@ export default function ReportsPage() {
                 <p className="text-xs text-muted-foreground mt-3">
                   * Thứ tự ưu tiên: (1) Khoản khít đúng số tiền cần →{" "}
                   {priorityMode === "unused_first"
-                    ? "(2) Khoản còn nguyên (lấy full, cũ nhất trước) → (3) Khoản dang dở để lấp đầy phần còn thiếu"
-                    : "(2) Khoản dang dở (cũ nhất trước) → (3) Khoản còn nguyên để lấp đầy phần còn thiếu"}
+                    ? "(2) Khoản còn nguyên, lấy full nếu không vượt target (khoản không khít bị bỏ) → (3) Khoản dang dở full để lấp phần thiếu"
+                    : "(2) Khoản dang dở lấy full hết → (3) Khoản còn nguyên full (chấp nhận lấy thừa nếu khoản cuối vượt target)"}
                 </p>
               </CardContent>
             </Card>
