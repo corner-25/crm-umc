@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       { type: "Tình nguyện", value: totalVolunteer, count: volunteerCount },
     ];
 
-    // Get top donors by total value (filtered by date)
+    // Get donors with donations (filtered by date)
     const donors = await prisma.donor.findMany({
       where: { deletedAt: null },
       include: {
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const topDonors = donors
+    const donorStats = donors
       .map((donor) => {
         const cashTotal = donor.cashDonations
           .filter((d) => d.currency === "VND")
@@ -116,12 +116,91 @@ export async function GET(request: NextRequest) {
           id: donor.id,
           fullName: donor.fullName,
           tier: donor.tier,
+          type: donor.type,
           totalValue: total,
           donationCount: count,
         };
-      })
+      });
+
+    // Top 10 by value
+    const topDonorsByValue = [...donorStats]
       .sort((a, b) => b.totalValue - a.totalValue)
       .slice(0, 10);
+
+    // Top 10 by frequency
+    const topDonorsByFrequency = [...donorStats]
+      .filter((d) => d.donationCount > 0)
+      .sort((a, b) => b.donationCount - a.donationCount || b.totalValue - a.totalValue)
+      .slice(0, 10);
+
+    // Donors by type (Cá nhân, Doanh nghiệp, Tổ chức, Cộng đồng)
+    const donorTypeLabels: Record<string, string> = {
+      INDIVIDUAL: "Cá nhân",
+      COMPANY: "Doanh nghiệp",
+      ORGANIZATION: "Tổ chức",
+      COMMUNITY: "Cộng đồng",
+    };
+    const donorsByType = Object.entries(
+      donorStats.reduce((acc, d) => {
+        if (d.donationCount > 0 || !hasDateFilter) {
+          acc[d.type] = (acc[d.type] || 0) + 1;
+        }
+        return acc;
+      }, {} as Record<string, number>)
+    ).map(([type, count]) => ({ type: donorTypeLabels[type] || type, count }));
+
+    // Cash by purpose
+    const cashDonations = await prisma.donationCash.findMany({
+      where: { deletedAt: null, currency: "VND", ...cashDateFilter },
+      select: { purpose: true, amount: true },
+    });
+    const cashByPurposeMap: Record<string, number> = {};
+    for (const d of cashDonations) {
+      const key = d.purpose || "Khác";
+      cashByPurposeMap[key] = (cashByPurposeMap[key] || 0) + Number(d.amount);
+    }
+    const cashByPurpose = Object.entries(cashByPurposeMap)
+      .map(([purpose, value]) => ({ purpose, value }))
+      .sort((a, b) => b.value - a.value);
+
+    // In-kind by category
+    const inKindCategoryLabels: Record<string, string> = {
+      MEDICAL_EQUIPMENT: "Thiết bị y tế",
+      MEDICINE: "Thuốc",
+      SUPPLIES: "Đồ dùng",
+      FOOD: "Thực phẩm",
+      OTHER: "Khác",
+    };
+    const inKindDonations = await prisma.donationInKind.findMany({
+      where: { deletedAt: null, ...inKindDateFilter },
+      select: { category: true, estimatedValue: true },
+    });
+    const inKindByCategoryMap: Record<string, number> = {};
+    for (const d of inKindDonations) {
+      const key = d.category;
+      inKindByCategoryMap[key] = (inKindByCategoryMap[key] || 0) + Number(d.estimatedValue);
+    }
+    const inKindByCategory = Object.entries(inKindByCategoryMap)
+      .map(([category, value]) => ({ category: inKindCategoryLabels[category] || category, value }))
+      .sort((a, b) => b.value - a.value);
+
+    // Cancer support stats
+    const [activePatientsCount, treatmentStats, treatmentSponsorSum] = await Promise.all([
+      prisma.cancerPatient.count({ where: { deletedAt: null, status: "ACTIVE" } }),
+      prisma.patientTreatment.aggregate({
+        where: { deletedAt: null, status: "COMPLETED" },
+        _count: true,
+      }),
+      prisma.patientTreatment.aggregate({
+        where: { deletedAt: null, isSponsored: true },
+        _sum: { donationAmount: true },
+      }),
+    ]);
+    const cancerStats = {
+      activePatients: activePatientsCount,
+      completedCycles: treatmentStats._count,
+      totalSponsorAmount: Number(treatmentSponsorSum._sum.donationAmount || 0),
+    };
 
     return NextResponse.json({
       totalDonors,
@@ -133,7 +212,12 @@ export async function GET(request: NextRequest) {
       totalVolunteer,
       grandTotal,
       donationsByType,
-      topDonors,
+      topDonorsByValue,
+      topDonorsByFrequency,
+      donorsByType,
+      cashByPurpose,
+      inKindByCategory,
+      cancerStats,
       cashCount,
       inKindCount,
       volunteerCount,
