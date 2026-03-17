@@ -173,6 +173,24 @@ export default function DonorDetailPage() {
     (donor.inKindDonations?.length || 0) +
     (donor.volunteerDonations?.length || 0);
 
+  // Tính tổng tiền tài trợ (tiền mặt + quy đổi hiện vật + quy đổi tình nguyện)
+  const totalCashAmount = (donor.cashDonations || []).reduce(
+    (sum: number, d: any) => sum + Number(d.amount || 0), 0
+  );
+  const totalInKindValue = (donor.inKindDonations || []).reduce(
+    (sum: number, d: any) => sum + Number(d.estimatedValue || 0), 0
+  );
+  const totalVolunteerValue = (donor.volunteerDonations || []).reduce(
+    (sum: number, d: any) => sum + Number(d.totalValue || 0), 0
+  );
+  const totalAmount = totalCashAmount + totalInKindValue + totalVolunteerValue;
+
+  // Tổng đã sử dụng (chỉ tiền mặt có usedAmount)
+  const totalUsed = (donor.cashDonations || []).reduce(
+    (sum: number, d: any) => sum + Number(d.usedAmount || 0), 0
+  );
+  const totalRemaining = totalCashAmount - totalUsed;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -258,76 +276,100 @@ export default function DonorDetailPage() {
         </div>
       </div>
 
-      {/* Quick Info */}
+      {/* Thông tin nhà tài trợ + Thống kê */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        {/* Card 1: Thông tin nhân khẩu học (span 2 cols) */}
+        <Card className="md:col-span-2">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Liên hệ</CardTitle>
+            <CardTitle className="text-sm font-medium">Thông tin nhà tài trợ</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {donor.phone && (
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                {donor.phone}
-              </div>
-            )}
-            {donor.email && (
-              <div className="flex items-center gap-2 text-sm">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                {donor.email}
-              </div>
-            )}
-            {donor.address && (
-              <div className="flex items-center gap-2 text-sm">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                {donor.address}
-              </div>
-            )}
+          <CardContent>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+              {donor.phone && (
+                <div className="flex items-center gap-2">
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>{donor.phone}</span>
+                </div>
+              )}
+              {donor.email && (
+                <div className="flex items-center gap-2">
+                  <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="truncate">{donor.email}</span>
+                </div>
+              )}
+              {donor.address && (
+                <div className="flex items-center gap-2 col-span-2">
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>{donor.address}</span>
+                </div>
+              )}
+              {(donor.occupation || donor.company) && (
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>{[donor.occupation, donor.company].filter(Boolean).join(" - ")}</span>
+                </div>
+              )}
+              {donor.position && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">{donor.position}</span>
+                </div>
+              )}
+              {donor.birthday && (
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>Sinh nhật: {formatDate(donor.birthday)}</span>
+                </div>
+              )}
+              {donor.firstDonationDate && (
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>Tài trợ lần đầu: {formatDate(donor.firstDonationDate)}</span>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
+        {/* Card 2: Số khoản tài trợ */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Công việc</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Khoản tài trợ</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {donor.occupation && (
-              <div className="flex items-center gap-2 text-sm">
-                <Briefcase className="h-4 w-4 text-muted-foreground" />
-                {donor.occupation}
-              </div>
-            )}
-            {donor.company && <div className="text-sm">{donor.company}</div>}
-            {donor.position && <div className="text-sm text-muted-foreground">{donor.position}</div>}
+          <CardContent>
+            <div className="text-3xl font-bold">{totalDonations}</div>
+            <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+              {(donor.cashDonations?.length || 0) > 0 && (
+                <span>{donor.cashDonations.length} tiền mặt</span>
+              )}
+              {(donor.inKindDonations?.length || 0) > 0 && (
+                <span>{donor.inKindDonations.length} hiện vật</span>
+              )}
+              {(donor.volunteerDonations?.length || 0) > 0 && (
+                <span>{donor.volunteerDonations.length} tình nguyện</span>
+              )}
+            </div>
           </CardContent>
         </Card>
 
+        {/* Card 3: Tổng giá trị tài trợ */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Ngày quan trọng</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Tổng giá trị tài trợ</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {donor.birthday && (
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                Sinh nhật: {formatDate(donor.birthday)}
+          <CardContent>
+            <div className="text-2xl font-bold text-green-700">{formatCurrency(totalAmount.toString())}</div>
+            <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+              <div className="flex justify-between">
+                <span>Đã sử dụng</span>
+                <span className="font-medium text-foreground">{formatCurrency(totalUsed.toString())}</span>
               </div>
-            )}
-            {donor.firstDonationDate && (
-              <div className="text-sm">
-                Tài trợ lần đầu: {formatDate(donor.firstDonationDate)}
+              <div className="flex justify-between">
+                <span>Tiền mặt còn lại</span>
+                <span className={cn("font-medium", totalRemaining > 0 ? "text-blue-600" : "text-foreground")}>
+                  {formatCurrency(totalRemaining.toString())}
+                </span>
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Thống kê</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="text-2xl font-bold">{totalDonations}</div>
-            <p className="text-sm text-muted-foreground">Tổng số khoản tài trợ</p>
+            </div>
           </CardContent>
         </Card>
       </div>
