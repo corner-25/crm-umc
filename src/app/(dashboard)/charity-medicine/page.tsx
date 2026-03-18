@@ -15,8 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import {
-  Pill, MapPin, Truck, Package, Plus, Search, Pencil, Trash2,
-  AlertTriangle, ArrowDownToLine, ArrowUpFromLine, RotateCcw, BarChart3,
+  Pill, MapPin, Package, Plus, Search, Pencil, Trash2,
+  AlertTriangle, ArrowDownToLine, ArrowUpFromLine, RotateCcw, BarChart3, Truck,
 } from "lucide-react";
 
 // ─── Constants ─────────────────────────────────────────────────────────────
@@ -534,7 +534,6 @@ export default function CharityMedicinePage() {
     warn.setMonth(warn.getMonth() + 3);
     return d <= warn;
   }).length;
-  const activeTrips = trips.filter((t: any) => t.status === "PLANNING" || t.status === "PREPARED" || t.status === "IN_PROGRESS").length;
 
   return (
     <div className="space-y-6">
@@ -546,7 +545,7 @@ export default function CharityMedicinePage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
@@ -568,14 +567,6 @@ export default function CharityMedicinePage() {
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-orange-100 p-2"><AlertTriangle className="h-5 w-5 text-orange-600" /></div>
               <div><p className="text-sm text-muted-foreground">Sắp hết hạn</p><p className="text-2xl font-bold">{expiringSoon}</p></div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-purple-100 p-2"><Truck className="h-5 w-5 text-purple-600" /></div>
-              <div><p className="text-sm text-muted-foreground">Chuyến đi đang hoạt động</p><p className="text-2xl font-bold">{activeTrips}</p></div>
             </div>
           </CardContent>
         </Card>

@@ -147,24 +147,6 @@ export async function GET(request: NextRequest) {
       .map(([purpose, value]) => ({ purpose, value }))
       .sort((a, b) => b.value - a.value);
 
-    // Cancer support stats
-    const [activePatientsCount, treatmentStats, treatmentSponsorSum] = await Promise.all([
-      prisma.cancerPatient.count({ where: { deletedAt: null, status: "ACTIVE" } }),
-      prisma.patientTreatment.aggregate({
-        where: { deletedAt: null, status: "COMPLETED" },
-        _count: true,
-      }),
-      prisma.patientTreatment.aggregate({
-        where: { deletedAt: null, isSponsored: true },
-        _sum: { donationAmount: true },
-      }),
-    ]);
-    const cancerStats = {
-      activePatients: activePatientsCount,
-      completedCycles: treatmentStats._count,
-      totalSponsorAmount: Number(treatmentSponsorSum._sum.donationAmount || 0),
-    };
-
     return NextResponse.json({
       totalDonors,
       totalDonations,
@@ -178,7 +160,6 @@ export async function GET(request: NextRequest) {
       topDonorsByFrequency,
       donorsByType,
       cashByPurpose,
-      cancerStats,
       cashCount,
       inKindCount,
     });

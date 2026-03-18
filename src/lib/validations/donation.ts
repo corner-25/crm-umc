@@ -52,6 +52,7 @@ export const inKindDonationSchema = z.object({
   receivingLocation: z.string().min(1, "Vui lòng nhập địa điểm nhận"),
   storageLocation: z.string().min(1, "Vui lòng nhập kho lưu trữ"),
   distributionStatus: z.enum(["PENDING", "RECEIVED", "DISTRIBUTED"]),
+  notes: z.string().optional().nullable(),
 });
 
 export type InKindDonationFormValues = z.infer<typeof inKindDonationSchema>;

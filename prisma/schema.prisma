@@ -266,6 +266,7 @@ model DonationInKind {
   receivingLocation     String
   storageLocation       String
   distributionStatus    DistributionStatus          @default(PENDING)
+  notes                 String?
 
   createdAt             DateTime                    @default(now())
   updatedAt             DateTime                    @updatedAt

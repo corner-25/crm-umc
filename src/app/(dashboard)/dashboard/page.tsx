@@ -11,7 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DollarSign, Users, Gift, Coins, CalendarIcon, Wallet, Activity, Pill, HeartPulse } from "lucide-react";
+import { DollarSign, Users, Gift, Coins, CalendarIcon, Wallet } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import { donorTierColors, donorTierLabels } from "@/types/donor";
 import { DonorTier } from "@prisma/client";
@@ -105,16 +105,18 @@ export default function DashboardPage() {
 
       {/* Row 1: KPI Cards — 6 cards (3x2) */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
+        {/* 1.1 Tổng giá trị tài trợ — HIGHLIGHT */}
+        <Card className="border-2 border-primary bg-primary/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng giá trị tài trợ</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-primary">Tổng giá trị tài trợ</CardTitle>
+            <DollarSign className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency((stats?.totalCash || 0) + (stats?.totalInKind || 0))}</div>
+            <div className="text-2xl font-bold text-primary">{formatCurrency((stats?.totalCash || 0) + (stats?.totalInKind || 0))}</div>
             <p className="text-xs text-muted-foreground">{stats?.totalDonations || 0} khoản (Tiền mặt + Hiện vật)</p>
           </CardContent>
         </Card>
+        {/* 1.2 Tiền mặt nhận được */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Tiền mặt nhận được</CardTitle>
@@ -125,26 +127,7 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">{stats?.cashCount || 0} khoản</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Hiện vật</CardTitle>
-            <Gift className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats?.totalInKind || 0)}</div>
-            <p className="text-xs text-muted-foreground">{stats?.inKindCount || 0} khoản</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tiền đã sử dụng</CardTitle>
-            <Wallet className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500">{formatCurrency(stats?.totalUsed || 0)}</div>
-            <p className="text-xs text-muted-foreground">{usagePercent}% tổng tiền mặt</p>
-          </CardContent>
-        </Card>
+        {/* 1.3 Tiền chưa sử dụng */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Tiền chưa sử dụng</CardTitle>
@@ -155,6 +138,18 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">Còn lại từ tiền mặt</p>
           </CardContent>
         </Card>
+        {/* 2.1 Hiện vật */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Hiện vật</CardTitle>
+            <Gift className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(stats?.totalInKind || 0)}</div>
+            <p className="text-xs text-muted-foreground">{stats?.inKindCount || 0} khoản</p>
+          </CardContent>
+        </Card>
+        {/* 2.2 Nhà tài trợ */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Nhà tài trợ</CardTitle>
@@ -165,6 +160,17 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">
               {selectedYear ? `Tài trợ lần đầu năm ${selectedYear}` : "Tổng số nhà tài trợ"}
             </p>
+          </CardContent>
+        </Card>
+        {/* 2.3 Khoản tài trợ */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Khoản tài trợ</CardTitle>
+            <Coins className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalDonations || 0}</div>
+            <p className="text-xs text-muted-foreground">Tiền mặt: {stats?.cashCount || 0} · Hiện vật: {stats?.inKindCount || 0}</p>
           </CardContent>
         </Card>
       </div>
@@ -479,47 +485,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Row 6: Cancer Support Stats — full width, 3-4 KPI nhỏ */}
-      {stats?.cancerStats && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <HeartPulse className="h-5 w-5 text-pink-500" />
-            Hỗ trợ thuốc ung thư
-          </h3>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Bệnh nhân đang điều trị</CardTitle>
-                <Activity className="h-4 w-4 text-pink-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.cancerStats.activePatients}</div>
-                <p className="text-xs text-muted-foreground">Đang hoạt động</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Chu kỳ hoàn thành</CardTitle>
-                <Pill className="h-4 w-4 text-purple-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.cancerStats.completedCycles}</div>
-                <p className="text-xs text-muted-foreground">Tổng chu kỳ điều trị xong</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Tổng tiền tài trợ thuốc</CardTitle>
-                <DollarSign className="h-4 w-4 text-green-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(stats.cancerStats.totalSponsorAmount)}</div>
-                <p className="text-xs text-muted-foreground">Từ các nhà tài trợ</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

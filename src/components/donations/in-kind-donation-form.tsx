@@ -68,6 +68,7 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
       receivingLocation: "",
       storageLocation: "",
       distributionStatus: "PENDING",
+      notes: "",
       ...defaultValues,
     },
   });
@@ -360,6 +361,26 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
                   onChange={field.onChange}
                   multiple={true}
                   maxSize={5}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Ghi chú */}
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Ghi chú</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Ghi chú thêm về hiện vật..."
+                  rows={3}
+                  {...field}
+                  value={field.value ?? ""}
                 />
               </FormControl>
               <FormMessage />
