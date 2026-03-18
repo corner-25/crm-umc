@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { addDays, startOfDay, endOfDay, subMonths } from "date-fns";
+import { addDays, startOfDay, endOfDay } from "date-fns";
 
 export async function GET(request: NextRequest) {
   try {
@@ -147,55 +147,29 @@ export async function GET(request: NextRequest) {
       isToday: post.scheduledAt.toDateString() === today.toDateString(),
     }));
 
-    // 6. Nhà tài trợ 6 tháng không phát sinh tài trợ mới
-    const sixMonthsAgo = subMonths(today, 6);
-    const allActiveDonors = await prisma.donor.findMany({
-      where: { deletedAt: null, isAnonymous: false },
-      select: {
-        id: true,
-        fullName: true,
-        cashDonations: {
-          where: { deletedAt: null },
-          select: { receivedDate: true },
-          orderBy: { receivedDate: "desc" },
-          take: 1,
-        },
-        inKindDonations: {
-          where: { deletedAt: null },
-          select: { createdAt: true },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-        },
-      },
+    // 6. Hàng kho sắp hết hạn (theo expiryAlertMonths của mỗi lô)
+    const warehouseItems = await prisma.warehouseItem.findMany({
+      where: { deletedAt: null, expiryDate: { not: null } },
     });
 
-    const inactiveDonorAlerts = allActiveDonors
-      .filter((donor) => {
-        const lastCash = donor.cashDonations[0]?.receivedDate;
-        const lastInKind = donor.inKindDonations[0]?.createdAt;
-        const lastDonation = [lastCash, lastInKind]
-          .filter(Boolean)
-          .sort((a, b) => new Date(b!).getTime() - new Date(a!).getTime())[0];
-
-        // Nếu chưa từng tài trợ hoặc tài trợ cuối cách đây > 6 tháng
-        if (!lastDonation) return donor.cashDonations.length === 0 && donor.inKindDonations.length === 0;
-        return new Date(lastDonation) < sixMonthsAgo;
+    const warehouseAlerts = warehouseItems
+      .filter((item) => {
+        if (!item.expiryDate) return false;
+        const alertMonths = item.expiryAlertMonths || 1;
+        const alertDate = new Date(item.expiryDate);
+        alertDate.setMonth(alertDate.getMonth() - alertMonths);
+        return today >= alertDate;
       })
-      .slice(0, 15)
-      .map((donor) => {
-        const lastCash = donor.cashDonations[0]?.receivedDate;
-        const lastInKind = donor.inKindDonations[0]?.createdAt;
-        const lastDonation = [lastCash, lastInKind]
-          .filter(Boolean)
-          .sort((a, b) => new Date(b!).getTime() - new Date(a!).getTime())[0];
-        return {
-          type: "INACTIVE_DONOR" as const,
-          donorId: donor.id,
-          donorName: donor.fullName,
-          lastDonationDate: lastDonation?.toISOString() ?? null,
-          message: `${donor.fullName} chưa phát sinh tài trợ trong 6 tháng`,
-        };
-      });
+      .map((item) => ({
+        type: "WAREHOUSE_EXPIRY" as const,
+        itemId: item.id,
+        itemCode: item.code,
+        itemName: item.name,
+        batchCode: item.batchCode,
+        date: item.expiryDate!.toISOString(),
+        isExpired: new Date(item.expiryDate!) < today,
+        message: `[${item.code}] ${item.name} — HSD: ${item.expiryDate!.toLocaleDateString("vi-VN")}`,
+      }));
 
     const totalAlerts =
       birthdayAlerts.length +
@@ -203,7 +177,7 @@ export async function GET(request: NextRequest) {
       treatmentAlerts.length +
       reminderAlerts.length +
       fanpageAlerts.length +
-      inactiveDonorAlerts.length;
+      warehouseAlerts.length;
 
     return NextResponse.json({
       totalAlerts,
@@ -212,7 +186,7 @@ export async function GET(request: NextRequest) {
       upcomingTreatments: treatmentAlerts,
       overdueReminders: reminderAlerts,
       upcomingFanpostPosts: fanpageAlerts,
-      inactiveDonors: inactiveDonorAlerts,
+      warehouseExpiry: warehouseAlerts,
     });
   } catch (error) {
     console.error("Error fetching alerts:", error);

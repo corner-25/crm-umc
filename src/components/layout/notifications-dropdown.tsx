@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Cake, FileText, Clock, Facebook, UserMinus, Stethoscope, AlertTriangle } from "lucide-react";
+import { Bell, Cake, FileText, Clock, Facebook, Package, Stethoscope, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -178,21 +178,24 @@ export function NotificationsDropdown() {
                 </div>
               )}
 
-              {/* Nhà tài trợ không hoạt động */}
-              {alerts.inactiveDonors?.length > 0 && (
+              {/* Hàng kho sắp/đã hết hạn */}
+              {alerts.warehouseExpiry?.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2 flex items-center gap-1 px-1">
-                    <UserMinus className="h-3 w-3" /> Nhà tài trợ chưa phát sinh &gt;6 tháng
+                  <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-2 flex items-center gap-1 px-1">
+                    <Package className="h-3 w-3" /> Hàng kho sắp/đã hết hạn
                   </p>
                   <div className="flex flex-wrap gap-2 px-1">
-                    {alerts.inactiveDonors.map((alert: any) => (
-                      <Link key={alert.donorId} href={`/donors/${alert.donorId}`}>
+                    {alerts.warehouseExpiry.map((alert: any) => (
+                      <Link key={alert.itemId} href="/warehouse">
                         <Badge
                           variant="outline"
-                          className="cursor-pointer border-amber-300 text-amber-800 hover:bg-amber-50"
+                          className={cn(
+                            "cursor-pointer border-orange-300 text-orange-800 hover:bg-orange-50",
+                            alert.isExpired && "bg-red-100 border-red-300 text-red-800"
+                          )}
                         >
-                          {alert.donorName}
-                          {alert.lastDonationDate && ` (lần cuối: ${format(new Date(alert.lastDonationDate), "MM/yyyy")})`}
+                          {alert.isExpired && <AlertTriangle className="h-3 w-3 mr-1 inline" />}
+                          [{alert.itemCode}] {alert.itemName} — HSD: {format(new Date(alert.date), "dd/MM/yyyy")}
                         </Badge>
                       </Link>
                     ))}
