@@ -13,22 +13,23 @@ export async function POST() {
     const now = new Date();
     const created: string[] = [];
 
-    // 1. Cảnh báo hàng sắp hết hạn — theo expiryAlertMonths của mỗi lô
-    const warehouseItems = await prisma.warehouseItem.findMany({
-      where: { deletedAt: null, expiryDate: { not: null } },
+    // 1. Cảnh báo hàng sắp hết hạn — theo expiryAlertMonths của mỗi lô nhập
+    const importBatches = await prisma.warehouseTransaction.findMany({
+      where: { type: "IMPORT", expiryDate: { not: null } },
+      include: { item: { select: { id: true, code: true, name: true, unit: true, currentQuantity: true, deletedAt: true } } },
     });
 
-    for (const item of warehouseItems) {
-      if (!item.expiryDate) continue;
-      const alertMonths = item.expiryAlertMonths || 1;
-      const alertDate = new Date(item.expiryDate);
+    for (const batch of importBatches) {
+      if (!batch.expiryDate || batch.item.deletedAt) continue;
+      const alertMonths = batch.expiryAlertMonths || 1;
+      const alertDate = new Date(batch.expiryDate);
       alertDate.setMonth(alertDate.getMonth() - alertMonths);
 
       // Chỉ tạo nếu đã đến ngày cảnh báo
       if (now < alertDate) continue;
 
       // Kiểm tra đã có nhắc nhở chưa (tránh trùng)
-      const title = `Hàng sắp hết hạn: [${item.code}] ${item.name}`;
+      const title = `Hàng sắp hết hạn: [${batch.item.code}] ${batch.item.name} — Lô: ${batch.batchCode || "N/A"}`;
       const existing = await prisma.reminder.findFirst({
         where: {
           title,
@@ -44,7 +45,7 @@ export async function POST() {
           donorId: (await prisma.donor.findFirst({ where: { deletedAt: null } }))?.id || "",
           type: "OTHER",
           title,
-          description: `Mã lô: ${item.batchCode || "N/A"} — HSD: ${item.expiryDate.toLocaleDateString("vi-VN")} — Tồn: ${item.currentQuantity} ${item.unit}`,
+          description: `Mã lô: ${batch.batchCode || "N/A"} — HSD: ${batch.expiryDate.toLocaleDateString("vi-VN")} — Tồn kho: ${batch.item.currentQuantity} ${batch.item.unit}`,
           dueDate: alertDate > now ? alertDate : now,
         },
       });

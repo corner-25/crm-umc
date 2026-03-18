@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { itemId, type, quantity, donorUnit, purpose, handledBy, transactionDate, notes } = body;
+    const { itemId, type, quantity, donorUnit, purpose, handledBy, transactionDate, notes, batchCode, expiryDate, expiryAlertMonths } = body;
 
     if (!itemId || !type || !quantity) {
       return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
@@ -75,6 +75,9 @@ export async function POST(request: NextRequest) {
           itemId,
           type,
           quantity,
+          batchCode: type === "IMPORT" ? (batchCode || null) : null,
+          expiryDate: type === "IMPORT" && expiryDate ? new Date(expiryDate) : null,
+          expiryAlertMonths: type === "IMPORT" ? (expiryAlertMonths || 1) : 1,
           donorUnit: donorUnit || null,
           purpose: purpose || null,
           handledBy: handledBy || null,

@@ -28,16 +28,44 @@ export async function GET(request: NextRequest) {
       orderBy: { updatedAt: "desc" },
       include: {
         _count: { select: { transactions: true } },
+        // Lấy các lô IMPORT còn hạn sử dụng để hiển thị HSD gần nhất
+        transactions: {
+          where: { type: "IMPORT", expiryDate: { not: null } },
+          select: { batchCode: true, expiryDate: true, expiryAlertMonths: true, quantity: true, transactionDate: true },
+          orderBy: { expiryDate: "asc" },
+        },
       },
     });
 
-    // Filter low stock / expiring soon ở app level (đơn giản hơn raw query)
-    let result = items;
+    // Enrich: thêm nearestExpiry (HSD gần nhất từ các lô)
+    const enriched = items.map((item) => {
+      const batches = item.transactions.filter((t) => t.expiryDate);
+      const nearestBatch = batches[0] || null;
+      return {
+        ...item,
+        nearestExpiry: nearestBatch?.expiryDate || null,
+        nearestBatchCode: nearestBatch?.batchCode || null,
+        nearestExpiryAlertMonths: nearestBatch?.expiryAlertMonths || 1,
+        batches: batches.map((b) => ({
+          batchCode: b.batchCode,
+          expiryDate: b.expiryDate,
+          expiryAlertMonths: b.expiryAlertMonths,
+          quantity: b.quantity,
+        })),
+      };
+    });
+
+    let result = enriched;
     if (lowStock) result = result.filter((i) => i.minQuantity > 0 && i.currentQuantity <= i.minQuantity);
     if (expiringSoon) {
-      const in30Days = new Date();
-      in30Days.setDate(in30Days.getDate() + 30);
-      result = result.filter((i) => i.expiryDate && new Date(i.expiryDate) <= in30Days);
+      const now = new Date();
+      result = result.filter((i) => {
+        if (!i.nearestExpiry) return false;
+        const alertMonths = i.nearestExpiryAlertMonths || 1;
+        const alertDate = new Date(i.nearestExpiry);
+        alertDate.setMonth(alertDate.getMonth() - alertMonths);
+        return now >= alertDate;
+      });
     }
 
     return NextResponse.json({ items: result });
@@ -53,7 +81,7 @@ export async function POST(request: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { code, name, unit, category, minQuantity, expiryDate, notes, donorUnit, batchCode, expiryAlertMonths, currentQuantity } = body;
+    const { code, name, unit, category, minQuantity, currentQuantity, notes } = body;
 
     if (!code || !name || !unit) {
       return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
@@ -70,11 +98,7 @@ export async function POST(request: NextRequest) {
         category: category || "OTHER",
         currentQuantity: currentQuantity || 0,
         minQuantity: minQuantity || 0,
-        batchCode: batchCode || null,
-        expiryDate: expiryDate ? new Date(expiryDate) : null,
-        expiryAlertMonths: expiryAlertMonths || 1,
         notes: notes || null,
-        donorUnit: donorUnit || null,
       },
     });
 

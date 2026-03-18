@@ -8,17 +8,25 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const item = await prisma.warehouseItem.findFirst({
+    const medicine = await prisma.charityMedicine.findFirst({
       where: { id: params.id, deletedAt: null },
       include: {
-        transactions: {
-          orderBy: { transactionDate: "desc" },
+        batches: {
+          where: { deletedAt: null },
+          orderBy: { expiryDate: "asc" },
+          include: {
+            transactions: { orderBy: { transactionDate: "desc" }, take: 10 },
+          },
+        },
+        demandStats: {
+          include: { trip: { include: { location: true } } },
+          orderBy: { createdAt: "desc" },
         },
       },
     });
 
-    if (!item) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });
-    return NextResponse.json({ item });
+    if (!medicine) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });
+    return NextResponse.json({ medicine });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -31,21 +39,20 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { name, unit, category, minQuantity, currentQuantity, notes } = body;
+    const { name, activeIngredient, unit, category, notes } = body;
 
-    const item = await prisma.warehouseItem.update({
+    const medicine = await prisma.charityMedicine.update({
       where: { id: params.id },
       data: {
         ...(name && { name }),
+        ...(activeIngredient !== undefined && { activeIngredient }),
         ...(unit && { unit }),
         ...(category && { category }),
-        ...(currentQuantity !== undefined && { currentQuantity }),
-        ...(minQuantity !== undefined && { minQuantity }),
         ...(notes !== undefined && { notes }),
       },
     });
 
-    return NextResponse.json({ item });
+    return NextResponse.json({ medicine });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -57,7 +64,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    await prisma.warehouseItem.update({
+    await prisma.charityMedicine.update({
       where: { id: params.id },
       data: { deletedAt: new Date() },
     });

@@ -14,6 +14,7 @@ import {
   Activity,
   Facebook,
   Warehouse,
+  Pill,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,14 @@ const navigation = [
       { name: "Người bệnh", href: "/cancer-support/patients" },
       { name: "Thuốc", href: "/cancer-support/medications" },
       { name: "Theo dõi chu kỳ", href: "/cancer-support/tracking" },
+    ],
+  },
+  {
+    name: "Thuốc từ thiện",
+    href: "/charity-medicine",
+    icon: Pill,
+    children: [
+      { name: "Danh mục & Tồn kho", href: "/charity-medicine" },
     ],
   },
   {

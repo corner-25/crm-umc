@@ -147,28 +147,29 @@ export async function GET(request: NextRequest) {
       isToday: post.scheduledAt.toDateString() === today.toDateString(),
     }));
 
-    // 6. Hàng kho sắp hết hạn (theo expiryAlertMonths của mỗi lô)
-    const warehouseItems = await prisma.warehouseItem.findMany({
-      where: { deletedAt: null, expiryDate: { not: null } },
+    // 6. Hàng kho sắp hết hạn (theo expiryAlertMonths của mỗi lô nhập)
+    const importBatches = await prisma.warehouseTransaction.findMany({
+      where: { type: "IMPORT", expiryDate: { not: null } },
+      include: { item: { select: { id: true, code: true, name: true, deletedAt: true } } },
     });
 
-    const warehouseAlerts = warehouseItems
-      .filter((item) => {
-        if (!item.expiryDate) return false;
-        const alertMonths = item.expiryAlertMonths || 1;
-        const alertDate = new Date(item.expiryDate);
+    const warehouseAlerts = importBatches
+      .filter((batch) => {
+        if (!batch.expiryDate || batch.item.deletedAt) return false;
+        const alertMonths = batch.expiryAlertMonths || 1;
+        const alertDate = new Date(batch.expiryDate);
         alertDate.setMonth(alertDate.getMonth() - alertMonths);
         return today >= alertDate;
       })
-      .map((item) => ({
+      .map((batch) => ({
         type: "WAREHOUSE_EXPIRY" as const,
-        itemId: item.id,
-        itemCode: item.code,
-        itemName: item.name,
-        batchCode: item.batchCode,
-        date: item.expiryDate!.toISOString(),
-        isExpired: new Date(item.expiryDate!) < today,
-        message: `[${item.code}] ${item.name} — HSD: ${item.expiryDate!.toLocaleDateString("vi-VN")}`,
+        itemId: batch.item.id,
+        itemCode: batch.item.code,
+        itemName: batch.item.name,
+        batchCode: batch.batchCode,
+        date: batch.expiryDate!.toISOString(),
+        isExpired: new Date(batch.expiryDate!) < today,
+        message: `[${batch.item.code}] ${batch.item.name} — Lô: ${batch.batchCode || "N/A"} — HSD: ${batch.expiryDate!.toLocaleDateString("vi-VN")}`,
       }));
 
     const totalAlerts =

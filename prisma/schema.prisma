@@ -797,17 +797,13 @@ enum MessageContentType {
 // Mặt hàng trong kho
 model WarehouseItem {
   id                String                @id @default(cuid())
-  code              String                @unique  // Mã hàng
+  code              String                @unique  // Mã hàng (sản phẩm)
   name              String                         // Tên hàng
   unit              String                         // Đơn vị (cái, hộp, kg,...)
   category          WarehouseCategory     @default(OTHER)
-  currentQuantity   Int                   @default(0)  // Tồn kho hiện tại
+  currentQuantity   Int                   @default(0)  // Tồn kho hiện tại (tổng các lô)
   minQuantity       Int                   @default(0)  // Ngưỡng cảnh báo tồn thấp
-  batchCode         String?                          // Mã lô hàng
-  expiryDate        DateTime?                        // Hạn sử dụng (tuỳ chọn)
-  expiryAlertMonths Int                   @default(1) // Cảnh báo trước N tháng hết hạn
   notes             String?                          // Ghi chú tình trạng hàng
-  donorUnit         String?                          // Đơn vị tài trợ
 
   transactions      WarehouseTransaction[]
 
@@ -837,6 +833,9 @@ model WarehouseTransaction {
 
   type              WarehouseTransactionType  // IMPORT | EXPORT
   quantity          Int                        // Số lượng nhập/xuất
+  batchCode         String?                    // Mã lô (chỉ khi IMPORT)
+  expiryDate        DateTime?                  // HSD của lô (chỉ khi IMPORT)
+  expiryAlertMonths Int                   @default(1) // Cảnh báo trước N tháng
   donorUnit         String?                    // Đơn vị tài trợ
   purpose           String?                    // Mục đích tài trợ / xuất kho
   handledBy         String?                    // Người thực hiện (nhận/giao)
@@ -865,4 +864,179 @@ model CustomOption {
 
   @@index([type])
   @@map("custom_options")
+}
+
+// ================================
+// QUẢN LÝ THUỐC ĐI TỪ THIỆN
+// ================================
+
+// Danh mục thuốc chung (Master Data)
+model CharityMedicine {
+  id              String                @id @default(cuid())
+  code            String                @unique  // Mã thuốc
+  name            String                         // Tên thuốc
+  activeIngredient String?                       // Hoạt chất
+  unit            String                         // Đơn vị tính (viên, hộp, chai,...)
+  category        MedicineCategory      @default(OTHER)
+  notes           String?
+
+  batches         MedicineBatch[]
+  demandStats     CharityDemandStat[]
+
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  deletedAt       DateTime?
+
+  @@index([code])
+  @@index([name])
+  @@index([category])
+  @@map("charity_medicines")
+}
+
+enum MedicineCategory {
+  ANTIBIOTIC        // Kháng sinh
+  PAINKILLER        // Giảm đau
+  DIGESTIVE         // Tiêu hóa
+  RESPIRATORY       // Hô hấp
+  CARDIOVASCULAR    // Tim mạch
+  DERMATOLOGY       // Da liễu
+  MUSCULOSKELETAL   // Cơ xương khớp
+  VITAMIN           // Vitamin / Bổ sung
+  EYE_ENT           // Mắt / Tai mũi họng
+  DIABETES          // Tiểu đường
+  ALLERGY           // Dị ứng
+  OTHER             // Khác
+}
+
+// Địa điểm tổ chức khám từ thiện
+model CharityLocation {
+  id              String                @id @default(cuid())
+  province        String                         // Tỉnh/TP
+  district        String?                        // Quận/Huyện
+  ward            String?                        // Phường/Xã
+  epidemiology    String?                        // Đặc điểm dịch tễ (vùng núi, đồng bằng, ngập nước,...)
+  notes           String?
+
+  trips           CharityTrip[]
+
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  deletedAt       DateTime?
+
+  @@index([province])
+  @@map("charity_locations")
+}
+
+// Chuyến đi từ thiện
+model CharityTrip {
+  id              String                @id @default(cuid())
+  tripCode        String                @unique  // Mã chuyến
+  locationId      String
+  location        CharityLocation       @relation(fields: [locationId], references: [id])
+
+  startDate       DateTime
+  endDate         DateTime
+  expectedPatients Int?                          // Số lượng người dự kiến khám
+  actualPatients  Int?                           // Số thực tế (cập nhật sau chuyến)
+  demographics    String?                        // Ghi chú đặc điểm dân cư (tỷ lệ già/trẻ em)
+  status          CharityTripStatus     @default(PLANNING)
+  notes           String?
+
+  transactions    MedicineTransaction[]
+  demandStats     CharityDemandStat[]
+
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  deletedAt       DateTime?
+
+  @@index([locationId])
+  @@index([startDate])
+  @@index([status])
+  @@map("charity_trips")
+}
+
+enum CharityTripStatus {
+  PLANNING          // Đang lên kế hoạch
+  PREPARED          // Đã chuẩn bị thuốc
+  IN_PROGRESS       // Đang thực hiện
+  COMPLETED         // Hoàn thành
+  CANCELLED         // Huỷ
+}
+
+// Lô thuốc (quản lý theo Date — cốt lõi)
+model MedicineBatch {
+  id              String                @id @default(cuid())
+  medicineId      String
+  medicine        CharityMedicine       @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+
+  batchCode       String?                        // Mã lô nhà sản xuất
+  expiryDate      DateTime                       // Hạn sử dụng
+  currentStock    Int                   @default(0)  // Tồn kho hiện tại của lô
+  initialQuantity Int                   @default(0)  // Số lượng ban đầu khi nhập
+  unitCost        Decimal?              @db.Decimal(15, 2)  // Đơn giá
+  supplier        String?                        // Nhà cung cấp / Nguồn tài trợ
+  notes           String?
+
+  transactions    MedicineTransaction[]
+
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  deletedAt       DateTime?
+
+  @@index([medicineId])
+  @@index([expiryDate])
+  @@map("medicine_batches")
+}
+
+// Giao dịch thuốc (Nhập / Xuất / Thu hồi)
+model MedicineTransaction {
+  id              String                      @id @default(cuid())
+  batchId         String
+  batch           MedicineBatch               @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  tripId          String?                     // null nếu là nhập kho đầu vào
+  trip            CharityTrip?                @relation(fields: [tripId], references: [id])
+
+  type            MedicineTransactionType
+  quantity        Int                         // Số lượng
+  transactionDate DateTime                    @default(now())
+  handledBy       String?                     // Người thực hiện
+  notes           String?
+
+  createdAt       DateTime                    @default(now())
+
+  @@index([batchId])
+  @@index([tripId])
+  @@index([type])
+  @@index([transactionDate])
+  @@map("medicine_transactions")
+}
+
+enum MedicineTransactionType {
+  IMPORT            // Nhập kho (mua / nhận tài trợ)
+  EXPORT            // Xuất đi chuyến từ thiện
+  RETURN            // Thu hồi (mang về từ chuyến đi)
+  ADJUSTMENT        // Điều chỉnh (hao hụt, hư hỏng)
+}
+
+// Thống kê nhu cầu thực tế (data để train model sau này)
+model CharityDemandStat {
+  id              String                @id @default(cuid())
+  tripId          String
+  trip            CharityTrip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  medicineId      String
+  medicine        CharityMedicine       @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+
+  quantityUsed    Int                   @default(0)  // Số lượng thực xài
+  quantityShort   Int                   @default(0)  // Số lượng thiếu (nhu cầu ảo — bác sĩ kê đơn nhưng hết thuốc)
+  notes           String?
+
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([tripId, medicineId])
+  @@index([tripId])
+  @@index([medicineId])
+  @@map("charity_demand_stats")
 }
