@@ -53,13 +53,13 @@ export async function POST() {
 
     // 2. Sinh nhật nhà tài trợ (thông báo trước 1 tháng)
     const donors = await prisma.donor.findMany({
-      where: { deletedAt: null, dateOfBirth: { not: null } },
-      select: { id: true, fullName: true, dateOfBirth: true },
+      where: { deletedAt: null, birthday: { not: null } },
+      select: { id: true, fullName: true, birthday: true },
     });
 
     for (const donor of donors) {
-      if (!donor.dateOfBirth) continue;
-      const dob = new Date(donor.dateOfBirth);
+      if (!donor.birthday) continue;
+      const dob = new Date(donor.birthday);
       // Sinh nhật năm nay
       const birthdayThisYear = new Date(now.getFullYear(), dob.getMonth(), dob.getDate());
       // Nếu đã qua thì lấy năm sau
