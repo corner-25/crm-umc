@@ -398,6 +398,22 @@ export default function ReportsPage() {
     }
   }, [savedPlanId, queryClient, toast]);
 
+  // Xoá kế hoạch (chỉ DRAFT/REJECTED)
+  const handleDeletePlan = useCallback(async (planId: string) => {
+    try {
+      const res = await fetch(`/api/mobilization-plans/${planId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed");
+      }
+      if (planId === savedPlanId) { setSavedPlanId(null); setSavedPlanStatus(null); }
+      queryClient.invalidateQueries({ queryKey: ["mobilization-plans"] });
+      toast({ title: "Đã xoá", description: "Kế hoạch đã được xoá" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Lỗi", description: err.message || "Không thể xoá" });
+    }
+  }, [savedPlanId, queryClient, toast]);
+
   // Từ chối
   const handleRejectPlan = useCallback(async (planId: string) => {
     try {
@@ -1227,6 +1243,16 @@ export default function ReportsPage() {
                                     <XCircle className="h-3.5 w-3.5 mr-1" />Từ chối
                                   </Button>
                                 </>
+                              )}
+                              {(p.status === "DRAFT" || p.status === "REJECTED") && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() => handleDeletePlan(p.id)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 mr-1" />Xoá
+                                </Button>
                               )}
                               {p.status === "APPROVED" && (
                                 <span className="text-xs text-green-700">Duyệt lúc {p.approvedAt ? formatDate(p.approvedAt) : ""}</span>
