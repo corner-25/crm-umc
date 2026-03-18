@@ -143,13 +143,14 @@ export default function ReportsPage() {
   }, [allCash, targetPurpose, targetCustodian, targetYear]);
 
   // ===== LẬP KẾ HOẠCH HUY ĐỘNG =====
-  const mobilizationPlan = useMemo(() => {
+  // Bước 1: Algorithm chạy ban đầu (KHÔNG phụ thuộc hardRemovedIds)
+  const rawPlan = useMemo(() => {
     if (!planGenerated || !targetAmount) return null;
     const target = parseFloat(targetAmount.replace(/[^\d.]/g, "")) * 1_000_000;
     if (!target || target <= 0) return null;
 
-    // Loại bỏ khoản đã bị xoá tạm hoặc xoá luôn
-    const avails = filteredPool.filter((d) => !excludedIds.has(d.id) && !hardRemovedIds.has(d.id));
+    // Chỉ loại bỏ khoản bị xoá tạm (excludedIds) — hardRemoved sẽ xử lý ở bước 2
+    const avails = filteredPool.filter((d) => !excludedIds.has(d.id));
 
     // === Ưu tiên 1: Khoản khít đúng target ===
     const exactUnused = avails.find((d) => d._avail === target && !d._isPartial);
@@ -217,18 +218,15 @@ export default function ReportsPage() {
     }
 
     // === POST-SELECTION TRIMMING ===
-    // Nếu accumulated > target (do overshoot từ khoản kế toán), loại bỏ khoản nhỏ không cần thiết
     let trimmed = 0;
     if (accumulated > target) {
-      // Sắp xếp theo giá trị tăng dần (nhỏ nhất trước) để loại bỏ
       const sortedByValue = selected
         .map((d, idx) => ({ ...d, _origIdx: idx }))
-        .filter((d) => d._source !== "manual") // không tự động xoá khoản thủ công
+        .filter((d) => d._source !== "manual")
         .sort((a, b) => a._take - b._take);
 
       const removeIndices = new Set<number>();
       for (const item of sortedByValue) {
-        // Nếu bỏ khoản này mà vẫn >= target → bỏ
         if (accumulated - item._take >= target) {
           accumulated -= item._take;
           removeIndices.add(item._origIdx);
@@ -237,7 +235,6 @@ export default function ReportsPage() {
       }
 
       if (removeIndices.size > 0) {
-        // Xoá từ cuối lên để không lệch index
         const indicesToRemove = Array.from(removeIndices).sort((a, b) => b - a);
         for (const idx of indicesToRemove) {
           selected.splice(idx, 1);
@@ -248,7 +245,22 @@ export default function ReportsPage() {
     const totalAvail = filteredPool.reduce((s, d) => s + d._avail, 0);
 
     return { selected, accumulated, target, shortage: Math.max(0, target - accumulated), totalAvail, strategy: "sequential", trimmed };
-  }, [planGenerated, targetAmount, filteredPool, excludedIds, hardRemovedIds, manualAddIds, priorityMode]);
+  }, [planGenerated, targetAmount, filteredPool, excludedIds, manualAddIds, priorityMode]);
+
+  // Bước 2: Filter "xoá luôn" ra khỏi kết quả — KHÔNG chạy lại algorithm, chỉ loại bỏ + tính lại tổng
+  const mobilizationPlan = useMemo(() => {
+    if (!rawPlan) return null;
+    if (hardRemovedIds.size === 0) return rawPlan;
+
+    const filtered = rawPlan.selected.filter((d: any) => !hardRemovedIds.has(d.id));
+    const accumulated = filtered.reduce((s: number, d: any) => s + d._take, 0);
+    return {
+      ...rawPlan,
+      selected: filtered,
+      accumulated,
+      shortage: Math.max(0, rawPlan.target - accumulated),
+    };
+  }, [rawPlan, hardRemovedIds]);
 
   // === Xoá tạm: gợi ý khoản thay thế ===
   const [suggestion, setSuggestion] = useState<{ removedId: string; candidates: any[] } | null>(null);
@@ -551,7 +563,7 @@ export default function ReportsPage() {
         ["Mục đích sử dụng", targetPurpose && targetPurpose !== "all" ? targetPurpose : "Tất cả"],
         ["Người giữ tiền", targetCustodian && targetCustodian !== "all" ? targetCustodian : "Tất cả"],
         ["Năm khoản tài trợ", targetYear && targetYear !== "all" ? targetYear : "Tất cả"],
-        ["Logic ưu tiên", priorityMode === "unused_first" ? "Khoản nguyên trước" : "Khoản dang dở trước"],
+        ["Logic ưu tiên", priorityMode === null ? "Lẫn lộn (mặc định)" : priorityMode === "unused_first" ? "Khoản nguyên trước" : "Khoản dang dở trước"],
         ["Số tiền cần huy động", target],
         ["Số tiền có thể huy động", accumulated],
         shortage > 0 ? ["Còn thiếu", shortage] : ["Trạng thái", "ĐỦ TIỀN"],
