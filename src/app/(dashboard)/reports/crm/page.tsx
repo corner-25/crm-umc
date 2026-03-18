@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format, differenceInDays } from "date-fns";
-import { FileSpreadsheet, TrendingDown, BarChart3, Wallet, AlertCircle, CheckCircle2, Eye, Trash2, RotateCcw, Plus, Search, X } from "lucide-react";
+import { FileSpreadsheet, TrendingDown, BarChart3, Wallet, AlertCircle, CheckCircle2, Eye, Trash2, RotateCcw, Plus, Search, X, Save, Send, Check, Clock, XCircle, Loader2, History } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { CASH_PURPOSES } from "@/lib/validations/donation";
@@ -33,9 +33,16 @@ export default function ReportsPage() {
   const [targetPurpose, setTargetPurpose] = useState<string>("");
   const [targetCustodian, setTargetCustodian] = useState<string>("");
   const [targetYear, setTargetYear] = useState<string>("all");
-  // "unused_first" = ưu tiên khoản nguyên (mặc định), "partial_first" = ưu tiên khoản dang dở
-  const [priorityMode, setPriorityMode] = useState<"unused_first" | "partial_first">("unused_first");
+  // null = lẫn lộn (mặc định), "unused_first" = ưu tiên khoản nguyên, "partial_first" = ưu tiên khoản dang dở
+  const [priorityMode, setPriorityMode] = useState<"unused_first" | "partial_first" | null>(null);
   const [planGenerated, setPlanGenerated] = useState(false);
+
+  // Saved plan state
+  const [savedPlanId, setSavedPlanId] = useState<string | null>(null);
+  const [savedPlanStatus, setSavedPlanStatus] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [showSavedPlans, setShowSavedPlans] = useState(false);
 
   // Interactive editing state
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set()); // xoá tạm
@@ -45,6 +52,7 @@ export default function ReportsPage() {
   const [addSearch, setAddSearch] = useState("");
 
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 5 }, (_, i) => (currentYear - i).toString());
 
@@ -197,9 +205,15 @@ export default function ReportsPage() {
     if (priorityMode === "partial_first") {
       pickFromList(partial);
       pickFromList(unused);
-    } else {
+    } else if (priorityMode === "unused_first") {
       pickFromList(unused);
       pickFromList(partial);
+    } else {
+      // null = lẫn lộn, gộp chung sắp theo ngày nhận
+      const mixed = [...partial, ...unused].sort(
+        (a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime()
+      );
+      pickFromList(mixed);
     }
 
     // === POST-SELECTION TRIMMING ===
@@ -292,8 +306,114 @@ export default function ReportsPage() {
     setHardRemovedIds(new Set());
     setManualAddIds(new Set());
     setSuggestion(null);
+    setSavedPlanId(null);
+    setSavedPlanStatus(null);
     setPlanGenerated(true);
   };
+
+  // Query danh sách kế hoạch đã lưu
+  const { data: savedPlans } = useQuery({
+    queryKey: ["mobilization-plans"],
+    queryFn: async () => {
+      const res = await fetch("/api/mobilization-plans");
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  // Lưu kế hoạch
+  const handleSavePlan = useCallback(async () => {
+    if (!mobilizationPlan || mobilizationPlan.selected.length === 0) return;
+    setIsSaving(true);
+    try {
+      const res = await fetch("/api/mobilization-plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetAmount: mobilizationPlan.target,
+          accumulatedAmount: mobilizationPlan.accumulated,
+          filterPurpose: targetPurpose && targetPurpose !== "all" ? targetPurpose : null,
+          filterCustodian: targetCustodian && targetCustodian !== "all" ? targetCustodian : null,
+          filterYear: targetYear && targetYear !== "all" ? targetYear : null,
+          priorityMode,
+          items: mobilizationPlan.selected.map((d: any) => ({
+            donationCashId: d.id,
+            takeAmount: d._take,
+            source: d._source || "auto",
+          })),
+        }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const plan = await res.json();
+      setSavedPlanId(plan.id);
+      setSavedPlanStatus(plan.status);
+      queryClient.invalidateQueries({ queryKey: ["mobilization-plans"] });
+      toast({ title: "Đã lưu", description: `Kế hoạch ${plan.planCode} đã được lưu` });
+    } catch {
+      toast({ variant: "destructive", title: "Lỗi", description: "Không thể lưu kế hoạch" });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [mobilizationPlan, targetPurpose, targetCustodian, targetYear, priorityMode, queryClient, toast]);
+
+  // Gửi duyệt
+  const handleSubmitPlan = useCallback(async () => {
+    if (!savedPlanId) return;
+    try {
+      const res = await fetch(`/api/mobilization-plans/${savedPlanId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "submit" }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setSavedPlanStatus("PENDING");
+      queryClient.invalidateQueries({ queryKey: ["mobilization-plans"] });
+      toast({ title: "Đã gửi duyệt", description: "Kế hoạch đang chờ sếp xác nhận" });
+    } catch {
+      toast({ variant: "destructive", title: "Lỗi", description: "Không thể gửi duyệt" });
+    }
+  }, [savedPlanId, queryClient, toast]);
+
+  // Xác nhận duyệt (sếp duyệt → trừ tiền)
+  const handleApprovePlan = useCallback(async (planId: string) => {
+    setIsApproving(true);
+    try {
+      const res = await fetch(`/api/mobilization-plans/${planId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve", approvedBy: "Admin" }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed");
+      }
+      if (planId === savedPlanId) setSavedPlanStatus("APPROVED");
+      queryClient.invalidateQueries({ queryKey: ["mobilization-plans"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-report"] });
+      toast({ title: "Đã duyệt", description: "Tiền đã được trừ vào các khoản tài trợ tương ứng" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Lỗi", description: err.message || "Không thể duyệt" });
+    } finally {
+      setIsApproving(false);
+    }
+  }, [savedPlanId, queryClient, toast]);
+
+  // Từ chối
+  const handleRejectPlan = useCallback(async (planId: string) => {
+    try {
+      const res = await fetch(`/api/mobilization-plans/${planId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      if (planId === savedPlanId) setSavedPlanStatus("REJECTED");
+      queryClient.invalidateQueries({ queryKey: ["mobilization-plans"] });
+      toast({ title: "Đã từ chối", description: "Kế hoạch bị từ chối" });
+    } catch {
+      toast({ variant: "destructive", title: "Lỗi", description: "Không thể từ chối" });
+    }
+  }, [savedPlanId, queryClient, toast]);
 
   // ===== XUẤT EXCEL =====
   const exportOverview = () => {
@@ -779,8 +899,17 @@ export default function ReportsPage() {
                   </Select>
                 </div>
                 <div className="col-span-2">
-                  <label className="text-sm font-medium mb-1 block">Ưu tiên loại khoản (bước 2.1)</label>
+                  <label className="text-sm font-medium mb-1 block">Ưu tiên loại khoản (Tuỳ chọn)</label>
                   <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={priorityMode === null ? "default" : "outline"}
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => { setPriorityMode(null); setPlanGenerated(false); }}
+                    >
+                      Không ưu tiên
+                    </Button>
                     <Button
                       type="button"
                       variant={priorityMode === "unused_first" ? "default" : "outline"}
@@ -801,7 +930,9 @@ export default function ReportsPage() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {priorityMode === "unused_first"
+                    {priorityMode === null
+                      ? "Lấy lẫn lộn theo thứ tự ngày nhận, không phân biệt khoản nguyên hay dang dở"
+                      : priorityMode === "unused_first"
                       ? "Ưu tiên dùng khoản chưa đụng tới, khoản dang dở dùng để lấp đầy phần còn thiếu"
                       : "Ưu tiên giải phóng khoản đang dùng dở, khoản nguyên dùng để lấp đầy phần còn thiếu"}
                   </p>
@@ -921,6 +1052,42 @@ export default function ReportsPage() {
                       <RotateCcw className="h-3.5 w-3.5 mr-1" />Reset về ban đầu
                     </Button>
                   )}
+
+                  {/* Nút Lưu / Gửi duyệt / Trạng thái */}
+                  <div className="ml-auto flex gap-2 items-center">
+                    {!savedPlanId && (
+                      <Button size="sm" onClick={handleSavePlan} disabled={isSaving}>
+                        {isSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                        Lưu kế hoạch
+                      </Button>
+                    )}
+                    {savedPlanId && savedPlanStatus === "DRAFT" && (
+                      <>
+                        <Badge variant="outline" className="text-xs"><Clock className="h-3 w-3 mr-1" />Nháp</Badge>
+                        <Button size="sm" onClick={handleSubmitPlan}>
+                          <Send className="h-4 w-4 mr-1" />Gửi duyệt
+                        </Button>
+                      </>
+                    )}
+                    {savedPlanId && savedPlanStatus === "PENDING" && (
+                      <>
+                        <Badge className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300"><Clock className="h-3 w-3 mr-1" />Chờ duyệt</Badge>
+                        <Button size="sm" variant="default" className="bg-green-600 hover:bg-green-700" onClick={() => handleApprovePlan(savedPlanId)} disabled={isApproving}>
+                          {isApproving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                          Xác nhận duyệt
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => handleRejectPlan(savedPlanId)}>
+                          <XCircle className="h-4 w-4 mr-1" />Từ chối
+                        </Button>
+                      </>
+                    )}
+                    {savedPlanId && savedPlanStatus === "APPROVED" && (
+                      <Badge className="text-xs bg-green-100 text-green-800 border-green-300"><CheckCircle2 className="h-3 w-3 mr-1" />Đã duyệt — tiền đã trừ</Badge>
+                    )}
+                    {savedPlanId && savedPlanStatus === "REJECTED" && (
+                      <Badge variant="destructive" className="text-xs"><XCircle className="h-3 w-3 mr-1" />Từ chối</Badge>
+                    )}
+                  </div>
                 </div>
 
                 {/* Khoản đã xoá tạm (có thể khôi phục) */}
@@ -970,10 +1137,12 @@ export default function ReportsPage() {
 
                 <p className="text-xs text-muted-foreground">
                   * Thứ tự ưu tiên: (1) Khoản khít đúng số tiền cần →{" "}
-                  {priorityMode === "unused_first"
+                  {priorityMode === null
+                    ? "(2) Lấy lẫn lộn theo ngày nhận"
+                    : priorityMode === "unused_first"
                     ? "(2) Khoản còn nguyên → (3) Khoản dang dở"
                     : "(2) Khoản dang dở → (3) Khoản còn nguyên"}
-                  {" "}→ (4) Tự động loại khoản nhỏ nếu vượt target.
+                  {" "}→ Tự động loại khoản nhỏ nếu vượt target.
                   <br />* <RotateCcw className="h-3 w-3 inline" /> Xoá tạm: loại khoản + gợi ý thay thế. <Trash2 className="h-3 w-3 inline" /> Xoá luôn: loại hẳn. <Plus className="h-3 w-3 inline" /> Thêm tay: chọn từ pool.
                 </p>
               </CardContent>
@@ -991,6 +1160,87 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Lịch sử kế hoạch đã lưu */}
+          <Card>
+            <CardHeader className="cursor-pointer" onClick={() => setShowSavedPlans(!showSavedPlans)}>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <History className="h-4 w-4" />
+                Lịch sử kế hoạch huy động
+                {savedPlans && savedPlans.length > 0 && (
+                  <Badge variant="secondary" className="text-xs">{savedPlans.length}</Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            {showSavedPlans && (
+              <CardContent>
+                {!savedPlans || savedPlans.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Chưa có kế hoạch nào được lưu</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Mã KH</TableHead>
+                        <TableHead>Tên</TableHead>
+                        <TableHead className="text-right">Cần huy động</TableHead>
+                        <TableHead className="text-right">Huy động được</TableHead>
+                        <TableHead>Trạng thái</TableHead>
+                        <TableHead>Ngày tạo</TableHead>
+                        <TableHead>Người duyệt</TableHead>
+                        <TableHead className="text-center">Thao tác</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {savedPlans.map((p: any) => (
+                        <TableRow key={p.id}>
+                          <TableCell className="font-mono text-xs">{p.planCode}</TableCell>
+                          <TableCell className="text-sm">{p.title || "—"}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(Number(p.targetAmount).toString())}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(Number(p.accumulatedAmount).toString())}</TableCell>
+                          <TableCell>
+                            {p.status === "DRAFT" && <Badge variant="outline" className="text-xs">Nháp</Badge>}
+                            {p.status === "PENDING" && <Badge className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">Chờ duyệt</Badge>}
+                            {p.status === "APPROVED" && <Badge className="text-xs bg-green-100 text-green-800 border-green-300">Đã duyệt</Badge>}
+                            {p.status === "REJECTED" && <Badge variant="destructive" className="text-xs">Từ chối</Badge>}
+                          </TableCell>
+                          <TableCell className="text-sm">{formatDate(p.createdAt)}</TableCell>
+                          <TableCell className="text-sm">{p.approvedBy || "—"}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1 justify-center">
+                              {p.status === "PENDING" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs text-green-700 border-green-300 hover:bg-green-50"
+                                    onClick={() => handleApprovePlan(p.id)}
+                                    disabled={isApproving}
+                                  >
+                                    <Check className="h-3.5 w-3.5 mr-1" />Duyệt
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs text-red-600 border-red-300 hover:bg-red-50"
+                                    onClick={() => handleRejectPlan(p.id)}
+                                  >
+                                    <XCircle className="h-3.5 w-3.5 mr-1" />Từ chối
+                                  </Button>
+                                </>
+                              )}
+                              {p.status === "APPROVED" && (
+                                <span className="text-xs text-green-700">Duyệt lúc {p.approvedAt ? formatDate(p.approvedAt) : ""}</span>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            )}
+          </Card>
 
           {/* Dialog thêm khoản thủ công */}
           <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>

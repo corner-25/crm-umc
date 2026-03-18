@@ -1041,3 +1041,54 @@ model CharityDemandStat {
   @@index([medicineId])
   @@map("charity_demand_stats")
 }
+
+// ================================
+// KẾ HOẠCH HUY ĐỘNG VỐN
+// ================================
+
+enum MobilizationPlanStatus {
+  DRAFT       // Đang soạn
+  PENDING     // Chờ duyệt
+  APPROVED    // Đã duyệt — tiền đã trừ
+  REJECTED    // Từ chối
+}
+
+model MobilizationPlan {
+  id              String                    @id @default(cuid())
+  planCode        String                    @unique  // Tự sinh: HD-YYYYMMDD-xxx
+  title           String?                   // Tên kế hoạch (tuỳ chọn)
+  targetAmount    Decimal                   @db.Decimal(15, 2)
+  accumulatedAmount Decimal                 @db.Decimal(15, 2)
+  filterPurpose   String?
+  filterCustodian String?
+  filterYear      String?
+  priorityMode    String?                   // "unused_first" | "partial_first" | null
+  status          MobilizationPlanStatus    @default(DRAFT)
+  note            String?
+
+  approvedAt      DateTime?
+  approvedBy      String?                   // Tên người duyệt
+
+  items           MobilizationPlanItem[]
+
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@index([status])
+  @@map("mobilization_plans")
+}
+
+model MobilizationPlanItem {
+  id              String              @id @default(cuid())
+  planId          String
+  plan            MobilizationPlan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  donationCashId  String
+  takeAmount      Decimal             @db.Decimal(15, 2)  // Số tiền lấy từ khoản này
+  source          String              @default("auto")     // "auto" | "manual"
+
+  createdAt       DateTime            @default(now())
+
+  @@index([planId])
+  @@index([donationCashId])
+  @@map("mobilization_plan_items")
+}
