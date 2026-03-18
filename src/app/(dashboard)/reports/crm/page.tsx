@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format, differenceInDays } from "date-fns";
-import { FileSpreadsheet, TrendingDown, BarChart3, Wallet, AlertCircle, CheckCircle2, Eye } from "lucide-react";
+import { FileSpreadsheet, TrendingDown, BarChart3, Wallet, AlertCircle, CheckCircle2, Eye, Trash2, RotateCcw, Plus, Search, X } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { CASH_PURPOSES } from "@/lib/validations/donation";
@@ -36,6 +36,13 @@ export default function ReportsPage() {
   // "unused_first" = ưu tiên khoản nguyên (mặc định), "partial_first" = ưu tiên khoản dang dở
   const [priorityMode, setPriorityMode] = useState<"unused_first" | "partial_first">("unused_first");
   const [planGenerated, setPlanGenerated] = useState(false);
+
+  // Interactive editing state
+  const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set()); // xoá tạm
+  const [hardRemovedIds, setHardRemovedIds] = useState<Set<string>>(new Set()); // xoá luôn
+  const [manualAddIds, setManualAddIds] = useState<Set<string>>(new Set()); // thêm thủ công
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [addSearch, setAddSearch] = useState("");
 
   const { toast } = useToast();
   const currentYear = new Date().getFullYear();
@@ -107,13 +114,8 @@ export default function ReportsPage() {
       .sort((a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
   }, [allCash]);
 
-  // ===== LẬP KẾ HOẠCH HUY ĐỘNG =====
-  const mobilizationPlan = useMemo(() => {
-    if (!planGenerated || !targetAmount) return null;
-    const target = parseFloat(targetAmount.replace(/[^\d.]/g, "")) * 1_000_000;
-    if (!target || target <= 0) return null;
-
-    // Lọc pool
+  // ===== POOL KHOẢN TÀI TRỢ (dùng chung cho algorithm + add dialog) =====
+  const filteredPool = useMemo(() => {
     let pool = allCash.filter((d) => Number(d.usedAmount || 0) < Number(d.amount));
     if (targetPurpose && targetPurpose !== "all") {
       pool = pool.filter((d) => (d.purposeOther || d.purpose) === targetPurpose);
@@ -125,101 +127,173 @@ export default function ReportsPage() {
       const yr = parseInt(targetYear);
       pool = pool.filter((d) => new Date(d.receivedDate).getFullYear() === yr);
     }
-
-    const avails = pool.map((d) => ({
+    return pool.map((d) => ({
       ...d,
       _avail: Number(d.amount) - Number(d.usedAmount || 0),
       _isPartial: Number(d.usedAmount || 0) > 0,
     }));
+  }, [allCash, targetPurpose, targetCustodian, targetYear]);
+
+  // ===== LẬP KẾ HOẠCH HUY ĐỘNG =====
+  const mobilizationPlan = useMemo(() => {
+    if (!planGenerated || !targetAmount) return null;
+    const target = parseFloat(targetAmount.replace(/[^\d.]/g, "")) * 1_000_000;
+    if (!target || target <= 0) return null;
+
+    // Loại bỏ khoản đã bị xoá tạm hoặc xoá luôn
+    const avails = filteredPool.filter((d) => !excludedIds.has(d.id) && !hardRemovedIds.has(d.id));
 
     // === Ưu tiên 1: Khoản khít đúng target ===
-    // Ưu tiên khoản nguyên (chưa dùng gì) trước, sau đó mới tồn đọng
     const exactUnused = avails.find((d) => d._avail === target && !d._isPartial);
     const exactPartial = avails.find((d) => d._avail === target && d._isPartial);
     const exactMatch = exactUnused || exactPartial;
-    if (exactMatch) {
+    if (exactMatch && manualAddIds.size === 0) {
       return {
-        selected: [{ ...exactMatch, _take: exactMatch._avail }],
+        selected: [{ ...exactMatch, _take: exactMatch._avail, _source: "auto" as const }],
         accumulated: exactMatch._avail,
         target,
         shortage: 0,
         totalAvail: avails.reduce((s, d) => s + d._avail, 0),
         strategy: "exact",
+        trimmed: 0,
       };
     }
 
     // === Logic chính ===
-    // Khoản dang dở: luôn lấy full, không xé lẻ
-    // Chỉ chấp nhận lấy thừa (vượt target) nếu khoản cuối là "Kế toán đang giữ"
-    // (vì lấy tiền kế toán phải làm tờ trình → lấy 1 lần cho gọn)
-
     const CUSTODIAN_KE_TOAN = "Kế toán đang giữ";
 
     const partial = avails
-      .filter((d) => d._isPartial)
+      .filter((d) => d._isPartial && !manualAddIds.has(d.id))
       .sort((a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
 
     const unused = avails
-      .filter((d) => !d._isPartial)
+      .filter((d) => !d._isPartial && !manualAddIds.has(d.id))
       .sort((a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
 
     let accumulated = 0;
     const selected: any[] = [];
-    const usedIds = new Set<string>();
+
+    // Bước 0: Thêm khoản thủ công (manual adds) trước
+    for (const id of manualAddIds) {
+      const d = avails.find((x) => x.id === id);
+      if (d) {
+        accumulated += d._avail;
+        selected.push({ ...d, _take: d._avail, _source: "manual" });
+      }
+    }
+
+    const pickFromList = (list: typeof avails) => {
+      for (const d of list) {
+        if (accumulated >= target) break;
+        if (manualAddIds.has(d.id)) continue;
+        const need = target - accumulated;
+        if (d._avail <= need || d.custodian === CUSTODIAN_KE_TOAN) {
+          accumulated += d._avail;
+          selected.push({ ...d, _take: d._avail, _source: "auto" });
+        }
+      }
+    };
 
     if (priorityMode === "partial_first") {
-      // Bước A: lấy hết khoản dang dở, full, cũ nhất trước
-      for (const d of partial) {
-        if (accumulated >= target) break;
-        const need = target - accumulated;
-        // Chỉ lấy thừa nếu kế toán đang giữ, còn lại chỉ lấy khi vừa đủ
-        if (d._avail <= need || d.custodian === CUSTODIAN_KE_TOAN) {
-          accumulated += d._avail;
-          selected.push({ ...d, _take: d._avail });
-          usedIds.add(d.id);
-        }
-      }
-
-      // Bước B: vẫn chưa đủ → lấy khoản nguyên full, cũ nhất trước
-      for (const d of unused) {
-        if (accumulated >= target) break;
-        const need = target - accumulated;
-        if (d._avail <= need || d.custodian === CUSTODIAN_KE_TOAN) {
-          accumulated += d._avail;
-          selected.push({ ...d, _take: d._avail });
-          usedIds.add(d.id);
-        }
-      }
+      pickFromList(partial);
+      pickFromList(unused);
     } else {
-      // unused_first
-      // Bước A: lấy khoản nguyên full, chỉ lấy khi avail <= phần còn thiếu
-      // Ngoại lệ: kế toán đang giữ → lấy full luôn dù vượt target
-      for (const d of unused) {
-        if (accumulated >= target) break;
-        const need = target - accumulated;
-        if (d._avail <= need || d.custodian === CUSTODIAN_KE_TOAN) {
-          accumulated += d._avail;
-          selected.push({ ...d, _take: d._avail });
-          usedIds.add(d.id);
+      pickFromList(unused);
+      pickFromList(partial);
+    }
+
+    // === POST-SELECTION TRIMMING ===
+    // Nếu accumulated > target (do overshoot từ khoản kế toán), loại bỏ khoản nhỏ không cần thiết
+    let trimmed = 0;
+    if (accumulated > target) {
+      // Sắp xếp theo giá trị tăng dần (nhỏ nhất trước) để loại bỏ
+      const sortedByValue = selected
+        .map((d, idx) => ({ ...d, _origIdx: idx }))
+        .filter((d) => d._source !== "manual") // không tự động xoá khoản thủ công
+        .sort((a, b) => a._take - b._take);
+
+      const removeIndices = new Set<number>();
+      for (const item of sortedByValue) {
+        // Nếu bỏ khoản này mà vẫn >= target → bỏ
+        if (accumulated - item._take >= target) {
+          accumulated -= item._take;
+          removeIndices.add(item._origIdx);
+          trimmed++;
         }
       }
 
-      // Bước B: vẫn chưa đủ → lấy khoản dang dở full, cũ nhất trước
-      for (const d of partial) {
-        if (accumulated >= target) break;
-        const need = target - accumulated;
-        if (d._avail <= need || d.custodian === CUSTODIAN_KE_TOAN) {
-          accumulated += d._avail;
-          selected.push({ ...d, _take: d._avail });
-          usedIds.add(d.id);
+      if (removeIndices.size > 0) {
+        // Xoá từ cuối lên để không lệch index
+        const indicesToRemove = Array.from(removeIndices).sort((a, b) => b - a);
+        for (const idx of indicesToRemove) {
+          selected.splice(idx, 1);
         }
       }
     }
 
-    const totalAvail = avails.reduce((s, d) => s + d._avail, 0);
+    const totalAvail = filteredPool.reduce((s, d) => s + d._avail, 0);
 
-    return { selected, accumulated, target, shortage: Math.max(0, target - accumulated), totalAvail, strategy: "sequential" };
-  }, [planGenerated, targetAmount, targetPurpose, targetCustodian, targetYear, priorityMode, allCash]);
+    return { selected, accumulated, target, shortage: Math.max(0, target - accumulated), totalAvail, strategy: "sequential", trimmed };
+  }, [planGenerated, targetAmount, filteredPool, excludedIds, hardRemovedIds, manualAddIds, priorityMode]);
+
+  // === Xoá tạm: gợi ý khoản thay thế ===
+  const [suggestion, setSuggestion] = useState<{ removedId: string; candidates: any[] } | null>(null);
+
+  const handleSoftRemove = (donationId: string) => {
+    const removed = mobilizationPlan?.selected.find((d: any) => d.id === donationId);
+    if (!removed) return;
+
+    setExcludedIds((prev) => new Set([...prev, donationId]));
+
+    // Tìm khoản thay thế từ pool (chưa được chọn, chưa bị loại)
+    const selectedIds = new Set(mobilizationPlan!.selected.map((d: any) => d.id));
+    const candidates = filteredPool
+      .filter((d) => !selectedIds.has(d.id) && !excludedIds.has(d.id) && !hardRemovedIds.has(d.id) && d.id !== donationId)
+      .sort((a, b) => Math.abs(a._avail - removed._take) - Math.abs(b._avail - removed._take))
+      .slice(0, 5);
+
+    if (candidates.length > 0) {
+      setSuggestion({ removedId: donationId, candidates });
+    }
+  };
+
+  const handleHardRemove = (donationId: string) => {
+    setHardRemovedIds((prev) => new Set([...prev, donationId]));
+    // Cũng xoá khỏi manual adds nếu có
+    setManualAddIds((prev) => {
+      const next = new Set(prev);
+      next.delete(donationId);
+      return next;
+    });
+  };
+
+  const handleRestoreExcluded = (donationId: string) => {
+    setExcludedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(donationId);
+      return next;
+    });
+  };
+
+  const handleAddManual = (donationId: string) => {
+    setManualAddIds((prev) => new Set([...prev, donationId]));
+    setAddDialogOpen(false);
+    setAddSearch("");
+  };
+
+  const handleAcceptSuggestion = (donationId: string) => {
+    setManualAddIds((prev) => new Set([...prev, donationId]));
+    setSuggestion(null);
+  };
+
+  // Reset tất cả khi tạo plan mới
+  const handleGeneratePlan = () => {
+    setExcludedIds(new Set());
+    setHardRemovedIds(new Set());
+    setManualAddIds(new Set());
+    setSuggestion(null);
+    setPlanGenerated(true);
+  };
 
   // ===== XUẤT EXCEL =====
   const exportOverview = () => {
@@ -734,7 +808,7 @@ export default function ReportsPage() {
                 </div>
               </div>
               <Button
-                onClick={() => setPlanGenerated(true)}
+                onClick={handleGeneratePlan}
                 disabled={!targetAmount || isLoading}
                 className="w-full"
               >
@@ -755,11 +829,17 @@ export default function ReportsPage() {
                       <><AlertCircle className="h-5 w-5 text-orange-500" />Không đủ tiền</>
                     )}
                   </CardTitle>
-                  <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
+                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
                     <span>Cần: <span className="font-semibold text-foreground">{formatCurrency((mobilizationPlan.target).toString())}</span></span>
-                    <span>Huy động được: <span className="font-semibold text-green-600">{formatCurrency(mobilizationPlan.accumulated.toString())}</span></span>
+                    <span>Huy động được: <span className={`font-semibold ${mobilizationPlan.accumulated > mobilizationPlan.target ? "text-orange-600" : "text-green-600"}`}>{formatCurrency(mobilizationPlan.accumulated.toString())}</span></span>
+                    {mobilizationPlan.accumulated > mobilizationPlan.target && (
+                      <span>Vượt: <span className="font-semibold text-orange-600">+{formatCurrency((mobilizationPlan.accumulated - mobilizationPlan.target).toString())}</span></span>
+                    )}
                     {mobilizationPlan.shortage > 0 && (
                       <span>Còn thiếu: <span className="font-semibold text-red-600">{formatCurrency(mobilizationPlan.shortage.toString())}</span></span>
+                    )}
+                    {mobilizationPlan.trimmed > 0 && (
+                      <span className="text-xs text-blue-600">Đã tự động loại {mobilizationPlan.trimmed} khoản nhỏ không cần thiết</span>
                     )}
                   </div>
                 </div>
@@ -767,7 +847,7 @@ export default function ReportsPage() {
                   <FileSpreadsheet className="h-4 w-4 mr-2" />Xuất Excel
                 </Button>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -779,11 +859,12 @@ export default function ReportsPage() {
                       <TableHead className="text-right">Lấy bao nhiêu</TableHead>
                       <TableHead>Trạng thái</TableHead>
                       <TableHead>Người giữ</TableHead>
+                      <TableHead className="text-center">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mobilizationPlan.selected.map((d) => (
-                      <TableRow key={d.id} className={d._take < d._avail ? "bg-yellow-50 dark:bg-yellow-950/20" : ""}>
+                    {mobilizationPlan.selected.map((d: any) => (
+                      <TableRow key={d.id} className={d._source === "manual" ? "bg-blue-50 dark:bg-blue-950/20" : d._take < d._avail ? "bg-yellow-50 dark:bg-yellow-950/20" : ""}>
                         <TableCell className="font-medium">{d.donor?.fullName || "—"}</TableCell>
                         <TableCell>{formatDate(d.receivedDate)}</TableCell>
                         <TableCell className="max-w-[150px] truncate text-sm">{d.purposeOther || d.purpose || "—"}</TableCell>
@@ -795,23 +876,105 @@ export default function ReportsPage() {
                             ? <Badge variant="outline" className="text-xs">Chưa dùng</Badge>
                             : <Badge variant="secondary" className="text-xs">Đang dùng dở</Badge>
                           }
-                          {d._take < d._avail && <Badge variant="outline" className="text-xs ml-1 border-yellow-500 text-yellow-700">Lấy một phần</Badge>}
+                          {d._source === "manual" && <Badge variant="outline" className="text-xs ml-1 border-blue-500 text-blue-700">Thêm tay</Badge>}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{d.custodian || "—"}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 justify-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              onClick={() => handleSoftRemove(d.id)}
+                              title="Xoá tạm — hệ thống gợi ý khoản thay thế"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleHardRemove(d.id)}
+                              title="Xoá luôn — không thay thế"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="font-bold bg-muted/50">
                       <TableCell colSpan={5}>TỔNG HUY ĐỘNG</TableCell>
                       <TableCell className="text-right text-green-700">{formatCurrency(mobilizationPlan.accumulated.toString())}</TableCell>
-                      <TableCell colSpan={2}>{mobilizationPlan.selected.length} khoản</TableCell>
+                      <TableCell colSpan={3}>{mobilizationPlan.selected.length} khoản</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
-                <p className="text-xs text-muted-foreground mt-3">
+
+                {/* Nút thêm khoản thủ công */}
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setAddDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-1" />Thêm khoản vào kế hoạch
+                  </Button>
+                  {(excludedIds.size > 0 || hardRemovedIds.size > 0 || manualAddIds.size > 0) && (
+                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={handleGeneratePlan}>
+                      <RotateCcw className="h-3.5 w-3.5 mr-1" />Reset về ban đầu
+                    </Button>
+                  )}
+                </div>
+
+                {/* Khoản đã xoá tạm (có thể khôi phục) */}
+                {excludedIds.size > 0 && (
+                  <div className="border rounded-md p-3 bg-orange-50/50 dark:bg-orange-950/10">
+                    <p className="text-xs font-medium text-orange-700 mb-2">Khoản đã xoá tạm ({excludedIds.size}):</p>
+                    <div className="flex flex-wrap gap-2">
+                      {Array.from(excludedIds).map((id) => {
+                        const d = filteredPool.find((x) => x.id === id);
+                        if (!d) return null;
+                        return (
+                          <Badge key={id} variant="outline" className="text-xs border-orange-300 gap-1">
+                            {d.donor?.fullName || "?"} — {formatCurrency(d._avail.toString())}
+                            <button onClick={() => handleRestoreExcluded(id)} className="ml-1 hover:text-green-600" title="Khôi phục">
+                              <RotateCcw className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Panel gợi ý thay thế */}
+                {suggestion && suggestion.candidates.length > 0 && (
+                  <div className="border rounded-md p-3 bg-blue-50/50 dark:bg-blue-950/10">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-medium text-blue-700">Gợi ý khoản thay thế (giá trị gần nhất):</p>
+                      <button onClick={() => setSuggestion(null)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+                    </div>
+                    <div className="space-y-1">
+                      {suggestion.candidates.map((c) => (
+                        <div key={c.id} className="flex items-center justify-between text-sm bg-white dark:bg-muted/30 rounded px-3 py-1.5">
+                          <div>
+                            <span className="font-medium">{c.donor?.fullName || "?"}</span>
+                            <span className="text-muted-foreground ml-2">{formatCurrency(c._avail.toString())}</span>
+                            <span className="text-xs text-muted-foreground ml-2">{c.custodian || ""}</span>
+                          </div>
+                          <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => handleAcceptSuggestion(c.id)}>
+                            <Plus className="h-3 w-3 mr-1" />Thêm
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-xs text-muted-foreground">
                   * Thứ tự ưu tiên: (1) Khoản khít đúng số tiền cần →{" "}
                   {priorityMode === "unused_first"
-                    ? "(2) Khoản còn nguyên, lấy full nếu không vượt target (khoản không khít bị bỏ) → (3) Khoản dang dở full để lấp phần thiếu"
-                    : "(2) Khoản dang dở lấy full hết → (3) Khoản còn nguyên full (chấp nhận lấy thừa nếu khoản cuối vượt target)"}
+                    ? "(2) Khoản còn nguyên → (3) Khoản dang dở"
+                    : "(2) Khoản dang dở → (3) Khoản còn nguyên"}
+                  {" "}→ (4) Tự động loại khoản nhỏ nếu vượt target.
+                  <br />* <RotateCcw className="h-3 w-3 inline" /> Xoá tạm: loại khoản + gợi ý thay thế. <Trash2 className="h-3 w-3 inline" /> Xoá luôn: loại hẳn. <Plus className="h-3 w-3 inline" /> Thêm tay: chọn từ pool.
                 </p>
               </CardContent>
             </Card>
@@ -821,10 +984,78 @@ export default function ReportsPage() {
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
                 <AlertCircle className="h-8 w-8 mx-auto mb-2 text-orange-500" />
-                <p>Không tìm thấy khoản nào phù hợp với mục đích đã chọn.</p>
+                <p>Không tìm thấy khoản nào phù hợp với bộ lọc đã chọn.</p>
+                <Button variant="outline" size="sm" className="mt-3" onClick={() => setAddDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-1" />Thêm khoản thủ công
+                </Button>
               </CardContent>
             </Card>
           )}
+
+          {/* Dialog thêm khoản thủ công */}
+          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+            <DialogContent className="max-w-3xl max-h-[70vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Thêm khoản vào kế hoạch huy động</DialogTitle>
+              </DialogHeader>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Tìm theo tên nhà tài trợ..."
+                  value={addSearch}
+                  onChange={(e) => setAddSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nhà tài trợ</TableHead>
+                    <TableHead>Ngày nhận</TableHead>
+                    <TableHead>Mục đích</TableHead>
+                    <TableHead className="text-right">Còn lại</TableHead>
+                    <TableHead>Người giữ</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(() => {
+                    const selectedIds = new Set(mobilizationPlan?.selected.map((d: any) => d.id) || []);
+                    const available = filteredPool
+                      .filter((d) => !selectedIds.has(d.id) && !hardRemovedIds.has(d.id) && !excludedIds.has(d.id))
+                      .filter((d) => !addSearch || (d.donor?.fullName || "").toLowerCase().includes(addSearch.toLowerCase()))
+                      .sort((a, b) => b._avail - a._avail)
+                      .slice(0, 20);
+
+                    if (available.length === 0) {
+                      return (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
+                            Không còn khoản nào trong pool
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+
+                    return available.map((d) => (
+                      <TableRow key={d.id}>
+                        <TableCell className="font-medium">{d.donor?.fullName || "—"}</TableCell>
+                        <TableCell className="text-sm">{formatDate(d.receivedDate)}</TableCell>
+                        <TableCell className="text-sm max-w-[150px] truncate">{d.purposeOther || d.purpose || "—"}</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(d._avail.toString())}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{d.custodian || "—"}</TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="outline" className="h-7" onClick={() => handleAddManual(d.id)}>
+                            <Plus className="h-3.5 w-3.5 mr-1" />Thêm
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ));
+                  })()}
+                </TableBody>
+              </Table>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
 
