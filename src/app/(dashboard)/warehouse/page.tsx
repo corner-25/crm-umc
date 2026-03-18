@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Package, PackagePlus, PackageMinus, History, AlertTriangle, Clock, Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Package, PackagePlus, PackageMinus, History, AlertTriangle, Clock, Plus, Search, Pencil, Trash2, ClipboardList } from "lucide-react";
 
 const CATEGORIES = [
   { value: "FOOD", label: "Thực phẩm" },
@@ -47,9 +47,10 @@ function isLowStock(item: any) {
 
 function isExpiringSoon(item: any) {
   if (!item.expiryDate) return false;
-  const in30 = new Date();
-  in30.setDate(in30.getDate() + 30);
-  return new Date(item.expiryDate) <= in30;
+  const alertMonths = item.expiryAlertMonths || 1;
+  const alertDate = new Date();
+  alertDate.setMonth(alertDate.getMonth() + alertMonths);
+  return new Date(item.expiryDate) <= alertDate;
 }
 
 function isExpired(item: any) {
@@ -184,8 +185,11 @@ function ItemFormDialog({ open, onClose, editItem }: { open: boolean; onClose: (
   const [name, setName] = useState(editItem?.name || "");
   const [unit, setUnit] = useState(editItem?.unit || "");
   const [category, setCategory] = useState(editItem?.category || "OTHER");
+  const [currentQuantity, setCurrentQuantity] = useState(editItem?.currentQuantity?.toString() || "0");
   const [minQuantity, setMinQuantity] = useState(editItem?.minQuantity?.toString() || "0");
+  const [batchCode, setBatchCode] = useState(editItem?.batchCode || "");
   const [expiryDate, setExpiryDate] = useState(editItem?.expiryDate ? format(new Date(editItem.expiryDate), "yyyy-MM-dd") : "");
+  const [expiryAlertMonths, setExpiryAlertMonths] = useState(editItem?.expiryAlertMonths?.toString() || "1");
   const [donorUnit, setDonorUnit] = useState(editItem?.donorUnit || "");
   const [notes, setNotes] = useState(editItem?.notes || "");
 
@@ -229,7 +233,7 @@ function ItemFormDialog({ open, onClose, editItem }: { open: boolean; onClose: (
             <Label>Tên mặt hàng *</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên đầy đủ của mặt hàng" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <Label>Danh mục</Label>
               <Select value={category} onValueChange={setCategory}>
@@ -238,18 +242,37 @@ function ItemFormDialog({ open, onClose, editItem }: { open: boolean; onClose: (
               </Select>
             </div>
             <div>
+              <Label>Tồn kho hiện tại</Label>
+              <Input type="number" min={0} value={currentQuantity} onChange={(e) => setCurrentQuantity(e.target.value)} placeholder="0" />
+            </div>
+            <div>
               <Label>Ngưỡng cảnh báo tồn thấp</Label>
-              <Input type="number" min={0} value={minQuantity} onChange={(e) => setMinQuantity(e.target.value)} placeholder="0 = tắt cảnh báo" />
+              <Input type="number" min={0} value={minQuantity} onChange={(e) => setMinQuantity(e.target.value)} placeholder="0 = tắt" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Hạn sử dụng (tuỳ chọn)</Label>
-              <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+              <Label>Mã lô hàng</Label>
+              <Input value={batchCode} onChange={(e) => setBatchCode(e.target.value)} placeholder="VD: LOT-2026-03" />
             </div>
             <div>
               <Label>Đơn vị tài trợ</Label>
               <Input value={donorUnit} onChange={(e) => setDonorUnit(e.target.value)} placeholder="Tên tổ chức / cá nhân" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Hạn sử dụng</Label>
+              <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+            </div>
+            <div>
+              <Label>Cảnh báo trước (tháng)</Label>
+              <Select value={expiryAlertMonths} onValueChange={setExpiryAlertMonths}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 6].map((m) => <SelectItem key={m} value={m.toString()}>{m} tháng</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div>
@@ -260,10 +283,143 @@ function ItemFormDialog({ open, onClose, editItem }: { open: boolean; onClose: (
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Huỷ</Button>
           <Button
-            onClick={() => mutation.mutate({ code, name, unit, category, minQuantity: parseInt(minQuantity) || 0, expiryDate: expiryDate || null, donorUnit, notes })}
+            onClick={() => mutation.mutate({ code, name, unit, category, currentQuantity: parseInt(currentQuantity) || 0, minQuantity: parseInt(minQuantity) || 0, batchCode, expiryDate: expiryDate || null, expiryAlertMonths: parseInt(expiryAlertMonths) || 1, donorUnit, notes })}
             disabled={mutation.isPending || !code || !name || !unit}
           >
             {mutation.isPending ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Thêm mặt hàng"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Nhập nhanh tồn kho ─────────────────────────────────────────────────────
+function QuickStockDialog({ open, onClose, items }: { open: boolean; onClose: () => void; items: any[] }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [rows, setRows] = useState<Array<{ id: string; code: string; name: string; unit: string; category: string; currentQuantity: string; batchCode: string; expiryDate: string; expiryAlertMonths: string; donorUnit: string; minQuantity: string }>>([]);
+  const [saving, setSaving] = useState(false);
+
+  // Khởi tạo rows từ items hoặc thêm hàng trống
+  const initRows = () => {
+    if (items.length > 0) {
+      setRows(items.map((i) => ({
+        id: i.id,
+        code: i.code,
+        name: i.name,
+        unit: i.unit,
+        category: i.category,
+        currentQuantity: i.currentQuantity.toString(),
+        batchCode: i.batchCode || "",
+        expiryDate: i.expiryDate ? format(new Date(i.expiryDate), "yyyy-MM-dd") : "",
+        expiryAlertMonths: (i.expiryAlertMonths || 1).toString(),
+        donorUnit: i.donorUnit || "",
+        minQuantity: (i.minQuantity || 0).toString(),
+      })));
+    } else {
+      addEmptyRow();
+    }
+  };
+
+  const addEmptyRow = () => {
+    setRows((prev) => [...prev, { id: "", code: "", name: "", unit: "", category: "OTHER", currentQuantity: "0", batchCode: "", expiryDate: "", expiryAlertMonths: "1", donorUnit: "", minQuantity: "0" }]);
+  };
+
+  const updateRow = (index: number, field: string, value: string) => {
+    setRows((prev) => prev.map((r, i) => i === index ? { ...r, [field]: value } : r));
+  };
+
+  const removeRow = (index: number) => {
+    setRows((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      for (const row of rows) {
+        if (!row.code || !row.name || !row.unit) continue;
+        const data = {
+          code: row.code,
+          name: row.name,
+          unit: row.unit,
+          category: row.category,
+          currentQuantity: parseInt(row.currentQuantity) || 0,
+          minQuantity: parseInt(row.minQuantity) || 0,
+          batchCode: row.batchCode || null,
+          expiryDate: row.expiryDate || null,
+          expiryAlertMonths: parseInt(row.expiryAlertMonths) || 1,
+          donorUnit: row.donorUnit || null,
+        };
+        if (row.id) {
+          await fetch(`/api/warehouse/items/${row.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+        } else {
+          await fetch("/api/warehouse/items", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+        }
+      }
+      toast({ title: "Thành công", description: "Đã cập nhật tồn kho" });
+      qc.invalidateQueries({ queryKey: ["warehouse-items"] });
+      onClose();
+    } catch {
+      toast({ variant: "destructive", title: "Lỗi", description: "Không thể lưu" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); else initRows(); }}>
+      <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-blue-600" />
+            Nhập nhanh tồn kho
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-24">Mã hàng</TableHead>
+                <TableHead>Tên</TableHead>
+                <TableHead className="w-16">ĐVT</TableHead>
+                <TableHead className="w-20">Tồn kho</TableHead>
+                <TableHead className="w-24">Mã lô</TableHead>
+                <TableHead className="w-28">HSD</TableHead>
+                <TableHead className="w-24">CB (tháng)</TableHead>
+                <TableHead className="w-8"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row, idx) => (
+                <TableRow key={idx}>
+                  <TableCell><Input value={row.code} onChange={(e) => updateRow(idx, "code", e.target.value)} placeholder="MH-001" disabled={!!row.id} className="h-8 text-xs" /></TableCell>
+                  <TableCell><Input value={row.name} onChange={(e) => updateRow(idx, "name", e.target.value)} placeholder="Tên mặt hàng" className="h-8 text-xs" /></TableCell>
+                  <TableCell><Input value={row.unit} onChange={(e) => updateRow(idx, "unit", e.target.value)} placeholder="cái" className="h-8 text-xs" /></TableCell>
+                  <TableCell><Input type="number" min={0} value={row.currentQuantity} onChange={(e) => updateRow(idx, "currentQuantity", e.target.value)} className="h-8 text-xs" /></TableCell>
+                  <TableCell><Input value={row.batchCode} onChange={(e) => updateRow(idx, "batchCode", e.target.value)} placeholder="LOT-..." className="h-8 text-xs" /></TableCell>
+                  <TableCell><Input type="date" value={row.expiryDate} onChange={(e) => updateRow(idx, "expiryDate", e.target.value)} className="h-8 text-xs" /></TableCell>
+                  <TableCell>
+                    <Select value={row.expiryAlertMonths} onValueChange={(v) => updateRow(idx, "expiryAlertMonths", v)}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>{[1, 2, 3, 4, 5, 6].map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    {!row.id && <Button size="sm" variant="ghost" className="h-7 px-1 text-destructive" onClick={() => removeRow(idx)}><Trash2 className="h-3 w-3" /></Button>}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <Button variant="outline" size="sm" onClick={addEmptyRow}>
+            <Plus className="h-3 w-3 mr-1" />Thêm hàng mới
+          </Button>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Huỷ</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Đang lưu..." : "Lưu tất cả"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -284,6 +440,7 @@ export default function WarehousePage() {
   const [editItem, setEditItem] = useState<any>(null);
   const [showImport, setShowImport] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showQuickStock, setShowQuickStock] = useState(false);
   const [quickItem, setQuickItem] = useState<any>(null);
   const [txType, setTxType] = useState<"IMPORT" | "EXPORT">("IMPORT");
 
@@ -359,6 +516,9 @@ export default function WarehousePage() {
           <p className="text-muted-foreground">Theo dõi nhập xuất và tồn kho hàng tài trợ</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" className="text-blue-700 border-blue-300 hover:bg-blue-50" onClick={() => setShowQuickStock(true)}>
+            <ClipboardList className="h-4 w-4 mr-2" />Nhập nhanh tồn kho
+          </Button>
           <Button variant="outline" className="text-green-700 border-green-300 hover:bg-green-50" onClick={() => { setQuickItem(null); setShowImport(true); }}>
             <PackagePlus className="h-4 w-4 mr-2" />Nhập kho
           </Button>
@@ -440,10 +600,10 @@ export default function WarehousePage() {
                       <TableHead className="w-28">Mã</TableHead>
                       <TableHead>Tên mặt hàng</TableHead>
                       <TableHead>Danh mục</TableHead>
+                      <TableHead>Mã lô</TableHead>
                       <TableHead className="text-right">Tồn kho</TableHead>
                       <TableHead>Hạn sử dụng</TableHead>
                       <TableHead>Đơn vị tài trợ</TableHead>
-                      <TableHead>Ghi chú</TableHead>
                       <TableHead className="w-40"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -464,6 +624,7 @@ export default function WarehousePage() {
                             </div>
                           </TableCell>
                           <TableCell>{categoryBadge(item.category)}</TableCell>
+                          <TableCell className="text-sm font-mono text-muted-foreground">{item.batchCode || "—"}</TableCell>
                           <TableCell className="text-right">
                             <span className={`font-bold text-lg ${low ? "text-red-600" : "text-slate-800"}`}>{item.currentQuantity}</span>
                             <span className="text-xs text-muted-foreground ml-1">{item.unit}</span>
@@ -479,7 +640,6 @@ export default function WarehousePage() {
                             ) : "—"}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground max-w-32 truncate">{item.donorUnit || "—"}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-36 truncate">{item.notes || "—"}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
                               <Button size="sm" variant="ghost" className="h-7 px-2 text-green-700 hover:bg-green-50" onClick={() => openQuickAction(item, "IMPORT")}>
@@ -586,6 +746,7 @@ export default function WarehousePage() {
       <TransactionDialog open={showImport} onClose={() => { setShowImport(false); setQuickItem(null); }} type="IMPORT" preselectedItem={quickItem} items={allItems} />
       <TransactionDialog open={showExport} onClose={() => { setShowExport(false); setQuickItem(null); }} type="EXPORT" preselectedItem={quickItem} items={allItems} />
       <ItemFormDialog open={showItemForm} onClose={() => { setShowItemForm(false); setEditItem(null); }} editItem={editItem} />
+      <QuickStockDialog open={showQuickStock} onClose={() => setShowQuickStock(false)} items={allItems} />
     </div>
   );
 }

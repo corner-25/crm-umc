@@ -261,7 +261,7 @@ model DonationInKind {
   unit                  String
   condition             ItemCondition               @default(NEW)
   expiryDate            DateTime?
-  estimatedValue        Decimal                     @db.Decimal(15, 2)
+  estimatedValue        Decimal?                    @db.Decimal(15, 2)
   imageUrls             String[]                    @default([])
   receivingLocation     String
   storageLocation       String
@@ -803,7 +803,9 @@ model WarehouseItem {
   category          WarehouseCategory     @default(OTHER)
   currentQuantity   Int                   @default(0)  // Tồn kho hiện tại
   minQuantity       Int                   @default(0)  // Ngưỡng cảnh báo tồn thấp
+  batchCode         String?                          // Mã lô hàng
   expiryDate        DateTime?                        // Hạn sử dụng (tuỳ chọn)
+  expiryAlertMonths Int                   @default(1) // Cảnh báo trước N tháng hết hạn
   notes             String?                          // Ghi chú tình trạng hàng
   donorUnit         String?                          // Đơn vị tài trợ
 

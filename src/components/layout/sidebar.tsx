@@ -62,8 +62,7 @@ const navigation = [
     icon: Heart,
     children: [
       { name: "In thư cảm ơn", href: "/gratitude/thank-you-letter" },
-      { name: "Gửi email", href: "/gratitude/send-email" },
-      { name: "Mẫu email", href: "/gratitude/templates" },
+      { name: "Mẫu thư cảm ơn", href: "/gratitude/templates" },
       { name: "Nhắc nhở", href: "/gratitude/reminders" },
     ],
   },

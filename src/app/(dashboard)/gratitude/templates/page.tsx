@@ -64,7 +64,7 @@ export default function EmailTemplatesPage() {
     onSuccess: () => {
       toast({
         title: "Thành công",
-        description: "Đã xóa mẫu email",
+        description: "Đã xóa mẫu thư",
       });
       queryClient.invalidateQueries({ queryKey: ["email-templates"] });
       setDeleteId(null);
@@ -73,7 +73,7 @@ export default function EmailTemplatesPage() {
       toast({
         variant: "destructive",
         title: "Lỗi",
-        description: "Không thể xóa mẫu email",
+        description: "Không thể xóa mẫu thư",
       });
     },
   });
@@ -82,9 +82,9 @@ export default function EmailTemplatesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Email Templates</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Mẫu thư cảm ơn</h2>
           <p className="text-muted-foreground">
-            Quản lý mẫu email tri ân
+            Quản lý mẫu thư cảm ơn nhà tài trợ
           </p>
         </div>
         <Button asChild>
@@ -97,9 +97,9 @@ export default function EmailTemplatesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Danh sách mẫu email</CardTitle>
+          <CardTitle>Danh sách mẫu thư</CardTitle>
           <CardDescription>
-            Mẫu email để gửi cho nhà tài trợ
+            Mẫu thư cảm ơn để in cho nhà tài trợ
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -121,7 +121,7 @@ export default function EmailTemplatesPage() {
                   {data?.templates?.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center">
-                        Chưa có mẫu email nào
+                        Chưa có mẫu thư nào
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -170,7 +170,7 @@ export default function EmailTemplatesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc chắn muốn xóa mẫu email này? Hành động này không thể hoàn tác.
+              Bạn có chắc chắn muốn xóa mẫu thư này? Hành động này không thể hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

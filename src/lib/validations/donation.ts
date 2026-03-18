@@ -47,7 +47,7 @@ export const inKindDonationSchema = z.object({
   unit: z.string().min(1, "Vui lòng nhập đơn vị tính"),
   condition: z.enum(["NEW", "USED"]),
   expiryDate: z.date().optional().nullable(),
-  estimatedValue: z.number().positive("Giá trị ước tính phải lớn hơn 0"),
+  estimatedValue: z.number().positive("Giá trị ước tính phải lớn hơn 0").optional().nullable(),
   imageUrls: z.array(z.string()),
   receivingLocation: z.string().min(1, "Vui lòng nhập địa điểm nhận"),
   storageLocation: z.string().min(1, "Vui lòng nhập kho lưu trữ"),

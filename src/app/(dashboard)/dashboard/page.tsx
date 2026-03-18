@@ -11,7 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DollarSign, Users, TrendingUp, Gift, Coins, CalendarIcon, Wallet, Activity, Pill, HeartPulse } from "lucide-react";
+import { DollarSign, Users, Gift, Coins, CalendarIcon, Wallet, Activity, Pill, HeartPulse } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import { donorTierColors, donorTierLabels } from "@/types/donor";
 import { DonorTier } from "@prisma/client";
@@ -103,7 +103,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Row 1: KPI Cards — 3x2 */}
+      {/* Row 1: KPI Cards — 6 cards (3x2) */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -111,8 +111,8 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats?.grandTotal || 0)}</div>
-            <p className="text-xs text-muted-foreground">Bao gồm tất cả loại hình</p>
+            <div className="text-2xl font-bold">{formatCurrency((stats?.totalCash || 0) + (stats?.totalInKind || 0))}</div>
+            <p className="text-xs text-muted-foreground">{stats?.totalDonations || 0} khoản (Tiền mặt + Hiện vật)</p>
           </CardContent>
         </Card>
         <Card>
@@ -127,22 +127,32 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tiền chưa sử dụng</CardTitle>
-            <Wallet className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(stats?.totalRemaining || 0)}</div>
-            <p className="text-xs text-muted-foreground">Đã dùng: {formatCurrency(stats?.totalUsed || 0)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Hiện vật</CardTitle>
             <Gift className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats?.totalInKind || 0)}</div>
             <p className="text-xs text-muted-foreground">{stats?.inKindCount || 0} khoản</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tiền đã sử dụng</CardTitle>
+            <Wallet className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-500">{formatCurrency(stats?.totalUsed || 0)}</div>
+            <p className="text-xs text-muted-foreground">{usagePercent}% tổng tiền mặt</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tiền chưa sử dụng</CardTitle>
+            <Wallet className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(stats?.totalRemaining || 0)}</div>
+            <p className="text-xs text-muted-foreground">Còn lại từ tiền mặt</p>
           </CardContent>
         </Card>
         <Card>
@@ -155,16 +165,6 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">
               {selectedYear ? `Tài trợ lần đầu năm ${selectedYear}` : "Tổng số nhà tài trợ"}
             </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Khoản tài trợ</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalDonations || 0}</div>
-            <p className="text-xs text-muted-foreground">Tổng số khoản</p>
           </CardContent>
         </Card>
       </div>
@@ -241,22 +241,20 @@ export default function DashboardPage() {
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={stats.donationsByType}
+                    data={stats.donationsByType.filter((d: any) => d.value > 0)}
                     dataKey="value"
                     nameKey="type"
                     cx="50%"
-                    cy="50%"
-                    outerRadius={90}
-                    label={(entry: any) =>
-                      `${entry.type}: ${stats.grandTotal > 0 ? ((entry.value / stats.grandTotal) * 100).toFixed(1) : 0}%`
-                    }
+                    cy="40%"
+                    outerRadius={70}
+                    label={({ percent }: any) => `${(percent * 100).toFixed(0)}%`}
                   >
-                    {stats.donationsByType.map((_: any, index: number) => (
+                    {stats.donationsByType.filter((d: any) => d.value > 0).map((_: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value: any) => formatCurrency(value)} />
-                  <Legend />
+                  <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -315,7 +313,7 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Row 4: Donut (25%) + Tiền theo mục đích (40%) + Hiện vật theo danh mục (35%) */}
+      {/* Row 4: Donut (25%) + Tiền theo mục đích (40%) + NTT theo loại Pie (35%) */}
       <div className="grid gap-4 lg:grid-cols-12">
         {/* Donut tỷ lệ sử dụng */}
         <Card className="lg:col-span-3">
@@ -338,7 +336,7 @@ export default function DashboardPage() {
                   <Cell fill="#10b981" />
                 </Pie>
                 <Tooltip formatter={(value: any) => formatCurrency(value)} />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: "12px" }} />
               </PieChart>
             </ResponsiveContainer>
             <p className="text-center text-2xl font-bold mt-2">{usagePercent}%</p>
@@ -368,25 +366,32 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Hiện vật theo danh mục */}
+        {/* NTT theo loại hình + Phân loại NTT */}
         <Card className="lg:col-span-4">
           <CardHeader>
-            <CardTitle className="text-base">Hiện vật theo danh mục</CardTitle>
+            <CardTitle className="text-base">Nhà tài trợ theo loại</CardTitle>
+            <CardDescription>Cá nhân, Doanh nghiệp, Tổ chức, Cộng đồng</CardDescription>
           </CardHeader>
           <CardContent>
-            {stats?.inKindByCategory?.length > 0 ? (
+            {stats?.donorsByType?.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={stats.inKindByCategory}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="category" style={{ fontSize: "11px" }} />
-                  <YAxis tickFormatter={(v) => `${(v / 1000000).toFixed(0)}M`} style={{ fontSize: "11px" }} />
-                  <Tooltip formatter={(value: any) => formatCurrency(value)} />
-                  <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} name="Giá trị">
-                    {stats.inKindByCategory.map((_: any, i: number) => (
-                      <Cell key={i} fill={COLORS[(i + 1) % COLORS.length]} />
+                <PieChart>
+                  <Pie
+                    data={stats.donorsByType}
+                    dataKey="count"
+                    nameKey="type"
+                    cx="50%"
+                    cy="40%"
+                    outerRadius={65}
+                    label={({ percent }: any) => `${(percent * 100).toFixed(0)}%`}
+                  >
+                    {stats.donorsByType.map((_: any, index: number) => (
+                      <Cell key={index} fill={DONOR_TYPE_COLORS[index % DONOR_TYPE_COLORS.length]} />
                     ))}
-                  </Bar>
-                </BarChart>
+                  </Pie>
+                  <Tooltip />
+                  <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+                </PieChart>
               </ResponsiveContainer>
             ) : (
               <p className="text-center text-muted-foreground py-8">Chưa có dữ liệu</p>
@@ -395,8 +400,8 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Row 5: Top 10 giá trị (33%) + Top 10 số lần (33%) + Phân bổ NTT theo loại (33%) */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      {/* Row 5: Top 10 giá trị (50%) + Top 10 số lần (50%) — kéo rộng */}
+      <div className="grid gap-4 lg:grid-cols-2">
         {/* Top 10 theo giá trị */}
         <Card>
           <CardHeader>
@@ -411,8 +416,8 @@ export default function DashboardPage() {
                   href={`/donors/${donor.id}`}
                   className="flex items-center justify-between hover:bg-slate-50 rounded-lg p-2 transition-colors"
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
                       {index + 1}
                     </div>
                     <div className="min-w-0">
@@ -449,8 +454,8 @@ export default function DashboardPage() {
                   href={`/donors/${donor.id}`}
                   className="flex items-center justify-between hover:bg-slate-50 rounded-lg p-2 transition-colors"
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-500 text-xs font-bold text-white">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500 text-xs font-bold text-white">
                       {index + 1}
                     </div>
                     <div className="min-w-0">
@@ -470,42 +475,6 @@ export default function DashboardPage() {
                 <p className="text-center text-muted-foreground py-4">Chưa có dữ liệu</p>
               )}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Phân bổ NTT theo loại */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Nhà tài trợ theo loại</CardTitle>
-            <CardDescription>Cá nhân, Doanh nghiệp, Tổ chức, Cộng đồng</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {stats?.donorsByType?.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie
-                    data={stats.donorsByType}
-                    dataKey="count"
-                    nameKey="type"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={85}
-                    label={(entry: any) => {
-                      const total = stats.donorsByType.reduce((s: number, d: any) => s + d.count, 0);
-                      return `${entry.type}: ${total > 0 ? ((entry.count / total) * 100).toFixed(0) : 0}%`;
-                    }}
-                  >
-                    {stats.donorsByType.map((_: any, index: number) => (
-                      <Cell key={index} fill={DONOR_TYPE_COLORS[index % DONOR_TYPE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-center text-muted-foreground py-8">Chưa có dữ liệu</p>
-            )}
           </CardContent>
         </Card>
       </div>

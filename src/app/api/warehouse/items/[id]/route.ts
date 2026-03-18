@@ -31,7 +31,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { name, unit, category, minQuantity, expiryDate, notes, donorUnit } = body;
+    const { name, unit, category, minQuantity, expiryDate, notes, donorUnit, batchCode, expiryAlertMonths, currentQuantity } = body;
 
     const item = await prisma.warehouseItem.update({
       where: { id: params.id },
@@ -39,8 +39,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         ...(name && { name }),
         ...(unit && { unit }),
         ...(category && { category }),
+        ...(currentQuantity !== undefined && { currentQuantity }),
         ...(minQuantity !== undefined && { minQuantity }),
+        ...(batchCode !== undefined && { batchCode: batchCode || null }),
         expiryDate: expiryDate !== undefined ? (expiryDate ? new Date(expiryDate) : null) : undefined,
+        ...(expiryAlertMonths !== undefined && { expiryAlertMonths }),
         ...(notes !== undefined && { notes }),
         ...(donorUnit !== undefined && { donorUnit }),
       },

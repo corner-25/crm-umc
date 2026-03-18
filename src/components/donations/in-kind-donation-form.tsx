@@ -252,13 +252,14 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
               name="estimatedValue"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Giá trị ước tính (VNĐ) *</FormLabel>
+                  <FormLabel>Giá trị ước tính (VNĐ)</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      placeholder="1000000"
+                      placeholder="Không bắt buộc"
                       {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
+                      value={field.value ?? ""}
+                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
                     />
                   </FormControl>
                   <FormMessage />

@@ -17,7 +17,6 @@ export async function GET(request: NextRequest) {
     const hasDateFilter = !!(from || to);
     const cashDateFilter = hasDateFilter ? { receivedDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } } : {};
     const inKindDateFilter = hasDateFilter ? { createdAt: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } } : {};
-    const volunteerDateFilter = hasDateFilter ? { startDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } } : {};
 
     // Count donors — nếu có filter năm thì tính theo năm tài trợ đầu tiên của donor
     let totalDonors: number;
@@ -29,7 +28,6 @@ export async function GET(request: NextRequest) {
           id: true,
           cashDonations: { where: { deletedAt: null }, select: { receivedDate: true }, orderBy: { receivedDate: "asc" }, take: 1 },
           inKindDonations: { where: { deletedAt: null }, select: { createdAt: true }, orderBy: { createdAt: "asc" }, take: 1 },
-          volunteerDonations: { where: { deletedAt: null }, select: { startDate: true }, orderBy: { startDate: "asc" }, take: 1 },
         },
       });
       const fromDate = new Date(from);
@@ -38,7 +36,6 @@ export async function GET(request: NextRequest) {
         const dates: Date[] = [
           ...(donor.cashDonations[0] ? [new Date(donor.cashDonations[0].receivedDate)] : []),
           ...(donor.inKindDonations[0] ? [new Date(donor.inKindDonations[0].createdAt)] : []),
-          ...(donor.volunteerDonations[0] ? [new Date(donor.volunteerDonations[0].startDate)] : []),
         ];
         if (dates.length === 0) return false;
         const firstDonation = new Date(Math.min(...dates.map((d) => d.getTime())));
@@ -49,29 +46,25 @@ export async function GET(request: NextRequest) {
     }
 
     // Count + sum donations (filtered by date if set)
-    const [cashCount, inKindCount, volunteerCount, cashSum, inKindSum, volunteerSum, usedSum] = await Promise.all([
+    const [cashCount, inKindCount, cashSum, inKindSum, usedSum] = await Promise.all([
       prisma.donationCash.count({ where: { deletedAt: null, ...cashDateFilter } }),
       prisma.donationInKind.count({ where: { deletedAt: null, ...inKindDateFilter } }),
-      prisma.donationVolunteer.count({ where: { deletedAt: null, ...volunteerDateFilter } }),
       prisma.donationCash.aggregate({ where: { deletedAt: null, currency: "VND", ...cashDateFilter }, _sum: { amount: true } }),
       prisma.donationInKind.aggregate({ where: { deletedAt: null, ...inKindDateFilter }, _sum: { estimatedValue: true } }),
-      prisma.donationVolunteer.aggregate({ where: { deletedAt: null, ...volunteerDateFilter }, _sum: { totalValue: true } }),
       prisma.donationCash.aggregate({ where: { deletedAt: null, currency: "VND", ...cashDateFilter }, _sum: { usedAmount: true } }),
     ]);
 
-    const totalDonations = cashCount + inKindCount + volunteerCount;
+    const totalDonations = cashCount + inKindCount;
     const totalCash = Number(cashSum._sum.amount || 0);
     const totalUsed = Number(usedSum._sum.usedAmount || 0);
     const totalRemaining = totalCash - totalUsed;
     const totalInKind = Number(inKindSum._sum.estimatedValue || 0);
-    const totalVolunteer = Number(volunteerSum._sum.totalValue || 0);
-    const grandTotal = totalCash + totalInKind + totalVolunteer;
+    const grandTotal = totalCash + totalInKind;
 
-    // Get donations by type for pie chart
+    // Get donations by type for pie chart (không bao gồm tình nguyện)
     const donationsByType = [
       { type: "Tiền mặt", value: totalCash, count: cashCount },
       { type: "Hiện vật", value: totalInKind, count: inKindCount },
-      { type: "Tình nguyện", value: totalVolunteer, count: volunteerCount },
     ];
 
     // Get donors with donations (filtered by date)
@@ -86,10 +79,6 @@ export async function GET(request: NextRequest) {
           where: { deletedAt: null, ...inKindDateFilter },
           select: { estimatedValue: true },
         },
-        volunteerDonations: {
-          where: { deletedAt: null, ...volunteerDateFilter },
-          select: { totalValue: true },
-        },
       },
     });
 
@@ -99,18 +88,13 @@ export async function GET(request: NextRequest) {
           .filter((d) => d.currency === "VND")
           .reduce((sum, d) => sum + Number(d.amount), 0);
         const inKindTotal = donor.inKindDonations.reduce(
-          (sum, d) => sum + Number(d.estimatedValue),
+          (sum, d) => sum + Number(d.estimatedValue || 0),
           0
         );
-        const volunteerTotal = donor.volunteerDonations.reduce(
-          (sum, d) => sum + Number(d.totalValue),
-          0
-        );
-        const total = cashTotal + inKindTotal + volunteerTotal;
+        const total = cashTotal + inKindTotal;
         const count =
           donor.cashDonations.length +
-          donor.inKindDonations.length +
-          donor.volunteerDonations.length;
+          donor.inKindDonations.length;
 
         return {
           id: donor.id,
@@ -163,27 +147,6 @@ export async function GET(request: NextRequest) {
       .map(([purpose, value]) => ({ purpose, value }))
       .sort((a, b) => b.value - a.value);
 
-    // In-kind by category
-    const inKindCategoryLabels: Record<string, string> = {
-      MEDICAL_EQUIPMENT: "Thiết bị y tế",
-      MEDICINE: "Thuốc",
-      SUPPLIES: "Đồ dùng",
-      FOOD: "Thực phẩm",
-      OTHER: "Khác",
-    };
-    const inKindDonations = await prisma.donationInKind.findMany({
-      where: { deletedAt: null, ...inKindDateFilter },
-      select: { category: true, estimatedValue: true },
-    });
-    const inKindByCategoryMap: Record<string, number> = {};
-    for (const d of inKindDonations) {
-      const key = d.category;
-      inKindByCategoryMap[key] = (inKindByCategoryMap[key] || 0) + Number(d.estimatedValue);
-    }
-    const inKindByCategory = Object.entries(inKindByCategoryMap)
-      .map(([category, value]) => ({ category: inKindCategoryLabels[category] || category, value }))
-      .sort((a, b) => b.value - a.value);
-
     // Cancer support stats
     const [activePatientsCount, treatmentStats, treatmentSponsorSum] = await Promise.all([
       prisma.cancerPatient.count({ where: { deletedAt: null, status: "ACTIVE" } }),
@@ -209,18 +172,15 @@ export async function GET(request: NextRequest) {
       totalUsed,
       totalRemaining,
       totalInKind,
-      totalVolunteer,
       grandTotal,
       donationsByType,
       topDonorsByValue,
       topDonorsByFrequency,
       donorsByType,
       cashByPurpose,
-      inKindByCategory,
       cancerStats,
       cashCount,
       inKindCount,
-      volunteerCount,
     });
   } catch (error) {
     console.error("Error fetching dashboard stats:", error);

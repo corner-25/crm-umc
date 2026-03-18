@@ -26,6 +26,21 @@ export default function RemindersPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Auto-generate nhắc nhở khi load trang
+  useQuery({
+    queryKey: ["reminders-auto-generate"],
+    queryFn: async () => {
+      const res = await fetch("/api/reminders/auto-generate", { method: "POST" });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.count > 0) {
+        queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      }
+      return data;
+    },
+    staleTime: 1000 * 60 * 10, // chỉ chạy 10 phút 1 lần
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ["reminders", filter],
     queryFn: async () => {
