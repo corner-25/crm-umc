@@ -254,8 +254,11 @@ export default function ReportsPage() {
       const next = [...prev];
       next.splice(removedIdx, 1); // xoá khoản cũ
       if (replacement) {
-        // Kế toán giữ tiền → lấy full, còn lại lấy dang dở cũng được
-        const take = replacement._avail;
+        // "Kế toán đang giữ" → lấy full _avail
+        // Các trường hợp khác → lấy đúng số cần (= _take của khoản bị xoá), không lấy thừa
+        const take = replacement.custodian === CUSTODIAN_KE_TOAN
+          ? replacement._avail
+          : Math.min(removed._take, replacement._avail);
         next.splice(removedIdx, 0, { ...replacement, _take: take, _source: "auto" as const });
       }
       return next;
@@ -263,7 +266,10 @@ export default function ReportsPage() {
 
     setSoftRemovedIds((prev) => new Set([...prev, donationId]));
     if (replacement) {
-      toast({ title: "Đã thay thế", description: `${removed.donor?.fullName || "?"} (${formatCurrency(removed._take.toString())}) → ${replacement.donor?.fullName || "?"} (${formatCurrency(replacement._avail.toString())})` });
+      const take = replacement.custodian === CUSTODIAN_KE_TOAN
+        ? replacement._avail
+        : Math.min(removed._take, replacement._avail);
+      toast({ title: "Đã thay thế", description: `${removed.donor?.fullName || "?"} (${formatCurrency(removed._take.toString())}) → ${replacement.donor?.fullName || "?"} (${formatCurrency(take.toString())})` });
     } else {
       toast({ variant: "destructive", title: "Không tìm được khoản thay thế", description: `Đã xoá khoản ${removed.donor?.fullName || "?"} (${formatCurrency(removed._take.toString())})` });
     }
@@ -997,52 +1003,55 @@ export default function ReportsPage() {
                 </Button>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Table>
+                <div className="border rounded-md">
+                <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nhà tài trợ</TableHead>
-                      <TableHead>Ngày nhận</TableHead>
-                      <TableHead>Mục đích gốc</TableHead>
-                      <TableHead className="text-right">Tổng khoản</TableHead>
-                      <TableHead className="text-right">Còn lại</TableHead>
-                      <TableHead className="text-right">Lấy bao nhiêu</TableHead>
-                      <TableHead>Trạng thái</TableHead>
-                      <TableHead>Người giữ</TableHead>
-                      <TableHead className="text-center">Thao tác</TableHead>
+                      <TableHead className="w-[160px]">Nhà tài trợ</TableHead>
+                      <TableHead className="w-[100px]">Ngày nhận</TableHead>
+                      <TableHead className="w-[140px]">Mục đích gốc</TableHead>
+                      <TableHead className="w-[120px] text-right">Tổng khoản</TableHead>
+                      <TableHead className="w-[120px] text-right">Còn lại</TableHead>
+                      <TableHead className="w-[120px] text-right">Lấy HĐ</TableHead>
+                      <TableHead className="w-[120px]">Trạng thái</TableHead>
+                      <TableHead className="w-[100px]">Người giữ</TableHead>
+                      <TableHead className="w-[80px] text-center">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {mobilizationPlan.selected.map((d: any) => (
-                      <TableRow key={d.id} className={d._source === "manual" ? "bg-blue-50 dark:bg-blue-950/20" : d._take < d._avail ? "bg-yellow-50 dark:bg-yellow-950/20" : ""}>
-                        <TableCell className="font-medium">{d.donor?.fullName || "—"}</TableCell>
-                        <TableCell>{formatDate(d.receivedDate)}</TableCell>
-                        <TableCell className="max-w-[150px] truncate text-sm">{d.purposeOther || d.purpose || "—"}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(Number(d.amount).toString())}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(d._avail.toString())}</TableCell>
-                        <TableCell className="text-right font-bold text-green-700">{formatCurrency(d._take.toString())}</TableCell>
+                      <TableRow key={d.id} className={`h-[44px] ${d._source === "manual" ? "bg-blue-50 dark:bg-blue-950/20" : d._take < d._avail ? "bg-yellow-50 dark:bg-yellow-950/20" : ""}`}>
+                        <TableCell className="font-medium truncate">{d.donor?.fullName || "—"}</TableCell>
+                        <TableCell className="text-sm">{formatDate(d.receivedDate)}</TableCell>
+                        <TableCell className="truncate text-sm">{d.purposeOther || d.purpose || "—"}</TableCell>
+                        <TableCell className="text-right text-sm">{formatCurrency(Number(d.amount).toString())}</TableCell>
+                        <TableCell className="text-right text-sm">{formatCurrency(d._avail.toString())}</TableCell>
+                        <TableCell className="text-right font-bold text-green-700 text-sm">{formatCurrency(d._take.toString())}</TableCell>
                         <TableCell>
-                          {Number(d.usedAmount || 0) === 0
-                            ? <Badge variant="outline" className="text-xs">Chưa dùng</Badge>
-                            : <Badge variant="secondary" className="text-xs">Đang dùng dở</Badge>
-                          }
-                          {d._source === "manual" && <Badge variant="outline" className="text-xs ml-1 border-blue-500 text-blue-700">Thêm tay</Badge>}
+                          <div className="flex gap-1 items-center">
+                            {Number(d.usedAmount || 0) === 0
+                              ? <Badge variant="outline" className="text-[10px] h-5">Chưa dùng</Badge>
+                              : <Badge variant="secondary" className="text-[10px] h-5">Dang dở</Badge>
+                            }
+                            {d._source === "manual" && <Badge variant="outline" className="text-[10px] h-5 border-blue-500 text-blue-700">Tay</Badge>}
+                          </div>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{d.custodian || "—"}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground truncate">{d.custodian || "—"}</TableCell>
                         <TableCell>
-                          <div className="flex gap-1 justify-center">
+                          <div className="flex gap-0.5 justify-center">
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              className="h-7 w-7 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                               onClick={() => handleSoftRemove(d.id)}
-                              title="Xoá tạm — hệ thống gợi ý khoản thay thế"
+                              title="Xoá tạm — tự thay bằng khoản gần nhất"
                             >
                               <RotateCcw className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                               onClick={() => handleHardRemove(d.id)}
                               title="Xoá luôn — không thay thế"
                             >
@@ -1052,13 +1061,14 @@ export default function ReportsPage() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    <TableRow className="font-bold bg-muted/50">
+                    <TableRow className="font-bold bg-muted/50 h-[44px]">
                       <TableCell colSpan={5}>TỔNG HUY ĐỘNG</TableCell>
                       <TableCell className="text-right text-green-700">{formatCurrency(mobilizationPlan.accumulated.toString())}</TableCell>
                       <TableCell colSpan={3}>{mobilizationPlan.selected.length} khoản</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
+                </div>
 
                 {/* Nút thêm khoản thủ công */}
                 <div className="flex items-center gap-2">
