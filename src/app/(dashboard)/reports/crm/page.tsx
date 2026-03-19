@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format, differenceInDays } from "date-fns";
-import { FileSpreadsheet, TrendingDown, BarChart3, Wallet, AlertCircle, CheckCircle2, Eye, Trash2, RotateCcw, Plus, Search, X, Save, Send, Check, Clock, XCircle, Loader2, History } from "lucide-react";
+import { FileSpreadsheet, TrendingDown, BarChart3, Wallet, AlertCircle, CheckCircle2, Eye, Trash2, RotateCcw, Plus, Search, Save, Send, Check, Clock, XCircle, Loader2, History } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { CASH_PURPOSES } from "@/lib/validations/donation";
@@ -44,10 +44,13 @@ export default function ReportsPage() {
   const [isApproving, setIsApproving] = useState(false);
   const [showSavedPlans, setShowSavedPlans] = useState(false);
 
-  // Interactive editing state
-  const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set()); // xoá tạm
+  // Interactive editing state — danh sách khoản đang chọn (mutable)
+  const [planSelected, setPlanSelected] = useState<any[]>([]);
+  const [planTarget, setPlanTarget] = useState(0);
+  const [planTotalAvail, setPlanTotalAvail] = useState(0);
+  const [planTrimmed, setPlanTrimmed] = useState(0);
+  const [softRemovedIds, setSoftRemovedIds] = useState<Set<string>>(new Set()); // xoá tạm (đã thay thế)
   const [hardRemovedIds, setHardRemovedIds] = useState<Set<string>>(new Set()); // xoá luôn
-  const [manualAddIds, setManualAddIds] = useState<Set<string>>(new Set()); // thêm thủ công
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addSearch, setAddSearch] = useState("");
 
@@ -143,58 +146,39 @@ export default function ReportsPage() {
   }, [allCash, targetPurpose, targetCustodian, targetYear]);
 
   // ===== LẬP KẾ HOẠCH HUY ĐỘNG =====
-  // Bước 1: Algorithm chạy ban đầu (KHÔNG phụ thuộc hardRemovedIds)
-  const rawPlan = useMemo(() => {
-    if (!planGenerated || !targetAmount) return null;
+  // Algorithm chỉ chạy 1 lần khi generatePlan → kết quả lưu vào planSelected state
+  const CUSTODIAN_KE_TOAN = "Kế toán đang giữ";
+
+  const runAlgorithm = useCallback(() => {
     const target = parseFloat(targetAmount.replace(/[^\d.]/g, "")) * 1_000_000;
-    if (!target || target <= 0) return null;
+    if (!target || target <= 0) return;
 
-    // Chỉ loại bỏ khoản bị xoá tạm (excludedIds) — hardRemoved sẽ xử lý ở bước 2
-    const avails = filteredPool.filter((d) => !excludedIds.has(d.id));
+    const avails = [...filteredPool];
 
-    // === Ưu tiên 1: Khoản khít đúng target ===
-    const exactUnused = avails.find((d) => d._avail === target && !d._isPartial);
-    const exactPartial = avails.find((d) => d._avail === target && d._isPartial);
-    const exactMatch = exactUnused || exactPartial;
-    if (exactMatch && manualAddIds.size === 0) {
-      return {
-        selected: [{ ...exactMatch, _take: exactMatch._avail, _source: "auto" as const }],
-        accumulated: exactMatch._avail,
-        target,
-        shortage: 0,
-        totalAvail: avails.reduce((s, d) => s + d._avail, 0),
-        strategy: "exact",
-        trimmed: 0,
-      };
+    // Ưu tiên 1: Khoản khít đúng target
+    const exactMatch = avails.find((d) => d._avail === target);
+    if (exactMatch) {
+      setPlanSelected([{ ...exactMatch, _take: exactMatch._avail, _source: "auto" }]);
+      setPlanTarget(target);
+      setPlanTotalAvail(avails.reduce((s, d) => s + d._avail, 0));
+      setPlanTrimmed(0);
+      return;
     }
 
-    // === Logic chính ===
-    const CUSTODIAN_KE_TOAN = "Kế toán đang giữ";
-
+    // Logic chính
     const partial = avails
-      .filter((d) => d._isPartial && !manualAddIds.has(d.id))
+      .filter((d) => d._isPartial)
       .sort((a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
-
     const unused = avails
-      .filter((d) => !d._isPartial && !manualAddIds.has(d.id))
+      .filter((d) => !d._isPartial)
       .sort((a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime());
 
     let accumulated = 0;
     const selected: any[] = [];
 
-    // Bước 0: Thêm khoản thủ công (manual adds) trước
-    for (const id of manualAddIds) {
-      const d = avails.find((x) => x.id === id);
-      if (d) {
-        accumulated += d._avail;
-        selected.push({ ...d, _take: d._avail, _source: "manual" });
-      }
-    }
-
     const pickFromList = (list: typeof avails) => {
       for (const d of list) {
         if (accumulated >= target) break;
-        if (manualAddIds.has(d.id)) continue;
         const need = target - accumulated;
         if (d._avail <= need || d.custodian === CUSTODIAN_KE_TOAN) {
           accumulated += d._avail;
@@ -203,28 +187,21 @@ export default function ReportsPage() {
       }
     };
 
-    if (priorityMode === "partial_first") {
-      pickFromList(partial);
-      pickFromList(unused);
-    } else if (priorityMode === "unused_first") {
-      pickFromList(unused);
-      pickFromList(partial);
-    } else {
-      // null = lẫn lộn, gộp chung sắp theo ngày nhận
+    if (priorityMode === "partial_first") { pickFromList(partial); pickFromList(unused); }
+    else if (priorityMode === "unused_first") { pickFromList(unused); pickFromList(partial); }
+    else {
       const mixed = [...partial, ...unused].sort(
         (a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime()
       );
       pickFromList(mixed);
     }
 
-    // === POST-SELECTION TRIMMING ===
+    // POST-SELECTION TRIMMING
     let trimmed = 0;
     if (accumulated > target) {
       const sortedByValue = selected
         .map((d, idx) => ({ ...d, _origIdx: idx }))
-        .filter((d) => d._source !== "manual")
         .sort((a, b) => a._take - b._take);
-
       const removeIndices = new Set<number>();
       for (const item of sortedByValue) {
         if (accumulated - item._take >= target) {
@@ -233,68 +210,77 @@ export default function ReportsPage() {
           trimmed++;
         }
       }
-
       if (removeIndices.size > 0) {
         const indicesToRemove = Array.from(removeIndices).sort((a, b) => b - a);
-        for (const idx of indicesToRemove) {
-          selected.splice(idx, 1);
-        }
+        for (const idx of indicesToRemove) selected.splice(idx, 1);
       }
     }
 
-    const totalAvail = filteredPool.reduce((s, d) => s + d._avail, 0);
+    setPlanSelected(selected);
+    setPlanTarget(target);
+    setPlanTotalAvail(filteredPool.reduce((s, d) => s + d._avail, 0));
+    setPlanTrimmed(trimmed);
+  }, [targetAmount, filteredPool, priorityMode]);
 
-    return { selected, accumulated, target, shortage: Math.max(0, target - accumulated), totalAvail, strategy: "sequential", trimmed };
-  }, [planGenerated, targetAmount, filteredPool, excludedIds, manualAddIds, priorityMode]);
-
-  // Bước 2: Filter "xoá luôn" ra khỏi kết quả — KHÔNG chạy lại algorithm, chỉ loại bỏ + tính lại tổng
+  // mobilizationPlan = computed from planSelected state (not useMemo on algorithm)
   const mobilizationPlan = useMemo(() => {
-    if (!rawPlan) return null;
-    if (hardRemovedIds.size === 0) return rawPlan;
-
-    const filtered = rawPlan.selected.filter((d: any) => !hardRemovedIds.has(d.id));
-    const accumulated = filtered.reduce((s: number, d: any) => s + d._take, 0);
+    if (!planGenerated || planSelected.length === 0) return planGenerated ? { selected: [], accumulated: 0, target: planTarget, shortage: planTarget, totalAvail: planTotalAvail, trimmed: planTrimmed } : null;
+    const accumulated = planSelected.reduce((s, d) => s + d._take, 0);
     return {
-      ...rawPlan,
-      selected: filtered,
+      selected: planSelected,
       accumulated,
-      shortage: Math.max(0, rawPlan.target - accumulated),
+      target: planTarget,
+      shortage: Math.max(0, planTarget - accumulated),
+      totalAvail: planTotalAvail,
+      trimmed: planTrimmed,
     };
-  }, [rawPlan, hardRemovedIds]);
+  }, [planGenerated, planSelected, planTarget, planTotalAvail, planTrimmed]);
 
-  // === Xoá tạm: gợi ý khoản thay thế ===
-  const [suggestion, setSuggestion] = useState<{ removedId: string; candidates: any[] } | null>(null);
-
+  // === Xoá tạm: tự động tìm 1 khoản thay thế tốt nhất, chèn vào đúng vị trí ===
   const handleSoftRemove = (donationId: string) => {
-    const removed = mobilizationPlan?.selected.find((d: any) => d.id === donationId);
-    if (!removed) return;
+    const removedIdx = planSelected.findIndex((d) => d.id === donationId);
+    if (removedIdx === -1) return;
+    const removed = planSelected[removedIdx];
 
-    setExcludedIds((prev) => new Set([...prev, donationId]));
-
-    // Tìm khoản thay thế từ pool (chưa được chọn, chưa bị loại)
-    const selectedIds = new Set(mobilizationPlan!.selected.map((d: any) => d.id));
+    // Tìm khoản thay thế từ pool (chưa có trong plan, chưa bị hardRemoved)
+    const selectedIds = new Set(planSelected.map((d) => d.id));
     const candidates = filteredPool
-      .filter((d) => !selectedIds.has(d.id) && !excludedIds.has(d.id) && !hardRemovedIds.has(d.id) && d.id !== donationId)
-      .sort((a, b) => Math.abs(a._avail - removed._take) - Math.abs(b._avail - removed._take))
-      .slice(0, 5);
+      .filter((d) => !selectedIds.has(d.id) && !hardRemovedIds.has(d.id) && d.id !== donationId)
+      .sort((a, b) => Math.abs(a._avail - removed._take) - Math.abs(b._avail - removed._take));
 
-    if (candidates.length > 0) {
-      setSuggestion({ removedId: donationId, candidates });
+    const replacement = candidates[0] || null;
+
+    setPlanSelected((prev) => {
+      const next = [...prev];
+      next.splice(removedIdx, 1); // xoá khoản cũ
+      if (replacement) {
+        // Kế toán giữ tiền → lấy full, còn lại lấy dang dở cũng được
+        const take = replacement._avail;
+        next.splice(removedIdx, 0, { ...replacement, _take: take, _source: "auto" as const });
+      }
+      return next;
+    });
+
+    setSoftRemovedIds((prev) => new Set([...prev, donationId]));
+    if (replacement) {
+      toast({ title: "Đã thay thế", description: `${removed.donor?.fullName || "?"} (${formatCurrency(removed._take.toString())}) → ${replacement.donor?.fullName || "?"} (${formatCurrency(replacement._avail.toString())})` });
+    } else {
+      toast({ variant: "destructive", title: "Không tìm được khoản thay thế", description: `Đã xoá khoản ${removed.donor?.fullName || "?"} (${formatCurrency(removed._take.toString())})` });
     }
   };
 
   const handleHardRemove = (donationId: string) => {
+    setPlanSelected((prev) => prev.filter((d) => d.id !== donationId));
     setHardRemovedIds((prev) => new Set([...prev, donationId]));
-    // Cũng xoá khỏi manual adds nếu có
-    setManualAddIds((prev) => {
-      const next = new Set(prev);
-      next.delete(donationId);
-      return next;
-    });
   };
 
-  const handleRestoreExcluded = (donationId: string) => {
-    setExcludedIds((prev) => {
+  const handleRestoreSoftRemoved = (donationId: string) => {
+    // Khôi phục khoản bị xoá tạm: thêm lại vào danh sách
+    const d = filteredPool.find((x) => x.id === donationId);
+    if (d) {
+      setPlanSelected((prev) => [...prev, { ...d, _take: d._avail, _source: "auto" as const }]);
+    }
+    setSoftRemovedIds((prev) => {
       const next = new Set(prev);
       next.delete(donationId);
       return next;
@@ -302,26 +288,30 @@ export default function ReportsPage() {
   };
 
   const handleAddManual = (donationId: string) => {
-    setManualAddIds((prev) => new Set([...prev, donationId]));
+    const d = filteredPool.find((x) => x.id === donationId);
+    if (d) {
+      setPlanSelected((prev) => [...prev, { ...d, _take: d._avail, _source: "manual" as const }]);
+    }
     setAddDialogOpen(false);
     setAddSearch("");
   };
 
-  const handleAcceptSuggestion = (donationId: string) => {
-    setManualAddIds((prev) => new Set([...prev, donationId]));
-    setSuggestion(null);
-  };
+  // Counter để trigger algorithm (mỗi lần generate tăng 1)
+  const [generateCounter, setGenerateCounter] = useState(0);
 
   // Reset tất cả khi tạo plan mới
   const handleGeneratePlan = () => {
-    setExcludedIds(new Set());
+    setSoftRemovedIds(new Set());
     setHardRemovedIds(new Set());
-    setManualAddIds(new Set());
-    setSuggestion(null);
     setSavedPlanId(null);
     setSavedPlanStatus(null);
     setPlanGenerated(true);
+    setGenerateCounter((c) => c + 1);
   };
+
+  // Chạy algorithm khi counter thay đổi
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useMemo(() => { if (generateCounter > 0) runAlgorithm(); }, [generateCounter]);
 
   // Query danh sách kế hoạch đã lưu
   const { data: savedPlans } = useQuery({
@@ -1075,7 +1065,7 @@ export default function ReportsPage() {
                   <Button variant="outline" size="sm" onClick={() => setAddDialogOpen(true)}>
                     <Plus className="h-4 w-4 mr-1" />Thêm khoản vào kế hoạch
                   </Button>
-                  {(excludedIds.size > 0 || hardRemovedIds.size > 0 || manualAddIds.size > 0) && (
+                  {(softRemovedIds.size > 0 || hardRemovedIds.size > 0) && (
                     <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={handleGeneratePlan}>
                       <RotateCcw className="h-3.5 w-3.5 mr-1" />Reset về ban đầu
                     </Button>
@@ -1118,47 +1108,23 @@ export default function ReportsPage() {
                   </div>
                 </div>
 
-                {/* Khoản đã xoá tạm (có thể khôi phục) */}
-                {excludedIds.size > 0 && (
+                {/* Khoản đã xoá tạm (đã được thay thế tự động, có thể khôi phục) */}
+                {softRemovedIds.size > 0 && (
                   <div className="border rounded-md p-3 bg-orange-50/50 dark:bg-orange-950/10">
-                    <p className="text-xs font-medium text-orange-700 mb-2">Khoản đã xoá tạm ({excludedIds.size}):</p>
+                    <p className="text-xs font-medium text-orange-700 mb-2">Khoản đã xoá tạm — đã thay thế tự động ({softRemovedIds.size}):</p>
                     <div className="flex flex-wrap gap-2">
-                      {Array.from(excludedIds).map((id) => {
+                      {Array.from(softRemovedIds).map((id) => {
                         const d = filteredPool.find((x) => x.id === id);
                         if (!d) return null;
                         return (
                           <Badge key={id} variant="outline" className="text-xs border-orange-300 gap-1">
                             {d.donor?.fullName || "?"} — {formatCurrency(d._avail.toString())}
-                            <button onClick={() => handleRestoreExcluded(id)} className="ml-1 hover:text-green-600" title="Khôi phục">
+                            <button onClick={() => handleRestoreSoftRemoved(id)} className="ml-1 hover:text-green-600" title="Khôi phục">
                               <RotateCcw className="h-3 w-3" />
                             </button>
                           </Badge>
                         );
                       })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Panel gợi ý thay thế */}
-                {suggestion && suggestion.candidates.length > 0 && (
-                  <div className="border rounded-md p-3 bg-blue-50/50 dark:bg-blue-950/10">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-medium text-blue-700">Gợi ý khoản thay thế (giá trị gần nhất):</p>
-                      <button onClick={() => setSuggestion(null)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
-                    </div>
-                    <div className="space-y-1">
-                      {suggestion.candidates.map((c) => (
-                        <div key={c.id} className="flex items-center justify-between text-sm bg-white dark:bg-muted/30 rounded px-3 py-1.5">
-                          <div>
-                            <span className="font-medium">{c.donor?.fullName || "?"}</span>
-                            <span className="text-muted-foreground ml-2">{formatCurrency(c._avail.toString())}</span>
-                            <span className="text-xs text-muted-foreground ml-2">{c.custodian || ""}</span>
-                          </div>
-                          <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => handleAcceptSuggestion(c.id)}>
-                            <Plus className="h-3 w-3 mr-1" />Thêm
-                          </Button>
-                        </div>
-                      ))}
                     </div>
                   </div>
                 )}
@@ -1171,7 +1137,7 @@ export default function ReportsPage() {
                     ? "(2) Khoản còn nguyên → (3) Khoản dang dở"
                     : "(2) Khoản dang dở → (3) Khoản còn nguyên"}
                   {" "}→ Tự động loại khoản nhỏ nếu vượt target.
-                  <br />* <RotateCcw className="h-3 w-3 inline" /> Xoá tạm: loại khoản + gợi ý thay thế. <Trash2 className="h-3 w-3 inline" /> Xoá luôn: loại hẳn. <Plus className="h-3 w-3 inline" /> Thêm tay: chọn từ pool.
+                  <br />* <RotateCcw className="h-3 w-3 inline" /> Xoá tạm: tự động thay bằng khoản gần nhất. <Trash2 className="h-3 w-3 inline" /> Xoá luôn: loại hẳn, không thay. <Plus className="h-3 w-3 inline" /> Thêm tay: chọn từ pool.
                 </p>
               </CardContent>
             </Card>
@@ -1310,7 +1276,7 @@ export default function ReportsPage() {
                   {(() => {
                     const selectedIds = new Set(mobilizationPlan?.selected.map((d: any) => d.id) || []);
                     const available = filteredPool
-                      .filter((d) => !selectedIds.has(d.id) && !hardRemovedIds.has(d.id) && !excludedIds.has(d.id))
+                      .filter((d) => !selectedIds.has(d.id) && !hardRemovedIds.has(d.id) && !softRemovedIds.has(d.id))
                       .filter((d) => !addSearch || (d.donor?.fullName || "").toLowerCase().includes(addSearch.toLowerCase()))
                       .sort((a, b) => b._avail - a._avail)
                       .slice(0, 20);
