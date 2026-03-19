@@ -265,6 +265,8 @@ model DonationInKind {
   imageUrls             String[]                    @default([])
   receivingLocation     String
   storageLocation       String
+  usedQuantity          Int                         @default(0)
+  usedPurpose           String?
   distributionStatus    DistributionStatus          @default(PENDING)
   notes                 String?
 

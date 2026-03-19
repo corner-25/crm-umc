@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, Check } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { inKindCategoryLabels, distributionStatusLabels } from "@/lib/validations/donation";
@@ -32,6 +33,9 @@ import {
 export default function InKindDonationsPage() {
   const [page, setPage] = useState(1);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [editingUsed, setEditingUsed] = useState<string | null>(null);
+  const [editUsedQty, setEditUsedQty] = useState("");
+  const [editUsedPurpose, setEditUsedPurpose] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -72,6 +76,29 @@ export default function InKindDonationsPage() {
     },
   });
 
+  const updateUsedMutation = useMutation({
+    mutationFn: async ({ id, usedQuantity, usedPurpose }: { id: string; usedQuantity: number; usedPurpose: string }) => {
+      const res = await fetch(`/api/donations/in-kind/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usedQuantity, usedPurpose }),
+      });
+      if (!res.ok) throw new Error("Failed");
+    },
+    onSuccess: () => {
+      toast({ title: "Đã cập nhật" });
+      queryClient.invalidateQueries({ queryKey: ["in-kind-donations"] });
+      setEditingUsed(null);
+    },
+    onError: () => toast({ variant: "destructive", title: "Lỗi", description: "Không thể cập nhật" }),
+  });
+
+  const startEditUsed = (d: any) => {
+    setEditingUsed(d.id);
+    setEditUsedQty((d.usedQuantity || 0).toString());
+    setEditUsedPurpose(d.usedPurpose || "");
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -109,15 +136,16 @@ export default function InKindDonationsPage() {
                       <TableHead>Vật phẩm</TableHead>
                       <TableHead>Danh mục</TableHead>
                       <TableHead>Số lượng</TableHead>
+                      <TableHead>Đã sử dụng</TableHead>
+                      <TableHead>Mục đích SD</TableHead>
                       <TableHead>Giá trị ước tính</TableHead>
-                      <TableHead>Trạng thái</TableHead>
                       <TableHead className="text-right">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data?.donations?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center">
+                        <TableCell colSpan={8} className="text-center">
                           Không có dữ liệu
                         </TableCell>
                       </TableRow>
@@ -143,13 +171,34 @@ export default function InKindDonationsPage() {
                           <TableCell>
                             {donation.quantity} {donation.unit}
                           </TableCell>
-                          <TableCell className="font-semibold">
-                            {formatCurrency(donation.estimatedValue.toString())}
-                          </TableCell>
                           <TableCell>
-                            <Badge variant="outline">
-                              {distributionStatusLabels[donation.distributionStatus as keyof typeof distributionStatusLabels]}
-                            </Badge>
+                            {editingUsed === donation.id ? (
+                              <div className="flex items-center gap-1">
+                                <Input type="number" min={0} max={donation.quantity} value={editUsedQty} onChange={(e) => setEditUsedQty(e.target.value)} className="h-7 w-20 text-xs" />
+                                <span className="text-xs text-muted-foreground">{donation.unit}</span>
+                              </div>
+                            ) : (
+                              <span className={`cursor-pointer hover:underline ${(donation.usedQuantity || 0) > 0 ? "font-medium" : "text-muted-foreground"}`} onClick={() => startEditUsed(donation)}>
+                                {donation.usedQuantity || 0} / {donation.quantity} {donation.unit}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="max-w-[200px]">
+                            {editingUsed === donation.id ? (
+                              <div className="flex items-center gap-1">
+                                <Input value={editUsedPurpose} onChange={(e) => setEditUsedPurpose(e.target.value)} placeholder="VD: Phát cho BN..." className="h-7 text-xs" />
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-green-600" onClick={() => updateUsedMutation.mutate({ id: donation.id, usedQuantity: parseInt(editUsedQty) || 0, usedPurpose: editUsedPurpose })}>
+                                  <Check className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <span className={`text-sm cursor-pointer hover:underline ${donation.usedPurpose ? "" : "text-muted-foreground italic"}`} onClick={() => startEditUsed(donation)}>
+                                {donation.usedPurpose || "Chưa ghi"}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            {donation.estimatedValue ? formatCurrency(donation.estimatedValue.toString()) : "—"}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">

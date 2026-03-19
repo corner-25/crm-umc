@@ -310,6 +310,40 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="usedQuantity"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Đã sử dụng</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      {...field}
+                      value={field.value ?? 0}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="usedPurpose"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Mục đích sử dụng</FormLabel>
+                  <FormControl>
+                    <Input placeholder="VD: Phát cho bệnh nhân, chuyến từ thiện..." {...field} value={field.value ?? ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
         </div>
 

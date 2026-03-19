@@ -81,6 +81,8 @@ export default function EditInKindDonationPage({ params }: { params: { id: strin
               imageUrls: donation.imageUrls || [],
               receivingLocation: donation.receivingLocation,
               storageLocation: donation.storageLocation,
+              usedQuantity: donation.usedQuantity || 0,
+              usedPurpose: donation.usedPurpose || "",
               distributionStatus: donation.distributionStatus,
             }}
             onSubmit={(values) => updateMutation.mutate(values)}

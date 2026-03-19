@@ -51,6 +51,8 @@ export const inKindDonationSchema = z.object({
   imageUrls: z.array(z.string()),
   receivingLocation: z.string().min(1, "Vui lòng nhập địa điểm nhận"),
   storageLocation: z.string().min(1, "Vui lòng nhập kho lưu trữ"),
+  usedQuantity: z.number().int().min(0).optional().default(0),
+  usedPurpose: z.string().optional().nullable(),
   distributionStatus: z.enum(["PENDING", "RECEIVED", "DISTRIBUTED"]),
   notes: z.string().optional().nullable(),
 });

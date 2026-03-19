@@ -49,15 +49,6 @@ const navigation = [
     ],
   },
   {
-    name: "Kho (Hầm B2)",
-    href: "/warehouse",
-    icon: Warehouse,
-    children: [
-      { name: "Tồn kho", href: "/warehouse" },
-      { name: "Lịch sử xuất nhập", href: "/warehouse?tab=history" },
-    ],
-  },
-  {
     name: "Tri ân",
     href: "/gratitude",
     icon: Heart,
@@ -65,6 +56,15 @@ const navigation = [
       { name: "In thư cảm ơn", href: "/gratitude/thank-you-letter" },
       { name: "Mẫu thư cảm ơn", href: "/gratitude/templates" },
       { name: "Nhắc nhở", href: "/gratitude/reminders" },
+    ],
+  },
+  {
+    name: "Quản lý kho",
+    href: "/warehouse",
+    icon: Warehouse,
+    children: [
+      { name: "Tồn kho", href: "/warehouse" },
+      { name: "Lịch sử xuất nhập", href: "/warehouse?tab=history" },
     ],
   },
   {
