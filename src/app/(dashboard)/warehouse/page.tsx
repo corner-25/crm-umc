@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Package, PackagePlus, PackageMinus, History, AlertTriangle, Clock, Plus, Search, Pencil, Trash2, ClipboardList, DollarSign } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 const CATEGORIES = [
   { value: "FOOD", label: "Thực phẩm" },
@@ -240,57 +240,53 @@ function ItemFormDialog({ open, onClose, editItem }: { open: boolean; onClose: (
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Chỉnh sửa mặt hàng" : "Thêm mặt hàng mới"}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Mã hàng *</Label>
-              <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="VD: QT-001" disabled={isEdit} />
-            </div>
-            <div>
-              <Label>Đơn vị nhận *</Label>
-              <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="thùng, hộp, kg, túi..." />
-            </div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <div>
+            <Label>Mã hàng {isEdit ? "" : "(tự sinh nếu để trống)"}</Label>
+            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder={isEdit ? "" : "Tự sinh nếu để trống"} disabled={isEdit} />
           </div>
           <div>
             <Label>Tên mặt hàng *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên đầy đủ của mặt hàng" />
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label>Đơn vị lẻ</Label>
-              <Input value={subUnit} onChange={(e) => setSubUnit(e.target.value)} placeholder="ly, viên, gói..." />
-            </div>
-            <div>
-              <Label>Quy đổi (1 {unit || "đơn vị"} = ? lẻ)</Label>
-              <Input type="number" min={1} value={subUnitRatio} onChange={(e) => setSubUnitRatio(e.target.value)} placeholder="VD: 4" />
-            </div>
-            <div>
-              <Label>Đơn giá</Label>
-              <Input type="number" min={0} value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} placeholder="VNĐ" />
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label>Danh mục</Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Tồn kho hiện tại</Label>
-              <Input type="number" min={0} value={currentQuantity} onChange={(e) => setCurrentQuantity(e.target.value)} placeholder="0" />
-            </div>
-            <div>
-              <Label>Ngưỡng cảnh báo tồn thấp</Label>
-              <Input type="number" min={0} value={minQuantity} onChange={(e) => setMinQuantity(e.target.value)} placeholder="0 = tắt" />
-            </div>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên đầy đủ" />
           </div>
           <div>
+            <Label>Đơn vị nhận *</Label>
+            <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="thùng, hộp, kg..." />
+          </div>
+          <div>
+            <Label>Danh mục</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Đơn vị lẻ</Label>
+            <Input value={subUnit} onChange={(e) => setSubUnit(e.target.value)} placeholder="ly, viên, gói..." />
+          </div>
+          <div>
+            <Label>Quy đổi (1 {unit || "đơn vị"} = ? {subUnit || "lẻ"})</Label>
+            <Input type="number" min={1} value={subUnitRatio} onChange={(e) => setSubUnitRatio(e.target.value)} placeholder="VD: 4" />
+          </div>
+          <div>
+            <Label>Đơn giá ({subUnit || unit || "đơn vị"})</Label>
+            <Input type="number" min={0} value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} placeholder="VNĐ" />
+          </div>
+          <div>
+            <Label>Ngưỡng cảnh báo tồn thấp</Label>
+            <Input type="number" min={0} value={minQuantity} onChange={(e) => setMinQuantity(e.target.value)} placeholder="0 = tắt" />
+          </div>
+          {!isEdit && (
+            <div>
+              <Label>Tồn kho ban đầu</Label>
+              <Input type="number" min={0} value={currentQuantity} onChange={(e) => setCurrentQuantity(e.target.value)} placeholder="0" />
+            </div>
+          )}
+          <div className={isEdit ? "col-span-2" : ""}>
             <Label>Ghi chú</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Tình trạng, điều kiện bảo quản..." />
           </div>
@@ -298,8 +294,8 @@ function ItemFormDialog({ open, onClose, editItem }: { open: boolean; onClose: (
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Huỷ</Button>
           <Button
-            onClick={() => mutation.mutate({ code, name, unit, subUnit: subUnit || null, subUnitRatio: subUnitRatio ? parseInt(subUnitRatio) : null, unitPrice: unitPrice ? parseFloat(unitPrice) : null, category, currentQuantity: parseInt(currentQuantity) || 0, minQuantity: parseInt(minQuantity) || 0, notes })}
-            disabled={mutation.isPending || !code || !name || !unit}
+            onClick={() => mutation.mutate({ code: code || undefined, name, unit, subUnit: subUnit || null, subUnitRatio: subUnitRatio ? parseInt(subUnitRatio) : null, unitPrice: unitPrice ? parseFloat(unitPrice) : null, category, currentQuantity: parseInt(currentQuantity) || 0, minQuantity: parseInt(minQuantity) || 0, notes })}
+            disabled={mutation.isPending || !name || !unit}
           >
             {mutation.isPending ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Thêm mặt hàng"}
           </Button>
@@ -309,127 +305,257 @@ function ItemFormDialog({ open, onClose, editItem }: { open: boolean; onClose: (
   );
 }
 
-// ─── Nhập nhanh tồn kho ─────────────────────────────────────────────────────
-function QuickStockDialog({ open, onClose, items }: { open: boolean; onClose: () => void; items: any[] }) {
+// ─── Nhập kho nhanh ─────────────────────────────────────────────────────────
+// Chọn mặt hàng có sẵn HOẶC tạo mới → nhập số lượng + lô + HSD → tự tạo transaction IMPORT + cập nhật/tạo mặt hàng
+function QuickImportDialog({ open, onClose, items }: { open: boolean; onClose: () => void; items: any[] }) {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [rows, setRows] = useState<Array<{ id: string; code: string; name: string; unit: string; subUnit: string; subUnitRatio: string; unitPrice: string; category: string; currentQuantity: string; minQuantity: string }>>([]);
   const [saving, setSaving] = useState(false);
 
-  // Khởi tạo rows từ items hoặc thêm hàng trống
-  const initRows = () => {
-    if (items.length > 0) {
-      setRows(items.map((i) => ({
-        id: i.id,
-        code: i.code,
-        name: i.name,
-        unit: i.unit,
-        subUnit: i.subUnit || "",
-        subUnitRatio: i.subUnitRatio?.toString() || "",
-        unitPrice: i.unitPrice?.toString() || "",
-        category: i.category,
-        currentQuantity: i.currentQuantity.toString(),
-        minQuantity: (i.minQuantity || 0).toString(),
-      })));
-    } else {
-      addEmptyRow();
+  type QuickRow = {
+    mode: "existing" | "new";
+    itemId: string;       // nếu chọn hàng có sẵn
+    name: string;
+    unit: string;
+    category: string;
+    subUnit: string;
+    subUnitRatio: string;
+    unitPrice: string;
+    quantity: string;      // số lượng nhập
+    batchCode: string;
+    expiryDate: string;
+    expiryAlertMonths: string;
+    donorUnit: string;     // đơn vị tài trợ
+  };
+
+  const emptyRow = (): QuickRow => ({
+    mode: "existing", itemId: "", name: "", unit: "", category: "OTHER", subUnit: "", subUnitRatio: "", unitPrice: "",
+    quantity: "", batchCode: "", expiryDate: "", expiryAlertMonths: "1", donorUnit: "",
+  });
+
+  const [rows, setRows] = useState<QuickRow[]>([emptyRow()]);
+
+  const updateRow = (idx: number, updates: Partial<QuickRow>) => {
+    setRows((prev) => prev.map((r, i) => i === idx ? { ...r, ...updates } : r));
+  };
+
+  const selectExistingItem = (idx: number, itemId: string) => {
+    const item = items.find((i) => i.id === itemId);
+    if (item) {
+      updateRow(idx, {
+        mode: "existing", itemId, name: item.name, unit: item.unit,
+        subUnit: item.subUnit || "", subUnitRatio: item.subUnitRatio?.toString() || "",
+        unitPrice: item.unitPrice?.toString() || "",
+      });
     }
-  };
-
-  const addEmptyRow = () => {
-    setRows((prev) => [...prev, { id: "", code: "", name: "", unit: "", subUnit: "", subUnitRatio: "", unitPrice: "", category: "OTHER", currentQuantity: "0", minQuantity: "0" }]);
-  };
-
-  const updateRow = (index: number, field: string, value: string) => {
-    setRows((prev) => prev.map((r, i) => i === index ? { ...r, [field]: value } : r));
-  };
-
-  const removeRow = (index: number) => {
-    setRows((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSave = async () => {
     setSaving(true);
+    let successCount = 0;
     try {
       for (const row of rows) {
-        if (!row.code || !row.name || !row.unit) continue;
-        const data: any = {
-          code: row.code,
-          name: row.name,
-          unit: row.unit,
-          subUnit: row.subUnit || null,
-          subUnitRatio: row.subUnitRatio ? parseInt(row.subUnitRatio) : null,
-          unitPrice: row.unitPrice ? parseFloat(row.unitPrice) : null,
-          category: row.category,
-          currentQuantity: parseInt(row.currentQuantity) || 0,
-          minQuantity: parseInt(row.minQuantity) || 0,
-        };
-        if (row.id) {
-          await fetch(`/api/warehouse/items/${row.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+        const qty = parseInt(row.quantity);
+        if (!qty || qty <= 0) continue;
+
+        let itemId = row.itemId;
+
+        // Nếu tạo mới → POST item trước (code tự sinh)
+        if (row.mode === "new") {
+          if (!row.name || !row.unit) continue;
+          const createRes = await fetch("/api/warehouse/items", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: row.name, unit: row.unit,
+              subUnit: row.subUnit || null,
+              subUnitRatio: row.subUnitRatio ? parseInt(row.subUnitRatio) : null,
+              unitPrice: row.unitPrice ? parseFloat(row.unitPrice) : null,
+              category: row.category || "OTHER", currentQuantity: 0, minQuantity: 0,
+            }),
+          });
+          if (!createRes.ok) { const e = await createRes.json(); throw new Error(e.error || "Lỗi tạo mặt hàng"); }
+          const created = await createRes.json();
+          itemId = created.item.id;
         } else {
-          await fetch("/api/warehouse/items", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+          if (!itemId) continue;
+          // Cập nhật subUnit/subUnitRatio/unitPrice nếu user sửa
+          await fetch(`/api/warehouse/items/${itemId}`, {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              subUnit: row.subUnit || null,
+              subUnitRatio: row.subUnitRatio ? parseInt(row.subUnitRatio) : null,
+              unitPrice: row.unitPrice ? parseFloat(row.unitPrice) : null,
+            }),
+          });
         }
+
+        // Tạo transaction IMPORT
+        await fetch("/api/warehouse/transactions", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            itemId, type: "IMPORT", quantity: qty,
+            batchCode: row.batchCode || null,
+            expiryDate: row.expiryDate || null,
+            expiryAlertMonths: parseInt(row.expiryAlertMonths) || 1,
+            donorUnit: row.donorUnit || null,
+            transactionDate: format(new Date(), "yyyy-MM-dd"),
+          }),
+        });
+        successCount++;
       }
-      toast({ title: "Thành công", description: "Đã cập nhật tồn kho" });
-      qc.invalidateQueries({ queryKey: ["warehouse-items"] });
-      onClose();
-    } catch {
-      toast({ variant: "destructive", title: "Lỗi", description: "Không thể lưu" });
+      if (successCount > 0) {
+        toast({ title: "Thành công", description: `Đã nhập ${successCount} mặt hàng vào kho` });
+        qc.invalidateQueries({ queryKey: ["warehouse-items"] });
+        qc.invalidateQueries({ queryKey: ["warehouse-transactions"] });
+        setRows([emptyRow()]);
+        onClose();
+      } else {
+        toast({ variant: "destructive", title: "Chưa có gì để nhập", description: "Hãy điền số lượng > 0" });
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Lỗi", description: e.message });
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); else initRows(); }}>
-      <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); else setRows([emptyRow()]); }}>
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ClipboardList className="h-5 w-5 text-blue-600" />
-            Nhập nhanh tồn kho
+            <PackagePlus className="h-5 w-5 text-green-600" />
+            Nhập kho nhanh
           </DialogTitle>
+          <p className="text-sm text-muted-foreground">Chọn mặt hàng có sẵn hoặc tạo mới → hệ thống tự tạo phiếu nhập kho.</p>
         </DialogHeader>
-        <div className="space-y-2">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-24">Mã hàng</TableHead>
-                <TableHead>Tên</TableHead>
-                <TableHead className="w-16">ĐV nhận</TableHead>
-                <TableHead className="w-16">ĐV lẻ</TableHead>
-                <TableHead className="w-16">Quy đổi</TableHead>
-                <TableHead className="w-24">Đơn giá</TableHead>
-                <TableHead className="w-20">Tồn kho</TableHead>
-                <TableHead className="w-20">Ngưỡng CB</TableHead>
-                <TableHead className="w-8"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row, idx) => (
-                <TableRow key={idx}>
-                  <TableCell><Input value={row.code} onChange={(e) => updateRow(idx, "code", e.target.value)} placeholder="MH-001" disabled={!!row.id} className="h-8 text-xs" /></TableCell>
-                  <TableCell><Input value={row.name} onChange={(e) => updateRow(idx, "name", e.target.value)} placeholder="Tên mặt hàng" className="h-8 text-xs" /></TableCell>
-                  <TableCell><Input value={row.unit} onChange={(e) => updateRow(idx, "unit", e.target.value)} placeholder="thùng" className="h-8 text-xs" /></TableCell>
-                  <TableCell><Input value={row.subUnit} onChange={(e) => updateRow(idx, "subUnit", e.target.value)} placeholder="ly" className="h-8 text-xs" /></TableCell>
-                  <TableCell><Input type="number" min={1} value={row.subUnitRatio} onChange={(e) => updateRow(idx, "subUnitRatio", e.target.value)} placeholder="4" className="h-8 text-xs" /></TableCell>
-                  <TableCell><Input type="number" min={0} value={row.unitPrice} onChange={(e) => updateRow(idx, "unitPrice", e.target.value)} placeholder="0" className="h-8 text-xs" /></TableCell>
-                  <TableCell><Input type="number" min={0} value={row.currentQuantity} onChange={(e) => updateRow(idx, "currentQuantity", e.target.value)} className="h-8 text-xs" /></TableCell>
-                  <TableCell><Input type="number" min={0} value={row.minQuantity} onChange={(e) => updateRow(idx, "minQuantity", e.target.value)} className="h-8 text-xs" placeholder="0" /></TableCell>
-                  <TableCell>
-                    {!row.id && <Button size="sm" variant="ghost" className="h-7 px-1 text-destructive" onClick={() => removeRow(idx)}><Trash2 className="h-3 w-3" /></Button>}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <Button variant="outline" size="sm" onClick={addEmptyRow}>
-            <Plus className="h-3 w-3 mr-1" />Thêm hàng mới
+
+        <div className="space-y-4">
+          {rows.map((row, idx) => (
+            <Card key={idx} className="relative">
+              <CardContent className="p-4 space-y-4">
+                {/* Header: mode toggle + delete */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-primary">#{idx + 1}</span>
+                    <div className="flex gap-1 bg-muted rounded-md p-0.5">
+                      <button className={cn("px-3 py-1 text-xs font-medium rounded transition-colors", row.mode === "existing" ? "bg-white shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")}
+                        onClick={() => updateRow(idx, { mode: "existing", itemId: "" })}>Chọn có sẵn</button>
+                      <button className={cn("px-3 py-1 text-xs font-medium rounded transition-colors", row.mode === "new" ? "bg-white shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")}
+                        onClick={() => updateRow(idx, { mode: "new", itemId: "" })}>Tạo mới</button>
+                    </div>
+                  </div>
+                  {rows.length > 1 && (
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => setRows((p) => p.filter((_, i) => i !== idx))}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  )}
+                </div>
+
+                {/* Phần 1: Chọn hoặc tạo mặt hàng */}
+                {row.mode === "existing" ? (
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1">Mặt hàng</Label>
+                    <Select value={row.itemId} onValueChange={(v) => selectExistingItem(idx, v)}>
+                      <SelectTrigger><SelectValue placeholder="-- Chọn mặt hàng có sẵn --" /></SelectTrigger>
+                      <SelectContent>
+                        {items.map((i) => (
+                          <SelectItem key={i.id} value={i.id}>
+                            <span className="font-mono text-xs text-muted-foreground mr-2">[{i.code}]</span>
+                            {i.name}
+                            <span className="text-xs text-muted-foreground ml-2">— tồn: {i.currentQuantity} {i.unit}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1">Tên mặt hàng *</Label>
+                      <Input value={row.name} onChange={(e) => updateRow(idx, { name: e.target.value })} placeholder="VD: Mì gói Hảo Hảo" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1">Đơn vị nhận *</Label>
+                      <Input value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })} placeholder="thùng, hộp, kg..." />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1">Danh mục</Label>
+                      <Select value={row.category} onValueChange={(v) => updateRow(idx, { category: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Phần 2: Số lượng + Quy đổi */}
+                <div className="grid grid-cols-4 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1">Số lượng nhập *</Label>
+                    <Input type="number" min={1} value={row.quantity} onChange={(e) => updateRow(idx, { quantity: e.target.value })} placeholder="500" className="font-semibold" />
+                    {row.mode === "existing" && row.unit && <p className="text-[10px] text-muted-foreground mt-0.5">{row.unit}</p>}
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1">Đơn vị lẻ</Label>
+                    <Input value={row.subUnit} onChange={(e) => updateRow(idx, { subUnit: e.target.value })} placeholder="gói, viên..." />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1">1 {row.unit || "đơn vị"} = ? {row.subUnit || "lẻ"}</Label>
+                    <Input type="number" min={1} value={row.subUnitRatio} onChange={(e) => updateRow(idx, { subUnitRatio: e.target.value })} placeholder="30" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1">Đơn giá/{row.subUnit || row.unit || "đv"}</Label>
+                    <Input type="number" min={0} value={row.unitPrice} onChange={(e) => updateRow(idx, { unitPrice: e.target.value })} placeholder="VNĐ" />
+                  </div>
+                </div>
+
+                {/* Tính nhanh */}
+                {row.quantity && row.subUnitRatio && (
+                  <div className="bg-green-50 border border-green-200 rounded-md px-3 py-1.5 text-sm text-green-700">
+                    = <strong>{(parseInt(row.quantity) * parseInt(row.subUnitRatio)).toLocaleString("vi-VN")}</strong> {row.subUnit || "lẻ"}
+                    {row.unitPrice ? <> — Thành tiền: <strong>{(parseInt(row.quantity) * parseInt(row.subUnitRatio) * parseFloat(row.unitPrice)).toLocaleString("vi-VN")}đ</strong></> : ""}
+                  </div>
+                )}
+
+                {/* Phần 3: Lô + HSD + NTT */}
+                <div className="grid grid-cols-4 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1">Số lô</Label>
+                    <Input value={row.batchCode} onChange={(e) => updateRow(idx, { batchCode: e.target.value })} placeholder="LOT-2026-03" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1">Hạn sử dụng</Label>
+                    <Input type="date" value={row.expiryDate} onChange={(e) => updateRow(idx, { expiryDate: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1">Cảnh báo HSD trước</Label>
+                    <Select value={row.expiryAlertMonths} onValueChange={(v) => updateRow(idx, { expiryAlertMonths: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[1, 2, 3, 4, 5, 6].map((m) => <SelectItem key={m} value={m.toString()}>{m} tháng</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1">Đơn vị tài trợ</Label>
+                    <Input value={row.donorUnit} onChange={(e) => updateRow(idx, { donorUnit: e.target.value })} placeholder="Tên NTT" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          <Button variant="outline" size="sm" className="w-full border-dashed" onClick={() => setRows((p) => [...p, emptyRow()])}>
+            <Plus className="h-4 w-4 mr-2" />Thêm mặt hàng
           </Button>
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Huỷ</Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Đang lưu..." : "Lưu tất cả"}
+          <Button onClick={handleSave} disabled={saving} className="bg-green-600 hover:bg-green-700">
+            {saving ? "Đang nhập..." : `Nhập kho (${rows.filter(r => parseInt(r.quantity) > 0).length} mặt hàng)`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -527,7 +653,7 @@ export default function WarehousePage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="text-blue-700 border-blue-300 hover:bg-blue-50" onClick={() => setShowQuickStock(true)}>
-            <ClipboardList className="h-4 w-4 mr-2" />Nhập nhanh tồn kho
+            <ClipboardList className="h-4 w-4 mr-2" />Nhập kho nhanh
           </Button>
           <Button variant="outline" className="text-green-700 border-green-300 hover:bg-green-50" onClick={() => { setQuickItem(null); setShowImport(true); }}>
             <PackagePlus className="h-4 w-4 mr-2" />Nhập kho
@@ -551,7 +677,7 @@ export default function WarehousePage() {
           )}
           {expiringCount > 0 && (
             <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg px-4 py-2 text-sm text-orange-700 cursor-pointer" onClick={() => setFilterAlert("expiring")}>
-              <Clock className="h-4 w-4" />{expiringCount} mặt hàng sắp hết hạn (≤30 ngày)
+              <Clock className="h-4 w-4" />{expiringCount} mặt hàng sắp hết hạn
             </div>
           )}
           {lowStockCount > 0 && (
@@ -761,7 +887,7 @@ export default function WarehousePage() {
       <TransactionDialog open={showImport} onClose={() => { setShowImport(false); setQuickItem(null); }} type="IMPORT" preselectedItem={quickItem} items={allItems} />
       <TransactionDialog open={showExport} onClose={() => { setShowExport(false); setQuickItem(null); }} type="EXPORT" preselectedItem={quickItem} items={allItems} />
       <ItemFormDialog open={showItemForm} onClose={() => { setShowItemForm(false); setEditItem(null); }} editItem={editItem} />
-      <QuickStockDialog open={showQuickStock} onClose={() => setShowQuickStock(false)} items={allItems} />
+      <QuickImportDialog open={showQuickStock} onClose={() => setShowQuickStock(false)} items={allItems} />
     </div>
   );
 }
