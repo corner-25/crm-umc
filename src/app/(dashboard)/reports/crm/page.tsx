@@ -176,27 +176,63 @@ export default function ReportsPage() {
     let accumulated = 0;
     const selected: any[] = [];
 
-    const pickFromList = (list: typeof avails) => {
+    // === PHASE 1: Lấy tất cả khoản nhỏ hơn hoặc bằng số tiền còn thiếu (ưu tiên cũ trước) ===
+    const pickSmaller = (list: typeof avails) => {
       for (const d of list) {
         if (accumulated >= target) break;
         const need = target - accumulated;
-        if (d._avail <= need || d.custodian === CUSTODIAN_KE_TOAN) {
+        if (d._avail <= need) {
+          // Khoản nhỏ hơn/bằng số thiếu → lấy full
           accumulated += d._avail;
           selected.push({ ...d, _take: d._avail, _source: "auto" });
         }
+        // Khoản lớn hơn need → skip ở phase 1, xử lý ở phase 2
       }
     };
 
-    if (priorityMode === "partial_first") { pickFromList(partial); pickFromList(unused); }
-    else if (priorityMode === "unused_first") { pickFromList(unused); pickFromList(partial); }
-    else {
-      const mixed = [...partial, ...unused].sort(
+    let sortedList: typeof avails;
+    if (priorityMode === "partial_first") {
+      sortedList = [...partial, ...unused];
+    } else if (priorityMode === "unused_first") {
+      sortedList = [...unused, ...partial];
+    } else {
+      sortedList = [...partial, ...unused].sort(
         (a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime()
       );
-      pickFromList(mixed);
     }
 
-    // POST-SELECTION TRIMMING
+    pickSmaller(sortedList);
+
+    // === PHASE 2: Nếu vẫn chưa đủ → cần 1 khoản cuối cùng để chốt ===
+    if (accumulated < target) {
+      const need = target - accumulated;
+      const selectedIds = new Set(selected.map((d) => d.id));
+      const remaining = sortedList.filter((d) => !selectedIds.has(d.id));
+
+      // Tìm khoản gần nhất với need (ưu tiên khoản vừa đủ hoặc nhỏ nhất > need)
+      const closestMatch = remaining
+        .filter((d) => d._avail >= need)
+        .sort((a, b) => a._avail - b._avail)[0];
+
+      if (closestMatch) {
+        if (closestMatch.custodian === CUSTODIAN_KE_TOAN) {
+          // Kế toán đang giữ → lấy FULL (không cắt dang dở)
+          accumulated += closestMatch._avail;
+          selected.push({ ...closestMatch, _take: closestMatch._avail, _source: "auto" });
+        } else {
+          // Không phải kế toán → lấy ĐÚNG số thiếu (dang dở)
+          accumulated += need;
+          selected.push({ ...closestMatch, _take: need, _source: "auto" });
+        }
+      } else if (remaining.length > 0) {
+        // Không có khoản nào >= need → lấy khoản lớn nhất còn lại
+        const largest = remaining.sort((a, b) => b._avail - a._avail)[0];
+        accumulated += largest._avail;
+        selected.push({ ...largest, _take: largest._avail, _source: "auto" });
+      }
+    }
+
+    // === PHASE 3: Trimming — nếu vượt target, loại bỏ khoản nhỏ không cần thiết ===
     let trimmed = 0;
     if (accumulated > target) {
       const sortedByValue = selected
