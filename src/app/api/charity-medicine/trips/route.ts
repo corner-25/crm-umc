@@ -9,11 +9,9 @@ export async function GET(request: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status") || "";
     const locationId = searchParams.get("locationId") || "";
 
     const where: any = { deletedAt: null };
-    if (status) where.status = status;
     if (locationId) where.locationId = locationId;
 
     const trips = await prisma.charityTrip.findMany({

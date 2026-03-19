@@ -14,7 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Package, PackagePlus, PackageMinus, History, AlertTriangle, Clock, Plus, Search, Pencil, Trash2, ClipboardList } from "lucide-react";
+import { Package, PackagePlus, PackageMinus, History, AlertTriangle, Clock, Plus, Search, Pencil, Trash2, ClipboardList, DollarSign } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 const CATEGORIES = [
   { value: "FOOD", label: "Thực phẩm" },
@@ -210,6 +211,9 @@ function ItemFormDialog({ open, onClose, editItem }: { open: boolean; onClose: (
   const [code, setCode] = useState(editItem?.code || "");
   const [name, setName] = useState(editItem?.name || "");
   const [unit, setUnit] = useState(editItem?.unit || "");
+  const [subUnit, setSubUnit] = useState(editItem?.subUnit || "");
+  const [subUnitRatio, setSubUnitRatio] = useState(editItem?.subUnitRatio?.toString() || "");
+  const [unitPrice, setUnitPrice] = useState(editItem?.unitPrice?.toString() || "");
   const [category, setCategory] = useState(editItem?.category || "OTHER");
   const [currentQuantity, setCurrentQuantity] = useState(editItem?.currentQuantity?.toString() || "0");
   const [minQuantity, setMinQuantity] = useState(editItem?.minQuantity?.toString() || "0");
@@ -247,13 +251,27 @@ function ItemFormDialog({ open, onClose, editItem }: { open: boolean; onClose: (
               <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="VD: QT-001" disabled={isEdit} />
             </div>
             <div>
-              <Label>Đơn vị *</Label>
-              <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="cái, hộp, kg, túi..." />
+              <Label>Đơn vị nhận *</Label>
+              <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="thùng, hộp, kg, túi..." />
             </div>
           </div>
           <div>
             <Label>Tên mặt hàng *</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên đầy đủ của mặt hàng" />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label>Đơn vị lẻ</Label>
+              <Input value={subUnit} onChange={(e) => setSubUnit(e.target.value)} placeholder="ly, viên, gói..." />
+            </div>
+            <div>
+              <Label>Quy đổi (1 {unit || "đơn vị"} = ? lẻ)</Label>
+              <Input type="number" min={1} value={subUnitRatio} onChange={(e) => setSubUnitRatio(e.target.value)} placeholder="VD: 4" />
+            </div>
+            <div>
+              <Label>Đơn giá</Label>
+              <Input type="number" min={0} value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} placeholder="VNĐ" />
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -280,7 +298,7 @@ function ItemFormDialog({ open, onClose, editItem }: { open: boolean; onClose: (
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Huỷ</Button>
           <Button
-            onClick={() => mutation.mutate({ code, name, unit, category, currentQuantity: parseInt(currentQuantity) || 0, minQuantity: parseInt(minQuantity) || 0, notes })}
+            onClick={() => mutation.mutate({ code, name, unit, subUnit: subUnit || null, subUnitRatio: subUnitRatio ? parseInt(subUnitRatio) : null, unitPrice: unitPrice ? parseFloat(unitPrice) : null, category, currentQuantity: parseInt(currentQuantity) || 0, minQuantity: parseInt(minQuantity) || 0, notes })}
             disabled={mutation.isPending || !code || !name || !unit}
           >
             {mutation.isPending ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Thêm mặt hàng"}
@@ -295,7 +313,7 @@ function ItemFormDialog({ open, onClose, editItem }: { open: boolean; onClose: (
 function QuickStockDialog({ open, onClose, items }: { open: boolean; onClose: () => void; items: any[] }) {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [rows, setRows] = useState<Array<{ id: string; code: string; name: string; unit: string; category: string; currentQuantity: string; minQuantity: string }>>([]);
+  const [rows, setRows] = useState<Array<{ id: string; code: string; name: string; unit: string; subUnit: string; subUnitRatio: string; unitPrice: string; category: string; currentQuantity: string; minQuantity: string }>>([]);
   const [saving, setSaving] = useState(false);
 
   // Khởi tạo rows từ items hoặc thêm hàng trống
@@ -306,6 +324,9 @@ function QuickStockDialog({ open, onClose, items }: { open: boolean; onClose: ()
         code: i.code,
         name: i.name,
         unit: i.unit,
+        subUnit: i.subUnit || "",
+        subUnitRatio: i.subUnitRatio?.toString() || "",
+        unitPrice: i.unitPrice?.toString() || "",
         category: i.category,
         currentQuantity: i.currentQuantity.toString(),
         minQuantity: (i.minQuantity || 0).toString(),
@@ -316,7 +337,7 @@ function QuickStockDialog({ open, onClose, items }: { open: boolean; onClose: ()
   };
 
   const addEmptyRow = () => {
-    setRows((prev) => [...prev, { id: "", code: "", name: "", unit: "", category: "OTHER", currentQuantity: "0", minQuantity: "0" }]);
+    setRows((prev) => [...prev, { id: "", code: "", name: "", unit: "", subUnit: "", subUnitRatio: "", unitPrice: "", category: "OTHER", currentQuantity: "0", minQuantity: "0" }]);
   };
 
   const updateRow = (index: number, field: string, value: string) => {
@@ -332,10 +353,13 @@ function QuickStockDialog({ open, onClose, items }: { open: boolean; onClose: ()
     try {
       for (const row of rows) {
         if (!row.code || !row.name || !row.unit) continue;
-        const data = {
+        const data: any = {
           code: row.code,
           name: row.name,
           unit: row.unit,
+          subUnit: row.subUnit || null,
+          subUnitRatio: row.subUnitRatio ? parseInt(row.subUnitRatio) : null,
+          unitPrice: row.unitPrice ? parseFloat(row.unitPrice) : null,
           category: row.category,
           currentQuantity: parseInt(row.currentQuantity) || 0,
           minQuantity: parseInt(row.minQuantity) || 0,
@@ -358,7 +382,7 @@ function QuickStockDialog({ open, onClose, items }: { open: boolean; onClose: ()
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); else initRows(); }}>
-      <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ClipboardList className="h-5 w-5 text-blue-600" />
@@ -371,9 +395,12 @@ function QuickStockDialog({ open, onClose, items }: { open: boolean; onClose: ()
               <TableRow>
                 <TableHead className="w-24">Mã hàng</TableHead>
                 <TableHead>Tên</TableHead>
-                <TableHead className="w-16">ĐVT</TableHead>
-                <TableHead className="w-24">Tồn kho</TableHead>
-                <TableHead className="w-24">Ngưỡng CB</TableHead>
+                <TableHead className="w-16">ĐV nhận</TableHead>
+                <TableHead className="w-16">ĐV lẻ</TableHead>
+                <TableHead className="w-16">Quy đổi</TableHead>
+                <TableHead className="w-24">Đơn giá</TableHead>
+                <TableHead className="w-20">Tồn kho</TableHead>
+                <TableHead className="w-20">Ngưỡng CB</TableHead>
                 <TableHead className="w-8"></TableHead>
               </TableRow>
             </TableHeader>
@@ -382,7 +409,10 @@ function QuickStockDialog({ open, onClose, items }: { open: boolean; onClose: ()
                 <TableRow key={idx}>
                   <TableCell><Input value={row.code} onChange={(e) => updateRow(idx, "code", e.target.value)} placeholder="MH-001" disabled={!!row.id} className="h-8 text-xs" /></TableCell>
                   <TableCell><Input value={row.name} onChange={(e) => updateRow(idx, "name", e.target.value)} placeholder="Tên mặt hàng" className="h-8 text-xs" /></TableCell>
-                  <TableCell><Input value={row.unit} onChange={(e) => updateRow(idx, "unit", e.target.value)} placeholder="cái" className="h-8 text-xs" /></TableCell>
+                  <TableCell><Input value={row.unit} onChange={(e) => updateRow(idx, "unit", e.target.value)} placeholder="thùng" className="h-8 text-xs" /></TableCell>
+                  <TableCell><Input value={row.subUnit} onChange={(e) => updateRow(idx, "subUnit", e.target.value)} placeholder="ly" className="h-8 text-xs" /></TableCell>
+                  <TableCell><Input type="number" min={1} value={row.subUnitRatio} onChange={(e) => updateRow(idx, "subUnitRatio", e.target.value)} placeholder="4" className="h-8 text-xs" /></TableCell>
+                  <TableCell><Input type="number" min={0} value={row.unitPrice} onChange={(e) => updateRow(idx, "unitPrice", e.target.value)} placeholder="0" className="h-8 text-xs" /></TableCell>
                   <TableCell><Input type="number" min={0} value={row.currentQuantity} onChange={(e) => updateRow(idx, "currentQuantity", e.target.value)} className="h-8 text-xs" /></TableCell>
                   <TableCell><Input type="number" min={0} value={row.minQuantity} onChange={(e) => updateRow(idx, "minQuantity", e.target.value)} className="h-8 text-xs" placeholder="0" /></TableCell>
                   <TableCell>
@@ -581,6 +611,7 @@ export default function WarehousePage() {
                       <TableHead>Tên mặt hàng</TableHead>
                       <TableHead>Danh mục</TableHead>
                       <TableHead className="text-right">Tồn kho</TableHead>
+                      <TableHead className="text-right">Đơn giá</TableHead>
                       <TableHead>HSD gần nhất</TableHead>
                       <TableHead>Lô</TableHead>
                       <TableHead className="w-40"></TableHead>
@@ -606,9 +637,15 @@ export default function WarehousePage() {
                           <TableCell className="text-right">
                             <span className={`font-bold text-lg ${low ? "text-red-600" : "text-slate-800"}`}>{item.currentQuantity}</span>
                             <span className="text-xs text-muted-foreground ml-1">{item.unit}</span>
+                            {item.subUnit && item.subUnitRatio && (
+                              <div className="text-xs text-muted-foreground">= {item.currentQuantity * item.subUnitRatio} {item.subUnit}</div>
+                            )}
                             {item.minQuantity > 0 && (
                               <div className="text-xs text-muted-foreground">ngưỡng: {item.minQuantity}</div>
                             )}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            {item.unitPrice ? formatCurrency(Number(item.unitPrice)) : "—"}
                           </TableCell>
                           <TableCell className="text-sm">
                             {item.nearestExpiry ? (

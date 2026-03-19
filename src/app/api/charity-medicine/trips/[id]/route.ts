@@ -40,7 +40,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { locationId, startDate, endDate, expectedPatients, actualPatients, demographics, status, notes } = body;
+    const { locationId, startDate, endDate, expectedPatients, actualPatients, demographics, notes } = body;
 
     const trip = await prisma.charityTrip.update({
       where: { id: params.id },
@@ -51,7 +51,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         ...(expectedPatients !== undefined && { expectedPatients }),
         ...(actualPatients !== undefined && { actualPatients }),
         ...(demographics !== undefined && { demographics }),
-        ...(status && { status }),
         ...(notes !== undefined && { notes }),
       },
       include: { location: { select: { province: true, district: true } } },

@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { code, name, unit, category, minQuantity, currentQuantity, notes } = body;
+    const { code, name, unit, subUnit, subUnitRatio, unitPrice, category, minQuantity, currentQuantity, notes } = body;
 
     if (!code || !name || !unit) {
       return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
@@ -95,6 +95,9 @@ export async function POST(request: NextRequest) {
         code,
         name,
         unit,
+        subUnit: subUnit || null,
+        subUnitRatio: subUnitRatio ? parseInt(subUnitRatio) : null,
+        unitPrice: unitPrice ? parseFloat(unitPrice) : null,
         category: category || "OTHER",
         currentQuantity: currentQuantity || 0,
         minQuantity: minQuantity || 0,

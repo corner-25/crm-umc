@@ -186,7 +186,6 @@ function TripFormDialog({ open, onClose, editItem, locations }: { open: boolean;
   const [endDate, setEndDate] = useState(editItem?.endDate ? format(new Date(editItem.endDate), "yyyy-MM-dd") : "");
   const [expectedPatients, setExpectedPatients] = useState(editItem?.expectedPatients?.toString() || "");
   const [demographics, setDemographics] = useState(editItem?.demographics || "");
-  const [status, setStatus] = useState(editItem?.status || "PLANNING");
   const [notes, setNotes] = useState(editItem?.notes || "");
 
   const mutation = useMutation({
@@ -205,14 +204,8 @@ function TripFormDialog({ open, onClose, editItem, locations }: { open: boolean;
       <DialogContent className="max-w-lg">
         <DialogHeader><DialogTitle>{editItem ? "Sửa chuyến đi" : "Thêm chuyến đi mới"}</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label>Mã chuyến *</Label><Input value={tripCode} onChange={(e) => setTripCode(e.target.value)} disabled={!!editItem} placeholder="VD: TT-2026-001" /></div>
-            <div><Label>Trạng thái</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{TRIP_STATUSES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label>Mã chuyến *</Label><Input value={tripCode} onChange={(e) => setTripCode(e.target.value)} disabled={!!editItem} placeholder="VD: TT-2026-001" />
           </div>
           <div><Label>Địa điểm *</Label>
             <Select value={locationId} onValueChange={setLocationId}>
@@ -234,7 +227,7 @@ function TripFormDialog({ open, onClose, editItem, locations }: { open: boolean;
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Huỷ</Button>
-          <Button onClick={() => mutation.mutate({ tripCode, locationId, startDate, endDate, expectedPatients: expectedPatients ? parseInt(expectedPatients) : null, demographics, status, notes })} disabled={mutation.isPending}>
+          <Button onClick={() => mutation.mutate({ tripCode, locationId, startDate, endDate, expectedPatients: expectedPatients ? parseInt(expectedPatients) : null, demographics, notes })} disabled={mutation.isPending}>
             {mutation.isPending ? "Đang lưu..." : "Lưu"}
           </Button>
         </DialogFooter>
@@ -354,7 +347,7 @@ function TransactionDialog({ open, onClose, type, trips, batches }: {
             <Select value={tripId} onValueChange={setTripId}>
               <SelectTrigger><SelectValue placeholder="Chọn chuyến" /></SelectTrigger>
               <SelectContent>
-                {trips.filter((t: any) => t.status !== "COMPLETED" && t.status !== "CANCELLED").map((t: any) => (
+                {trips.map((t: any) => (
                   <SelectItem key={t.id} value={t.id}>{t.tripCode} — {t.location?.province}</SelectItem>
                 ))}
               </SelectContent>
@@ -420,7 +413,7 @@ function DemandStatDialog({ open, onClose, trips, medicines }: { open: boolean; 
             <Select value={tripId} onValueChange={setTripId}>
               <SelectTrigger><SelectValue placeholder="Chọn chuyến" /></SelectTrigger>
               <SelectContent>
-                {trips.filter((t: any) => t.status === "COMPLETED" || t.status === "IN_PROGRESS").map((t: any) => (
+                {trips.map((t: any) => (
                   <SelectItem key={t.id} value={t.id}>{t.tripCode} — {t.location?.province}</SelectItem>
                 ))}
               </SelectContent>
@@ -709,30 +702,25 @@ export default function CharityMedicinePage() {
                   <TableHead>Thời gian</TableHead>
                   <TableHead>Dự kiến</TableHead>
                   <TableHead>Thực tế</TableHead>
-                  <TableHead>Trạng thái</TableHead>
                   <TableHead className="text-right">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {trips.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Chưa có chuyến đi</TableCell></TableRow>
-                ) : trips.map((trip: any) => {
-                  const si = tripStatusInfo(trip.status);
-                  return (
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Chưa có chuyến đi</TableCell></TableRow>
+                ) : trips.map((trip: any) => (
                     <TableRow key={trip.id}>
                       <TableCell className="font-mono font-medium">{trip.tripCode}</TableCell>
                       <TableCell>{trip.location?.province}{trip.location?.district ? ` - ${trip.location.district}` : ""}</TableCell>
                       <TableCell className="text-sm">{format(new Date(trip.startDate), "dd/MM/yyyy")} — {format(new Date(trip.endDate), "dd/MM/yyyy")}</TableCell>
                       <TableCell className="text-right">{trip.expectedPatients?.toLocaleString() || "—"}</TableCell>
                       <TableCell className="text-right">{trip.actualPatients?.toLocaleString() || "—"}</TableCell>
-                      <TableCell><span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${si.color}`}>{si.label}</span></TableCell>
                       <TableCell className="text-right">
                         <Button size="icon" variant="ghost" onClick={() => setTripDialog({ open: true, edit: trip })}><Pencil className="h-4 w-4" /></Button>
                         <Button size="icon" variant="ghost" onClick={() => { if (confirm("Xoá chuyến này?")) deleteTrip.mutate(trip.id); }}><Trash2 className="h-4 w-4 text-red-500" /></Button>
                       </TableCell>
                     </TableRow>
-                  );
-                })}
+                  ))}
               </TableBody>
             </Table>
           </Card>

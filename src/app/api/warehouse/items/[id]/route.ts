@@ -31,13 +31,16 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { name, unit, category, minQuantity, currentQuantity, notes } = body;
+    const { name, unit, subUnit, subUnitRatio, unitPrice, category, minQuantity, currentQuantity, notes } = body;
 
     const item = await prisma.warehouseItem.update({
       where: { id: params.id },
       data: {
         ...(name && { name }),
         ...(unit && { unit }),
+        ...(subUnit !== undefined && { subUnit: subUnit || null }),
+        ...(subUnitRatio !== undefined && { subUnitRatio: subUnitRatio ? parseInt(subUnitRatio) : null }),
+        ...(unitPrice !== undefined && { unitPrice: unitPrice ? parseFloat(unitPrice) : null }),
         ...(category && { category }),
         ...(currentQuantity !== undefined && { currentQuantity }),
         ...(minQuantity !== undefined && { minQuantity }),

@@ -800,9 +800,12 @@ model WarehouseItem {
   id                String                @id @default(cuid())
   code              String                @unique  // Mã hàng (sản phẩm)
   name              String                         // Tên hàng
-  unit              String                         // Đơn vị (cái, hộp, kg,...)
+  unit              String                         // Đơn vị nhận (thùng, hộp, kg,...)
+  subUnit           String?                        // Đơn vị lẻ (ly, viên, gói,...) — null nếu không quy đổi
+  subUnitRatio      Int?                           // 1 đơn vị = bao nhiêu đơn vị lẻ (VD: 1 thùng = 4 ly)
+  unitPrice         Decimal?              @db.Decimal(15, 2)  // Đơn giá
   category          WarehouseCategory     @default(OTHER)
-  currentQuantity   Int                   @default(0)  // Tồn kho hiện tại (tổng các lô)
+  currentQuantity   Int                   @default(0)  // Tồn kho hiện tại (theo đơn vị nhận)
   minQuantity       Int                   @default(0)  // Ngưỡng cảnh báo tồn thấp
   notes             String?                          // Ghi chú tình trạng hàng
 
@@ -940,7 +943,6 @@ model CharityTrip {
   expectedPatients Int?                          // Số lượng người dự kiến khám
   actualPatients  Int?                           // Số thực tế (cập nhật sau chuyến)
   demographics    String?                        // Ghi chú đặc điểm dân cư (tỷ lệ già/trẻ em)
-  status          CharityTripStatus     @default(PLANNING)
   notes           String?
 
   transactions    MedicineTransaction[]
@@ -952,16 +954,7 @@ model CharityTrip {
 
   @@index([locationId])
   @@index([startDate])
-  @@index([status])
   @@map("charity_trips")
-}
-
-enum CharityTripStatus {
-  PLANNING          // Đang lên kế hoạch
-  PREPARED          // Đã chuẩn bị thuốc
-  IN_PROGRESS       // Đang thực hiện
-  COMPLETED         // Hoàn thành
-  CANCELLED         // Huỷ
 }
 
 // Lô thuốc (quản lý theo Date — cốt lõi)

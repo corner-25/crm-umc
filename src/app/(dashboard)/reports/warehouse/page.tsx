@@ -101,21 +101,25 @@ export default function WarehouseReportPage() {
         ["BÁO CÁO TỒN KHO — KHO HẦM B2"],
         ["Ngày xuất", format(new Date(), "dd/MM/yyyy HH:mm")],
         [],
-        ["Mã", "Tên hàng", "Danh mục", "Tồn kho", "Đơn vị", "Ngưỡng cảnh báo", "Hạn sử dụng", "Số ngày còn hạn", "Đơn vị tài trợ", "Ghi chú", "Trạng thái"],
+        ["Mã", "Tên hàng", "Danh mục", "Tồn kho", "Đơn vị", "ĐV lẻ", "Quy đổi", "Đơn giá", "Ngưỡng cảnh báo", "Hạn sử dụng", "Số ngày còn hạn", "Ghi chú", "Trạng thái"],
         ...items.map((i) => {
           const daysLeft = i.expiryDate ? differenceInDays(new Date(i.expiryDate), new Date()) : null;
           const status = isExpired(i) ? "Hết hạn" : isExpiringSoon(i) ? "Sắp hết hạn" : isLowStock(i) ? "Tồn thấp" : "Bình thường";
           return [
             i.code, i.name, CATEGORIES[i.category] || i.category,
-            i.currentQuantity, i.unit, i.minQuantity || "—",
+            i.currentQuantity, i.unit,
+            i.subUnit || "—",
+            i.subUnitRatio ? `1 ${i.unit} = ${i.subUnitRatio} ${i.subUnit}` : "—",
+            i.unitPrice ? Number(i.unitPrice) : "—",
+            i.minQuantity || "—",
             i.expiryDate ? format(new Date(i.expiryDate), "dd/MM/yyyy") : "—",
             daysLeft !== null ? daysLeft : "—",
-            i.donorUnit || "—", i.notes || "—", status,
+            i.notes || "—", status,
           ];
         }),
       ];
       const ws = XLSX.utils.aoa_to_sheet(rows);
-      ws["!cols"] = [{ wch: 12 }, { wch: 30 }, { wch: 18 }, { wch: 10 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 25 }, { wch: 30 }, { wch: 14 }];
+      ws["!cols"] = [{ wch: 12 }, { wch: 30 }, { wch: 18 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 30 }, { wch: 14 }];
       XLSX.utils.book_append_sheet(wb, ws, "Tồn kho");
       XLSX.writeFile(wb, `BC_TonKho_${format(new Date(), "dd-MM-yyyy")}.xlsx`);
       toast({ title: "Thành công", description: "Đã xuất báo cáo tồn kho" });
