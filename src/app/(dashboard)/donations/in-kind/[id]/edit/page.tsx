@@ -84,6 +84,7 @@ export default function EditInKindDonationPage({ params }: { params: { id: strin
               usedQuantity: donation.usedQuantity || 0,
               usedPurpose: donation.usedPurpose || "",
               distributionStatus: donation.distributionStatus,
+              items: donation.items || [],
             }}
             onSubmit={(values) => updateMutation.mutate(values)}
             isLoading={updateMutation.isPending}
