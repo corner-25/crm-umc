@@ -278,11 +278,15 @@ export default function ReportsPage() {
     if (removedIdx === -1) return;
     const removed = planSelected[removedIdx];
 
+    // Tính tổng sau khi bỏ khoản này → xem thiếu bao nhiêu so với target
+    const totalWithout = planSelected.reduce((s, d) => d.id === donationId ? s : s + d._take, 0);
+    const shortage = Math.max(0, planTarget - totalWithout);
+
     // Tìm khoản thay thế từ pool (chưa có trong plan, chưa bị hardRemoved)
     const selectedIds = new Set(planSelected.map((d) => d.id));
     const candidates = filteredPool
       .filter((d) => !selectedIds.has(d.id) && !hardRemovedIds.has(d.id) && d.id !== donationId)
-      .sort((a, b) => Math.abs(a._avail - removed._take) - Math.abs(b._avail - removed._take));
+      .sort((a, b) => Math.abs(a._avail - shortage) - Math.abs(b._avail - shortage));
 
     const replacement = candidates[0] || null;
 
@@ -291,10 +295,10 @@ export default function ReportsPage() {
       next.splice(removedIdx, 1); // xoá khoản cũ
       if (replacement) {
         // "Kế toán đang giữ" → lấy full _avail
-        // Các trường hợp khác → lấy đúng số cần (= _take của khoản bị xoá), không lấy thừa
+        // Các trường hợp khác → lấy đúng số thiếu để đạt target, không lấy thừa
         const take = replacement.custodian === CUSTODIAN_KE_TOAN
           ? replacement._avail
-          : Math.min(removed._take, replacement._avail);
+          : Math.min(shortage, replacement._avail);
         next.splice(removedIdx, 0, { ...replacement, _take: take, _source: "auto" as const });
       }
       return next;
@@ -304,7 +308,7 @@ export default function ReportsPage() {
     if (replacement) {
       const take = replacement.custodian === CUSTODIAN_KE_TOAN
         ? replacement._avail
-        : Math.min(removed._take, replacement._avail);
+        : Math.min(shortage, replacement._avail);
       toast({ title: "Đã thay thế", description: `${removed.donor?.fullName || "?"} (${formatCurrency(removed._take.toString())}) → ${replacement.donor?.fullName || "?"} (${formatCurrency(take.toString())})` });
     } else {
       toast({ variant: "destructive", title: "Không tìm được khoản thay thế", description: `Đã xoá khoản ${removed.donor?.fullName || "?"} (${formatCurrency(removed._take.toString())})` });
@@ -330,7 +334,12 @@ export default function ReportsPage() {
   };
 
   const handleAddManual = (donationId: string) => {
-    const d = filteredPool.find((x) => x.id === donationId);
+    // Tìm trong filteredPool trước, nếu không có thì tìm trong allCash (ngoài filter)
+    let d: any = filteredPool.find((x) => x.id === donationId);
+    if (!d) {
+      const raw = allCash.find((x) => x.id === donationId);
+      if (raw) d = { ...raw, _avail: Number(raw.amount) - Number(raw.usedAmount || 0) };
+    }
     if (d) {
       setPlanSelected((prev) => [...prev, { ...d, _take: d._avail, _source: "manual" as const }]);
     }
@@ -1321,25 +1330,31 @@ export default function ReportsPage() {
                 <TableBody>
                   {(() => {
                     const selectedIds = new Set(mobilizationPlan?.selected.map((d: any) => d.id) || []);
-                    const available = filteredPool
+                    const filteredPoolIds = new Set(filteredPool.map((d) => d.id));
+                    const searchFilter = (d: any) => !addSearch || (d.donor?.fullName || "").toLowerCase().includes(addSearch.toLowerCase());
+
+                    // Khoản trong filter
+                    const inFilter = filteredPool
                       .filter((d) => !selectedIds.has(d.id) && !hardRemovedIds.has(d.id) && !softRemovedIds.has(d.id))
-                      .filter((d) => !addSearch || (d.donor?.fullName || "").toLowerCase().includes(addSearch.toLowerCase()))
+                      .filter(searchFilter)
                       .sort((a, b) => b._avail - a._avail)
                       .slice(0, 20);
 
-                    if (available.length === 0) {
-                      return (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
-                            Không còn khoản nào trong pool
-                          </TableCell>
-                        </TableRow>
-                      );
-                    }
+                    // Khoản ngoài filter (còn dư, nhưng không thoả filter)
+                    const outFilter = allCash
+                      .filter((d) => Number(d.usedAmount || 0) < Number(d.amount))
+                      .filter((d) => !filteredPoolIds.has(d.id) && !selectedIds.has(d.id) && !hardRemovedIds.has(d.id))
+                      .filter(searchFilter)
+                      .map((d) => ({ ...d, _avail: Number(d.amount) - Number(d.usedAmount || 0), _outOfFilter: true }))
+                      .sort((a, b) => b._avail - a._avail)
+                      .slice(0, 20);
 
-                    return available.map((d) => (
-                      <TableRow key={d.id}>
-                        <TableCell className="font-medium">{d.donor?.fullName || "—"}</TableCell>
+                    const renderRow = (d: any) => (
+                      <TableRow key={d.id} className={d._outOfFilter ? "bg-orange-50 dark:bg-orange-950/20" : ""}>
+                        <TableCell className="font-medium">
+                          {d.donor?.fullName || "—"}
+                          {d._outOfFilter && <Badge variant="outline" className="ml-1.5 text-[9px] h-4 border-orange-400 text-orange-600">Ngoài filter</Badge>}
+                        </TableCell>
                         <TableCell className="text-sm">{formatDate(d.receivedDate)}</TableCell>
                         <TableCell className="text-sm max-w-[150px] truncate">{d.purposeOther || d.purpose || "—"}</TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(d._avail.toString())}</TableCell>
@@ -1350,7 +1365,31 @@ export default function ReportsPage() {
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ));
+                    );
+
+                    if (inFilter.length === 0 && outFilter.length === 0) {
+                      return (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
+                            Không còn khoản nào
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+
+                    return (
+                      <>
+                        {inFilter.map(renderRow)}
+                        {outFilter.length > 0 && inFilter.length > 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center text-xs text-orange-600 bg-orange-50/50 py-2 font-medium">
+                              Các khoản bên dưới nằm ngoài bộ lọc hiện tại
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        {outFilter.map(renderRow)}
+                      </>
+                    );
                   })()}
                 </TableBody>
               </Table>
