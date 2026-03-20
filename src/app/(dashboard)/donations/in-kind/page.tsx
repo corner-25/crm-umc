@@ -242,7 +242,7 @@ export default function InKindDonationsPage() {
                         const total = donation.quantity || 0;
                         const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
                         const usageItems: any[] = Array.isArray(donation.usageItems) ? donation.usageItems : [];
-                        const extraItems: any[] = Array.isArray(donation.items) ? donation.items : [];
+                        const allItems: any[] = Array.isArray(donation.items) ? donation.items : [];
                         const isExpanded = expandedId === donation.id;
 
                         return (
@@ -258,16 +258,19 @@ export default function InKindDonationsPage() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="font-medium">{donation.itemName}</div>
-                              <div className="text-xs text-muted-foreground">{donation.quantity} {donation.unit}</div>
-                              {extraItems.length > 0 && (
-                                <div className="mt-1 space-y-0.5">
-                                  {extraItems.map((item: any, i: number) => (
-                                    <div key={i} className="text-xs text-muted-foreground">
-                                      + {item.name} ({item.quantity} {item.unit})
+                              {allItems.length > 0 ? (
+                                <div className="space-y-0.5">
+                                  {allItems.map((item: any, i: number) => (
+                                    <div key={i} className={`text-sm ${i === 0 ? "font-medium" : ""}`}>
+                                      {item.name} <span className="text-muted-foreground">x{item.quantity} {item.unit}</span>
                                     </div>
                                   ))}
                                 </div>
+                              ) : (
+                                <>
+                                  <div className="font-medium">{donation.itemName}</div>
+                                  <div className="text-xs text-muted-foreground">{donation.quantity} {donation.unit}</div>
+                                </>
                               )}
                             </TableCell>
                             <TableCell className="font-semibold whitespace-nowrap">

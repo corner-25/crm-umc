@@ -4,7 +4,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { inKindDonationSchema, InKindDonationFormValues, inKindCategoryLabels, itemConditionLabels } from "@/lib/validations/donation";
 
-// Re-export types for external use
 export type { InKindDonationFormValues };
 import { Button } from "@/components/ui/button";
 import {
@@ -43,7 +42,6 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { ImageUpload } from "@/components/ui/image-upload";
-import { CustomOptionSelect } from "@/components/ui/custom-option-select";
 
 interface InKindDonationFormProps {
   defaultValues?: Partial<InKindDonationFormValues> & { items?: any[] };
@@ -51,24 +49,41 @@ interface InKindDonationFormProps {
   isLoading?: boolean;
 }
 
+type ItemRow = { name: string; quantity: string; unit: string };
+
 export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKindDonationFormProps) {
   const [donorSearchOpen, setDonorSearchOpen] = useState(false);
   const [donorSearch, setDonorSearch] = useState("");
-  // Extra items (ngoài itemName chính)
-  const [extraItems, setExtraItems] = useState<{ name: string; quantity: string; unit: string }[]>(
-    defaultValues?.items && Array.isArray(defaultValues.items) && defaultValues.items.length > 0
-      ? defaultValues.items.map((i: any) => ({ name: i.name || "", quantity: String(i.quantity || ""), unit: i.unit || "" }))
-      : []
-  );
+
+  // Danh sách các món trong gói tài trợ
+  const initItems = (): ItemRow[] => {
+    // Nếu có items array → dùng luôn
+    if (defaultValues?.items && Array.isArray(defaultValues.items) && defaultValues.items.length > 0) {
+      return defaultValues.items.map((i: any) => ({
+        name: i.name || "", quantity: String(i.quantity || ""), unit: i.unit || "",
+      }));
+    }
+    // Nếu có itemName cũ → convert thành 1 item
+    if (defaultValues?.itemName) {
+      return [{
+        name: defaultValues.itemName,
+        quantity: String(defaultValues.quantity || ""),
+        unit: defaultValues.unit || "",
+      }];
+    }
+    return [{ name: "", quantity: "", unit: "" }];
+  };
+
+  const [itemRows, setItemRows] = useState<ItemRow[]>(initItems);
 
   const form = useForm<InKindDonationFormValues>({
     resolver: zodResolver(inKindDonationSchema),
     defaultValues: {
       donorId: "",
-      itemName: "",
+      itemName: defaultValues?.itemName || "—",
       category: "MEDICAL_EQUIPMENT",
-      quantity: defaultValues?.quantity || undefined,
-      unit: "",
+      quantity: defaultValues?.quantity || 1,
+      unit: defaultValues?.unit || "—",
       condition: "NEW",
       expiryDate: null,
       estimatedValue: defaultValues?.estimatedValue || undefined,
@@ -96,23 +111,40 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
   const selectedDonor = donorsData?.donors?.find((d: any) => d.id === selectedDonorId);
 
   const handleFormSubmit = (values: InKindDonationFormValues) => {
-    // Gắn extraItems vào data
-    const items = extraItems
-      .filter((i) => i.name.trim())
-      .map((i) => ({ name: i.name, quantity: parseInt(i.quantity) || 0, unit: i.unit }));
-    onSubmit({ ...values, items });
+    const validItems = itemRows.filter((i) => i.name.trim());
+    if (validItems.length === 0) return;
+
+    // itemName, quantity, unit = tổng hợp từ items (để backward compatible với DB)
+    const itemsSummary = validItems.map((i) => `${i.name} x${i.quantity} ${i.unit}`).join(", ");
+    const totalQty = validItems.reduce((s, i) => s + (parseInt(i.quantity) || 0), 0);
+    const firstUnit = validItems[0]?.unit || "món";
+
+    const items = validItems.map((i) => ({
+      name: i.name,
+      quantity: parseInt(i.quantity) || 0,
+      unit: i.unit,
+    }));
+
+    onSubmit({
+      ...values,
+      itemName: itemsSummary,
+      quantity: totalQty,
+      unit: validItems.length === 1 ? firstUnit : "món",
+      items,
+    });
   };
 
-  const addExtraItem = () => {
-    setExtraItems((prev) => [...prev, { name: "", quantity: "", unit: "" }]);
+  const addItem = () => {
+    setItemRows((prev) => [...prev, { name: "", quantity: "", unit: "" }]);
   };
 
-  const updateExtraItem = (idx: number, field: string, value: string) => {
-    setExtraItems((prev) => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item));
+  const updateItem = (idx: number, field: string, value: string) => {
+    setItemRows((prev) => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item));
   };
 
-  const removeExtraItem = (idx: number) => {
-    setExtraItems((prev) => prev.filter((_, i) => i !== idx));
+  const removeItem = (idx: number) => {
+    if (itemRows.length <= 1) return;
+    setItemRows((prev) => prev.filter((_, i) => i !== idx));
   };
 
   return (
@@ -176,25 +208,59 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
           )}
         />
 
-        {/* Thông tin vật phẩm chính */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Vật phẩm chính</h3>
+        {/* Danh sách vật phẩm trong gói */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">Danh sách vật phẩm</h3>
+            <Button type="button" variant="outline" size="sm" onClick={addItem}>
+              <Plus className="h-4 w-4 mr-1" />Thêm món
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">Liệt kê tất cả các món trong gói tài trợ</p>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="itemName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tên vật phẩm *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Máy thở hô hấp" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+          {itemRows.map((item, idx) => (
+            <div key={idx} className="flex items-end gap-2 p-3 border rounded-md bg-muted/30">
+              <div className="flex-1 space-y-1">
+                <Label className="text-xs">Tên vật phẩm</Label>
+                <Input
+                  value={item.name}
+                  onChange={(e) => updateItem(idx, "name", e.target.value)}
+                  placeholder="VD: Mì tôm, Nước suối..."
+                  className="h-9"
+                />
+              </div>
+              <div className="w-24 space-y-1">
+                <Label className="text-xs">Số lượng</Label>
+                <Input
+                  type="number"
+                  value={item.quantity}
+                  onChange={(e) => updateItem(idx, "quantity", e.target.value)}
+                  placeholder="500"
+                  className="h-9"
+                />
+              </div>
+              <div className="w-28 space-y-1">
+                <Label className="text-xs">Đơn vị</Label>
+                <Input
+                  value={item.unit}
+                  onChange={(e) => updateItem(idx, "unit", e.target.value)}
+                  placeholder="thùng, hộp..."
+                  className="h-9"
+                />
+              </div>
+              {itemRows.length > 1 && (
+                <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-red-500 shrink-0" onClick={() => removeItem(idx)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               )}
-            />
+            </div>
+          ))}
+        </div>
 
+        {/* Danh mục + Tình trạng + Giá trị */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">Thông tin chung</h3>
+          <div className="grid gap-4 md:grid-cols-2">
             <FormField
               control={form.control}
               name="category"
@@ -220,94 +286,6 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="quantity"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Số lượng *</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="1"
-                      {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="unit"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Đơn vị tính *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="cái, hộp, kg..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </div>
-
-        {/* Extra items */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">Vật phẩm kèm theo</h3>
-            <Button type="button" variant="outline" size="sm" onClick={addExtraItem}>
-              <Plus className="h-4 w-4 mr-1" />Thêm món
-            </Button>
-          </div>
-          {extraItems.length === 0 && (
-            <p className="text-sm text-muted-foreground">Chưa có vật phẩm kèm theo. Bấm "Thêm món" nếu đợt tài trợ có nhiều món đồ khác nhau.</p>
-          )}
-          {extraItems.map((item, idx) => (
-            <div key={idx} className="flex items-end gap-2 p-3 border rounded-md bg-muted/30">
-              <div className="flex-1 space-y-1">
-                <Label className="text-xs">Tên</Label>
-                <Input
-                  value={item.name}
-                  onChange={(e) => updateExtraItem(idx, "name", e.target.value)}
-                  placeholder="Tên vật phẩm"
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="w-20 space-y-1">
-                <Label className="text-xs">Số lượng</Label>
-                <Input
-                  type="number"
-                  value={item.quantity}
-                  onChange={(e) => updateExtraItem(idx, "quantity", e.target.value)}
-                  placeholder="0"
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="w-24 space-y-1">
-                <Label className="text-xs">Đơn vị</Label>
-                <Input
-                  value={item.unit}
-                  onChange={(e) => updateExtraItem(idx, "unit", e.target.value)}
-                  placeholder="cái, hộp..."
-                  className="h-8 text-sm"
-                />
-              </div>
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => removeExtraItem(idx)}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-
-        {/* Thông tin bổ sung */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Thông tin bổ sung</h3>
-
-          <div className="grid gap-4 md:grid-cols-2">
             <FormField
               control={form.control}
               name="condition"
@@ -338,11 +316,11 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
               name="estimatedValue"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Giá trị ước tính (VNĐ)</FormLabel>
+                  <FormLabel>Tổng giá trị ước tính (VNĐ)</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      placeholder="Tổng giá trị tất cả vật phẩm"
+                      placeholder="Giá trị toàn bộ gói"
                       {...field}
                       value={field.value ?? ""}
                       onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
@@ -376,7 +354,6 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
         {/* Địa điểm */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Địa điểm</h3>
-
           <div className="grid gap-4 md:grid-cols-2">
             <FormField
               control={form.control}
@@ -414,7 +391,7 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
           name="imageUrls"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Hình ảnh vật phẩm</FormLabel>
+              <FormLabel>Hình ảnh</FormLabel>
               <FormControl>
                 <ImageUpload
                   value={field.value || []}
@@ -437,7 +414,7 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
               <FormLabel>Ghi chú</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Ghi chú thêm về hiện vật..."
+                  placeholder="Ghi chú thêm..."
                   rows={3}
                   {...field}
                   value={field.value ?? ""}
