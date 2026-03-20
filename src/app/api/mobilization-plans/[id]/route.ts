@@ -59,7 +59,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
           const currentUsed = Number(donation.usedAmount);
           const take = Number(item.takeAmount);
+          const totalAmount = Number(donation.amount);
           const newUsed = currentUsed + take;
+
+          // Kiểm tra không vượt quá tổng tài trợ
+          if (newUsed > totalAmount) {
+            throw new Error(`Khoản ${donation.id} không đủ số dư: cần ${take.toLocaleString()}, chỉ còn ${(totalAmount - currentUsed).toLocaleString()}`);
+          }
 
           // Thêm vào usageItems
           const existingItems = Array.isArray(donation.usageItems) ? donation.usageItems : [];

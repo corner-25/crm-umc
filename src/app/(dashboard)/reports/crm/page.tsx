@@ -225,10 +225,13 @@ export default function ReportsPage() {
           selected.push({ ...closestMatch, _take: need, _source: "auto" });
         }
       } else if (remaining.length > 0) {
-        // Không có khoản nào >= need → lấy khoản lớn nhất còn lại
-        const largest = remaining.sort((a, b) => b._avail - a._avail)[0];
-        accumulated += largest._avail;
-        selected.push({ ...largest, _take: largest._avail, _source: "auto" });
+        // Không có khoản nào >= need → gom nhiều khoản nhỏ (lớn nhất trước) cho đến khi đủ hoặc hết
+        const sortedDesc = remaining.sort((a, b) => b._avail - a._avail);
+        for (const d of sortedDesc) {
+          if (accumulated >= target) break;
+          accumulated += d._avail;
+          selected.push({ ...d, _take: d._avail, _source: "auto" });
+        }
       }
     }
 
