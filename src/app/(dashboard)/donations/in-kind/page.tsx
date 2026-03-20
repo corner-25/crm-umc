@@ -13,11 +13,12 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, Check } from "lucide-react";
+import { Plus, Edit, Trash2, Check, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { CustomOptionSelect } from "@/components/ui/custom-option-select";
 import Link from "next/link";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import { inKindCategoryLabels, distributionStatusLabels } from "@/lib/validations/donation";
+import { formatCurrency } from "@/lib/utils";
+import { inKindCategoryLabels } from "@/lib/validations/donation";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -99,6 +100,14 @@ export default function InKindDonationsPage() {
     setEditUsedPurpose(d.usedPurpose || "");
   };
 
+  const getAutoStatus = (donation: any) => {
+    const used = donation.usedQuantity || 0;
+    const total = donation.quantity || 0;
+    if (used <= 0) return { label: "Đã nhận", color: "bg-blue-100 text-blue-800" };
+    if (used < total) return { label: "Đang sử dụng", color: "bg-yellow-100 text-yellow-800" };
+    return { label: "Đã sử dụng", color: "bg-green-100 text-green-800" };
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -111,7 +120,7 @@ export default function InKindDonationsPage() {
         <Button asChild>
           <Link href="/donations/in-kind/new">
             <Plus className="mr-2 h-4 w-4" />
-            Thêm mới
+            Thêm m��i
           </Link>
         </Button>
       </div>
@@ -128,7 +137,7 @@ export default function InKindDonationsPage() {
             <div className="py-8 text-center">Đang tải...</div>
           ) : (
             <>
-              <div className="rounded-md border">
+              <div className="rounded-md border overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -138,6 +147,7 @@ export default function InKindDonationsPage() {
                       <TableHead>Số lượng</TableHead>
                       <TableHead>Đã sử dụng</TableHead>
                       <TableHead>Mục đích SD</TableHead>
+                      <TableHead>Trạng thái</TableHead>
                       <TableHead>Giá trị ước tính</TableHead>
                       <TableHead className="text-right">Thao tác</TableHead>
                     </TableRow>
@@ -145,12 +155,14 @@ export default function InKindDonationsPage() {
                   <TableBody>
                     {data?.donations?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center">
+                        <TableCell colSpan={9} className="text-center">
                           Không có dữ liệu
                         </TableCell>
                       </TableRow>
                     ) : (
-                      data?.donations?.map((donation: any) => (
+                      data?.donations?.map((donation: any) => {
+                        const status = getAutoStatus(donation);
+                        return (
                         <TableRow key={donation.id}>
                           <TableCell>
                             <Link
@@ -183,11 +195,18 @@ export default function InKindDonationsPage() {
                               </span>
                             )}
                           </TableCell>
-                          <TableCell className="max-w-[200px]">
+                          <TableCell className="max-w-[220px]">
                             {editingUsed === donation.id ? (
                               <div className="flex items-center gap-1">
-                                <Input value={editUsedPurpose} onChange={(e) => setEditUsedPurpose(e.target.value)} placeholder="VD: Phát cho BN..." className="h-7 text-xs" />
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-green-600" onClick={() => updateUsedMutation.mutate({ id: donation.id, usedQuantity: parseInt(editUsedQty) || 0, usedPurpose: editUsedPurpose })}>
+                                <div className="flex-1">
+                                  <CustomOptionSelect
+                                    type="inkind_purpose"
+                                    value={editUsedPurpose}
+                                    onChange={setEditUsedPurpose}
+                                    placeholder="Chọn mục đích..."
+                                  />
+                                </div>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-green-600 shrink-0" onClick={() => updateUsedMutation.mutate({ id: donation.id, usedQuantity: parseInt(editUsedQty) || 0, usedPurpose: editUsedPurpose })}>
                                   <Check className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
@@ -197,11 +216,19 @@ export default function InKindDonationsPage() {
                               </span>
                             )}
                           </TableCell>
+                          <TableCell>
+                            <Badge className={`${status.color} border-0 text-xs`}>{status.label}</Badge>
+                          </TableCell>
                           <TableCell className="font-semibold">
                             {donation.estimatedValue ? formatCurrency(donation.estimatedValue.toString()) : "—"}
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" asChild title="Nhập kho">
+                                <Link href={`/warehouse?import_from=inkind&donation_id=${donation.id}&item_name=${encodeURIComponent(donation.itemName)}&quantity=${donation.quantity}&unit=${encodeURIComponent(donation.unit)}&donor=${encodeURIComponent(donation.donor.fullName)}&category=${donation.category}`}>
+                                  <ArrowRight className="h-4 w-4 text-blue-600" />
+                                </Link>
+                              </Button>
                               <Button variant="ghost" size="icon" asChild>
                                 <Link href={`/donations/in-kind/${donation.id}/edit`}>
                                   <Edit className="h-4 w-4" />
@@ -217,7 +244,8 @@ export default function InKindDonationsPage() {
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>

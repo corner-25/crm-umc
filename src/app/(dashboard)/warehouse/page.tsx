@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -307,7 +308,7 @@ function ItemFormDialog({ open, onClose, editItem }: { open: boolean; onClose: (
 
 // ─── Nhập kho nhanh ─────────────────────────────────────────────────────────
 // Chọn mặt hàng có sẵn HOẶC tạo mới → nhập số lượng + lô + HSD → tự tạo transaction IMPORT + cập nhật/tạo mặt hàng
-function QuickImportDialog({ open, onClose, items }: { open: boolean; onClose: () => void; items: any[] }) {
+function QuickImportDialog({ open, onClose, items, prefill }: { open: boolean; onClose: () => void; items: any[]; prefill?: any }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [saving, setSaving] = useState(false);
@@ -333,7 +334,17 @@ function QuickImportDialog({ open, onClose, items }: { open: boolean; onClose: (
     quantity: "", batchCode: "", expiryDate: "", expiryAlertMonths: "1", donorUnit: "",
   });
 
-  const [rows, setRows] = useState<QuickRow[]>([emptyRow()]);
+  const prefillRow = (): QuickRow => {
+    if (!prefill) return emptyRow();
+    return {
+      mode: "new", itemId: "", name: prefill.name || "", unit: prefill.unit || "",
+      category: prefill.category || "OTHER", subUnit: "", subUnitRatio: "", unitPrice: "",
+      quantity: prefill.quantity || "", batchCode: "", expiryDate: "", expiryAlertMonths: "1",
+      donorUnit: prefill.donor || "",
+    };
+  };
+
+  const [rows, setRows] = useState<QuickRow[]>([prefill ? prefillRow() : emptyRow()]);
 
   const updateRow = (idx: number, updates: Partial<QuickRow>) => {
     setRows((prev) => prev.map((r, i) => i === idx ? { ...r, ...updates } : r));
@@ -567,6 +578,7 @@ function QuickImportDialog({ open, onClose, items }: { open: boolean; onClose: (
 export default function WarehousePage() {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const searchParams = useSearchParams();
 
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
@@ -579,6 +591,7 @@ export default function WarehousePage() {
   const [showQuickStock, setShowQuickStock] = useState(false);
   const [quickItem, setQuickItem] = useState<any>(null);
   const [txType, setTxType] = useState<"IMPORT" | "EXPORT">("IMPORT");
+  const [inkindPrefill, setInkindPrefill] = useState<any>(null);
 
   // Filter lịch sử
   const [historyFilter, setHistoryFilter] = useState("all");
@@ -618,6 +631,27 @@ export default function WarehousePage() {
     },
     onError: () => toast({ variant: "destructive", title: "Lỗi", description: "Không thể xoá" }),
   });
+
+  // Auto-open quick import khi navigate từ hiện vật
+  useEffect(() => {
+    if (searchParams.get("import_from") === "inkind") {
+      const inKindCatToWarehouse: Record<string, string> = {
+        MEDICAL_EQUIPMENT: "EQUIPMENT",
+        MEDICINE: "MEDICINE",
+        SUPPLIES: "OTHER",
+        FOOD: "FOOD",
+        OTHER: "OTHER",
+      };
+      setInkindPrefill({
+        name: searchParams.get("item_name") || "",
+        quantity: searchParams.get("quantity") || "",
+        unit: searchParams.get("unit") || "",
+        donor: searchParams.get("donor") || "",
+        category: inKindCatToWarehouse[searchParams.get("category") || ""] || "OTHER",
+      });
+      setShowQuickStock(true);
+    }
+  }, [searchParams]);
 
   const allItems: any[] = itemsData?.items || [];
   const transactions: any[] = txData?.transactions || [];
@@ -887,7 +921,7 @@ export default function WarehousePage() {
       <TransactionDialog open={showImport} onClose={() => { setShowImport(false); setQuickItem(null); }} type="IMPORT" preselectedItem={quickItem} items={allItems} />
       <TransactionDialog open={showExport} onClose={() => { setShowExport(false); setQuickItem(null); }} type="EXPORT" preselectedItem={quickItem} items={allItems} />
       <ItemFormDialog open={showItemForm} onClose={() => { setShowItemForm(false); setEditItem(null); }} editItem={editItem} />
-      <QuickImportDialog open={showQuickStock} onClose={() => setShowQuickStock(false)} items={allItems} />
+      <QuickImportDialog open={showQuickStock} onClose={() => { setShowQuickStock(false); setInkindPrefill(null); }} items={allItems} prefill={inkindPrefill} />
     </div>
   );
 }

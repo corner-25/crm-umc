@@ -36,7 +36,7 @@ export default function EditEmailTemplatePage({ params }: { params: { id: string
     onSuccess: () => {
       toast({
         title: "Thành công",
-        description: "Đã cập nhật mẫu email",
+        description: "Đã cập nhật mẫu thư",
       });
       router.push("/gratitude/templates");
       router.refresh();
@@ -45,7 +45,7 @@ export default function EditEmailTemplatePage({ params }: { params: { id: string
       toast({
         variant: "destructive",
         title: "Lỗi",
-        description: "Không thể cập nhật mẫu email. Vui lòng thử lại.",
+        description: "Không thể cập nhật. Vui lòng thử lại.",
       });
       console.error("Update template error:", error);
     },
@@ -58,15 +58,15 @@ export default function EditEmailTemplatePage({ params }: { params: { id: string
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Chỉnh sửa mẫu email</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Chỉnh sửa mẫu thư</h2>
         <p className="text-muted-foreground">
-          Cập nhật thông tin mẫu email
+          Cập nhật thông tin mẫu thư
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Thông tin mẫu email</CardTitle>
+          <CardTitle>Thông tin mẫu thư</CardTitle>
           <CardDescription>
             Các trường đánh dấu (*) là bắt buộc
           </CardDescription>

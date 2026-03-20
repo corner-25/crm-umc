@@ -27,7 +27,7 @@ export default function NewEmailTemplatePage() {
     onSuccess: () => {
       toast({
         title: "Thành công",
-        description: "Đã tạo mẫu email mới",
+        description: "Đã tạo mẫu mới",
       });
       router.push("/gratitude/templates");
       router.refresh();
@@ -36,7 +36,7 @@ export default function NewEmailTemplatePage() {
       toast({
         variant: "destructive",
         title: "Lỗi",
-        description: "Không thể tạo mẫu email. Vui lòng thử lại.",
+        description: "Không thể tạo mẫu. Vui lòng thử lại.",
       });
       console.error("Create template error:", error);
     },
@@ -45,15 +45,15 @@ export default function NewEmailTemplatePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Tạo mẫu email mới</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Tạo mẫu mới</h2>
         <p className="text-muted-foreground">
-          Tạo mẫu email để gửi cho nhà tài trợ
+          Tạo mẫu thư để gửi/in cho nhà tài trợ
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Thông tin mẫu email</CardTitle>
+          <CardTitle>Thông tin mẫu thư</CardTitle>
           <CardDescription>
             Các trường đánh dấu (*) là bắt buộc
           </CardDescription>

@@ -2,7 +2,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { inKindDonationSchema, InKindDonationFormValues, inKindCategoryLabels, itemConditionLabels, distributionStatusLabels } from "@/lib/validations/donation";
+import { inKindDonationSchema, InKindDonationFormValues, inKindCategoryLabels, itemConditionLabels } from "@/lib/validations/donation";
 
 // Re-export types for external use
 export type { InKindDonationFormValues };
@@ -42,6 +42,7 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { CustomOptionSelect } from "@/components/ui/custom-option-select";
 
 interface InKindDonationFormProps {
   defaultValues?: Partial<InKindDonationFormValues>;
@@ -290,30 +291,6 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
 
             <FormField
               control={form.control}
-              name="distributionStatus"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Trạng thái phân phối *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn trạng thái" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Object.entries(distributionStatusLabels).map(([key, label]) => (
-                        <SelectItem key={key} value={key}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="usedQuantity"
               render={({ field }) => (
                 <FormItem>
@@ -340,7 +317,12 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
                 <FormItem>
                   <FormLabel>Mục đích sử dụng</FormLabel>
                   <FormControl>
-                    <Input placeholder="VD: Phát cho bệnh nhân, chuyến từ thiện..." {...field} value={field.value ?? ""} />
+                    <CustomOptionSelect
+                      type="inkind_purpose"
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      placeholder="Chọn hoặc thêm mục đích..."
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

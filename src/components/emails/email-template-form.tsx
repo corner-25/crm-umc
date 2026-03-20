@@ -26,10 +26,10 @@ import { Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const emailTemplateSchema = z.object({
-  name: z.string().min(1, "Tên mẫu email là bắt buộc"),
+  name: z.string().min(1, "Tên mẫu là bắt buộc"),
   type: z.enum(["THANK_YOU", "RECEIPT", "BIRTHDAY", "ANNIVERSARY", "REMINDER", "NEWSLETTER", "RECONNECT", "REPORT", "OTHER"]),
-  subject: z.string().min(1, "Tiêu đề email là bắt buộc"),
-  body: z.string().min(10, "Nội dung email phải có ít nhất 10 ký tự"),
+  subject: z.string().min(1, "Tiêu đề là bắt buộc"),
+  body: z.string().min(10, "Nội dung phải có ít nhất 10 ký tự"),
   description: z.string().optional(),
 });
 
@@ -77,7 +77,7 @@ export function EmailTemplateForm({ defaultValues, onSubmit, isLoading }: EmailT
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription>
-            <p className="font-medium mb-2">Biến số có thể sử dụng trong email:</p>
+            <p className="font-medium mb-2">Biến số có thể sử dụng trong thư:</p>
             <div className="grid gap-1 text-sm">
               {availableVariables.map((variable) => (
                 <div key={variable.key} className="flex gap-2">
@@ -94,9 +94,9 @@ export function EmailTemplateForm({ defaultValues, onSubmit, isLoading }: EmailT
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Tên mẫu email *</FormLabel>
+              <FormLabel>Tên mẫu *</FormLabel>
               <FormControl>
-                <Input placeholder="VD: Email cảm ơn nhà tài trợ VIP" {...field} />
+                <Input placeholder="VD: Thư cảm ơn nhà tài trợ VIP" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -108,11 +108,11 @@ export function EmailTemplateForm({ defaultValues, onSubmit, isLoading }: EmailT
           name="type"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Loại mẫu email *</FormLabel>
+              <FormLabel>Loại mẫu *</FormLabel>
               <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Chọn loại mẫu email" />
+                    <SelectValue placeholder="Chọn loại mẫu" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -135,10 +135,10 @@ export function EmailTemplateForm({ defaultValues, onSubmit, isLoading }: EmailT
             <FormItem>
               <FormLabel>Mô tả</FormLabel>
               <FormControl>
-                <Input placeholder="Mô tả ngắn về mẫu email này" {...field} />
+                <Input placeholder="Mô tả ngắn về mẫu thư này" {...field} />
               </FormControl>
               <FormDescription>
-                Giúp phân biệt các mẫu email cùng loại
+                Giúp phân biệt các mẫu thư cùng loại
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -150,7 +150,7 @@ export function EmailTemplateForm({ defaultValues, onSubmit, isLoading }: EmailT
           name="subject"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Tiêu đề email *</FormLabel>
+              <FormLabel>Tiêu đề *</FormLabel>
               <FormControl>
                 <Input
                   placeholder="VD: Cảm ơn {tên} đã đồng hành cùng bệnh viện"
@@ -170,7 +170,7 @@ export function EmailTemplateForm({ defaultValues, onSubmit, isLoading }: EmailT
           name="body"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nội dung email *</FormLabel>
+              <FormLabel>Nội dung *</FormLabel>
               <FormControl>
                 <Textarea
                   placeholder={`Kính gửi {tên},
@@ -198,7 +198,7 @@ Bệnh viện`}
             Hủy
           </Button>
           <Button type="submit" disabled={isLoading}>
-            {isLoading ? "Đang lưu..." : "Lưu mẫu email"}
+            {isLoading ? "Đang lưu..." : "Lưu mẫu"}
           </Button>
         </div>
       </form>

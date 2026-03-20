@@ -157,7 +157,7 @@ export default function SendEmailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Chọn mẫu email (tùy chọn)</Label>
+                <Label>Chọn mẫu thư (tùy chọn)</Label>
                 <Select value={selectedTemplate} onValueChange={(value) => {
                   setSelectedTemplate(value);
                   const template = templatesData?.templates?.find((t: any) => t.id === value);
@@ -170,7 +170,7 @@ export default function SendEmailPage() {
                   }
                 }}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Chọn mẫu email" />
+                    <SelectValue placeholder="Chọn mẫu thư" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="NO_TEMPLATE">Không sử dụng mẫu</SelectItem>
@@ -184,7 +184,7 @@ export default function SendEmailPage() {
               </div>
 
               <div>
-                <Label>Tiêu đề email *</Label>
+                <Label>Tiêu đề *</Label>
                 <Input
                   placeholder="VD: Cảm ơn {tên} đã đồng hành cùng bệnh viện"
                   value={customSubject}
@@ -193,7 +193,7 @@ export default function SendEmailPage() {
               </div>
 
               <div>
-                <Label>Nội dung email *</Label>
+                <Label>Nội dung *</Label>
                 <Textarea
                   placeholder="Kính gửi {tên}..."
                   rows={12}
@@ -212,7 +212,7 @@ export default function SendEmailPage() {
             <CardHeader>
               <CardTitle>Xem trước</CardTitle>
               <CardDescription>
-                Chọn nhà tài trợ để xem email sau khi thay thế biến số
+                Chọn nhà tài trợ để xem thư sau khi thay thế biến số
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

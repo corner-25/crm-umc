@@ -82,9 +82,9 @@ export default function EmailTemplatesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Mẫu thư cảm ơn</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Mẫu thư</h2>
           <p className="text-muted-foreground">
-            Quản lý mẫu thư cảm ơn nhà tài trợ
+            Quản lý mẫu thư cảm ơn, biên nhận, sinh nhật...
           </p>
         </div>
         <Button asChild>
@@ -97,9 +97,9 @@ export default function EmailTemplatesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Danh sách mẫu thư</CardTitle>
+          <CardTitle>Danh sách mẫu</CardTitle>
           <CardDescription>
-            Mẫu thư cảm ơn để in cho nhà tài trợ
+            Mẫu thư để gửi/in cho nhà tài trợ
           </CardDescription>
         </CardHeader>
         <CardContent>
