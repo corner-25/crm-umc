@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit, Trash2, Check, ArrowRight, FilterX, Search, Download } from "lucide-react";
+import { Plus, Edit, Trash2, ArrowRight, FilterX, Search, Download, ChevronDown, ChevronUp } from "lucide-react";
 import { CustomOptionSelect } from "@/components/ui/custom-option-select";
 import Link from "next/link";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -21,16 +21,21 @@ import {
   AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import * as XLSX from "xlsx";
 
 export default function InKindDonationsPage() {
   const [page, setPage] = useState(1);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [editingUsed, setEditingUsed] = useState<string | null>(null);
-  const [editUsedQty, setEditUsedQty] = useState("");
-  const [editUsedPurpose, setEditUsedPurpose] = useState("");
   const [donorSearch, setDonorSearch] = useState("");
   const [donorSearchDebounced, setDonorSearchDebounced] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Add usage dialog
+  const [addUsageId, setAddUsageId] = useState<string | null>(null);
+  const [addUsageQty, setAddUsageQty] = useState("");
+  const [addUsagePurpose, setAddUsagePurpose] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -42,10 +47,7 @@ export default function InKindDonationsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["in-kind-donations", page, donorSearchDebounced],
     queryFn: async () => {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: "20",
-      });
+      const params = new URLSearchParams({ page: page.toString(), limit: "20" });
       if (donorSearchDebounced) params.set("donorName", donorSearchDebounced);
       const res = await fetch(`/api/donations/in-kind?${params}`);
       if (!res.ok) throw new Error("Failed to fetch");
@@ -66,28 +68,55 @@ export default function InKindDonationsPage() {
     onError: () => toast({ variant: "destructive", title: "Không thể xóa tài trợ" }),
   });
 
-  const updateUsedMutation = useMutation({
-    mutationFn: async ({ id, usedQuantity, usedPurpose }: { id: string; usedQuantity: number; usedPurpose: string }) => {
+  const addUsageMutation = useMutation({
+    mutationFn: async ({ id, newEntry }: { id: string; newEntry: any }) => {
+      // Lấy donation hiện tại để đọc usageItems cũ
+      const getRes = await fetch(`/api/donations/in-kind/${id}`);
+      if (!getRes.ok) throw new Error("Failed to get");
+      const donation = await getRes.json();
+
+      const existingItems = Array.isArray(donation.usageItems) ? donation.usageItems : [];
+      const updatedItems = [...existingItems, newEntry];
+
       const res = await fetch(`/api/donations/in-kind/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ usedQuantity, usedPurpose }),
+        body: JSON.stringify({ usageItems: updatedItems }),
       });
       if (!res.ok) throw new Error("Failed");
     },
     onSuccess: () => {
-      toast({ title: "Đã cập nhật" });
+      toast({ title: "Đã thêm lần sử dụng" });
       queryClient.invalidateQueries({ queryKey: ["in-kind-donations"] });
-      setEditingUsed(null);
+      setAddUsageId(null);
+      setAddUsageQty("");
+      setAddUsagePurpose("");
     },
     onError: () => toast({ variant: "destructive", title: "Lỗi", description: "Không thể cập nhật" }),
   });
 
-  const startEditUsed = (d: any) => {
-    setEditingUsed(d.id);
-    setEditUsedQty((d.usedQuantity || 0).toString());
-    setEditUsedPurpose(d.usedPurpose || "");
-  };
+  const deleteUsageMutation = useMutation({
+    mutationFn: async ({ id, usageIdx }: { id: string; usageIdx: number }) => {
+      const getRes = await fetch(`/api/donations/in-kind/${id}`);
+      if (!getRes.ok) throw new Error("Failed to get");
+      const donation = await getRes.json();
+
+      const existingItems = Array.isArray(donation.usageItems) ? donation.usageItems : [];
+      const updatedItems = existingItems.filter((_: any, i: number) => i !== usageIdx);
+
+      const res = await fetch(`/api/donations/in-kind/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usageItems: updatedItems }),
+      });
+      if (!res.ok) throw new Error("Failed");
+    },
+    onSuccess: () => {
+      toast({ title: "Đã xoá lần sử dụng" });
+      queryClient.invalidateQueries({ queryKey: ["in-kind-donations"] });
+    },
+    onError: () => toast({ variant: "destructive", title: "Lỗi" }),
+  });
 
   const handleExportExcel = async () => {
     const params = new URLSearchParams({ page: "1", limit: "9999" });
@@ -106,7 +135,6 @@ export default function InKindDonationsPage() {
         "Số lượng": total,
         "Đơn vị": d.unit || "",
         "Đã sử dụng": used,
-        "Mục đích SD": d.usedPurpose || "",
         "Giá trị ước tính": d.estimatedValue || 0,
         "Trạng thái": status,
       };
@@ -119,6 +147,12 @@ export default function InKindDonationsPage() {
 
   const hasFilter = donorSearch;
   const clearFilters = () => { setDonorSearch(""); setPage(1); };
+
+  const openAddUsage = (donation: any) => {
+    setAddUsageId(donation.id);
+    setAddUsageQty("");
+    setAddUsagePurpose("");
+  };
 
   return (
     <div className="space-y-6">
@@ -188,9 +222,9 @@ export default function InKindDonationsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="min-w-[160px]">Nhà tài trợ</TableHead>
-                      <TableHead className="min-w-[120px]">Vật phẩm</TableHead>
+                      <TableHead className="min-w-[150px]">Vật phẩm</TableHead>
                       <TableHead className="min-w-[100px]">Giá trị</TableHead>
-                      <TableHead className="min-w-[180px]">Sử dụng</TableHead>
+                      <TableHead className="min-w-[200px]">Sử dụng</TableHead>
                       <TableHead className="min-w-[100px]">Trạng thái</TableHead>
                       <TableHead className="text-right min-w-[100px]">Thao tác</TableHead>
                     </TableRow>
@@ -207,14 +241,18 @@ export default function InKindDonationsPage() {
                         const used = donation.usedQuantity || 0;
                         const total = donation.quantity || 0;
                         const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
+                        const usageItems: any[] = Array.isArray(donation.usageItems) ? donation.usageItems : [];
+                        const extraItems: any[] = Array.isArray(donation.items) ? donation.items : [];
+                        const isExpanded = expandedId === donation.id;
+
                         return (
                           <TableRow key={donation.id}>
                             <TableCell>
                               <Link href={`/donors/${donation.donor.id}`} className="font-medium hover:underline">
                                 {donation.donor.fullName}
                               </Link>
-                              <div className="text-xs text-muted-foreground truncate max-w-[180px] mt-0.5">
-                                <Badge variant="secondary" className="text-[10px] mr-1">
+                              <div className="mt-0.5">
+                                <Badge variant="secondary" className="text-[10px]">
                                   {inKindCategoryLabels[donation.category as keyof typeof inKindCategoryLabels]}
                                 </Badge>
                               </div>
@@ -222,58 +260,87 @@ export default function InKindDonationsPage() {
                             <TableCell>
                               <div className="font-medium">{donation.itemName}</div>
                               <div className="text-xs text-muted-foreground">{donation.quantity} {donation.unit}</div>
+                              {extraItems.length > 0 && (
+                                <div className="mt-1 space-y-0.5">
+                                  {extraItems.map((item: any, i: number) => (
+                                    <div key={i} className="text-xs text-muted-foreground">
+                                      + {item.name} ({item.quantity} {item.unit})
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </TableCell>
                             <TableCell className="font-semibold whitespace-nowrap">
                               {donation.estimatedValue ? formatCurrency(donation.estimatedValue.toString()) : "—"}
                             </TableCell>
-                            <TableCell className="min-w-[180px]">
-                              {editingUsed === donation.id ? (
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center gap-1.5">
-                                    <Input type="number" min={0} max={total} value={editUsedQty} onChange={(e) => setEditUsedQty(e.target.value)} className="h-7 w-20 text-xs" />
-                                    <span className="text-xs text-muted-foreground">/ {total} {donation.unit}</span>
-                                  </div>
+                            <TableCell className="min-w-[200px]">
+                              <div className="space-y-1">
+                                {/* Progress bar */}
+                                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                                  <div
+                                    className={cn(
+                                      "h-full rounded-full transition-all",
+                                      used >= total ? "bg-green-500" : used > 0 ? "bg-amber-400" : "bg-muted-foreground/20"
+                                    )}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-muted-foreground">
+                                    {used} / {total} {donation.unit}
+                                  </span>
                                   <div className="flex items-center gap-1">
-                                    <div className="flex-1">
-                                      <CustomOptionSelect
-                                        type="inkind_purpose"
-                                        value={editUsedPurpose}
-                                        onChange={setEditUsedPurpose}
-                                        placeholder="Mục đích..."
-                                      />
-                                    </div>
-                                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-green-600 shrink-0" onClick={() => updateUsedMutation.mutate({ id: donation.id, usedQuantity: parseInt(editUsedQty) || 0, usedPurpose: editUsedPurpose })}>
-                                      <Check className="h-3.5 w-3.5" />
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-5 px-1.5 text-[10px] text-blue-600 hover:text-blue-700"
+                                      onClick={() => openAddUsage(donation)}
+                                    >
+                                      <Plus className="h-3 w-3 mr-0.5" />Ghi SD
                                     </Button>
+                                    {usageItems.length > 0 && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-5 w-5 p-0 text-muted-foreground"
+                                        onClick={() => setExpandedId(isExpanded ? null : donation.id)}
+                                      >
+                                        {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                      </Button>
+                                    )}
                                   </div>
                                 </div>
-                              ) : (
-                                <div className="cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1" onClick={() => startEditUsed(donation)}>
-                                  <div className="space-y-1">
-                                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                                      <div
-                                        className={cn(
-                                          "h-full rounded-full transition-all",
-                                          used >= total ? "bg-green-500" : used > 0 ? "bg-amber-400" : "bg-muted-foreground/20"
-                                        )}
-                                        style={{ width: `${pct}%` }}
-                                      />
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                      {used} / {total} {donation.unit}
-                                      {donation.usedPurpose && <span className="ml-1">· {donation.usedPurpose}</span>}
-                                    </div>
+                                {/* Usage history (expanded) */}
+                                {isExpanded && usageItems.length > 0 && (
+                                  <div className="mt-1 border rounded p-2 bg-muted/30 space-y-1">
+                                    {usageItems.map((u: any, i: number) => (
+                                      <div key={i} className="flex items-center justify-between text-xs">
+                                        <div>
+                                          <span className="font-medium">{u.quantity} {donation.unit}</span>
+                                          <span className="text-muted-foreground ml-1">· {u.purpose}</span>
+                                          {u.date && <span className="text-muted-foreground ml-1">· {new Date(u.date).toLocaleDateString("vi-VN")}</span>}
+                                        </div>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-5 w-5 p-0 text-red-400 hover:text-red-600"
+                                          onClick={() => deleteUsageMutation.mutate({ id: donation.id, usageIdx: i })}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    ))}
                                   </div>
-                                </div>
-                              )}
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               {used <= 0 ? (
                                 <Badge variant="outline" className="whitespace-nowrap">Đã nhận</Badge>
                               ) : used < total ? (
-                                <Badge variant="outline" className="border-amber-400 text-amber-700 whitespace-nowrap">Đang sử dụng</Badge>
+                                <Badge variant="outline" className="border-amber-400 text-amber-700 whitespace-nowrap">Đang SD</Badge>
                               ) : (
-                                <Badge variant="outline" className="border-green-500 text-green-700 whitespace-nowrap">Đã sử dụng</Badge>
+                                <Badge variant="outline" className="border-green-500 text-green-700 whitespace-nowrap">Đã SD hết</Badge>
                               )}
                             </TableCell>
                             <TableCell className="text-right">
@@ -320,6 +387,55 @@ export default function InKindDonationsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog thêm lần sử dụng */}
+      <Dialog open={!!addUsageId} onOpenChange={() => setAddUsageId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ghi nhận sử dụng</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label className="text-sm">Số lượng sử dụng</Label>
+              <Input
+                type="number"
+                min={1}
+                value={addUsageQty}
+                onChange={(e) => setAddUsageQty(e.target.value)}
+                placeholder="VD: 50"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Mục đích</Label>
+              <CustomOptionSelect
+                type="inkind_purpose"
+                value={addUsagePurpose}
+                onChange={setAddUsagePurpose}
+                placeholder="Chọn hoặc nhập mục đích..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddUsageId(null)}>Huỷ</Button>
+            <Button
+              disabled={!addUsageQty || !addUsagePurpose || addUsageMutation.isPending}
+              onClick={() => {
+                if (!addUsageId) return;
+                addUsageMutation.mutate({
+                  id: addUsageId,
+                  newEntry: {
+                    quantity: parseInt(addUsageQty) || 0,
+                    purpose: addUsagePurpose,
+                    date: new Date().toISOString(),
+                  },
+                });
+              }}
+            >
+              {addUsageMutation.isPending ? "Đang lưu..." : "Thêm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>

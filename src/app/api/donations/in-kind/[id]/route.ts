@@ -46,11 +46,22 @@ export async function PUT(
 
     const body = await request.json();
 
+    // Nếu có usageItems → tự tính usedQuantity từ tổng
+    if (body.usageItems && Array.isArray(body.usageItems)) {
+      body.usedQuantity = body.usageItems.reduce(
+        (sum: number, item: any) => sum + (Number(item.quantity) || 0),
+        0
+      );
+      // usedPurpose = mục đích gần nhất (entry cuối)
+      const lastEntry = body.usageItems[body.usageItems.length - 1];
+      body.usedPurpose = lastEntry?.purpose || body.usedPurpose || null;
+    }
+
     const donation = await prisma.donationInKind.update({
       where: { id: params.id },
       data: {
         ...body,
-        expiryDate: body.expiryDate ? new Date(body.expiryDate) : null,
+        expiryDate: body.expiryDate ? new Date(body.expiryDate) : undefined,
       },
       include: {
         donor: true,
