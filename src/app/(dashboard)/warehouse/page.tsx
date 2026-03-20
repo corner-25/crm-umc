@@ -346,6 +346,13 @@ function QuickImportDialog({ open, onClose, items, prefill }: { open: boolean; o
 
   const [rows, setRows] = useState<QuickRow[]>([prefill ? prefillRow() : emptyRow()]);
 
+  // Sync prefill khi nó thay đổi (vì state init 1 lần, prefill có thể đến sau)
+  useEffect(() => {
+    if (prefill && open) {
+      setRows([prefillRow()]);
+    }
+  }, [prefill, open]);
+
   const updateRow = (idx: number, updates: Partial<QuickRow>) => {
     setRows((prev) => prev.map((r, i) => i === idx ? { ...r, ...updates } : r));
   };

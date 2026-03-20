@@ -138,24 +138,22 @@ export default function InKindDonationsPage() {
           ) : (
             <>
               <div className="rounded-md border overflow-x-auto">
-                <Table>
+                <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nhà tài trợ</TableHead>
-                      <TableHead>Vật phẩm</TableHead>
-                      <TableHead>Danh mục</TableHead>
-                      <TableHead>Số lượng</TableHead>
-                      <TableHead>Đã sử dụng</TableHead>
-                      <TableHead>Mục đích SD</TableHead>
-                      <TableHead>Trạng thái</TableHead>
-                      <TableHead>Giá trị ước tính</TableHead>
-                      <TableHead className="text-right">Thao tác</TableHead>
+                      <TableHead className="w-[140px]">Nhà tài trợ</TableHead>
+                      <TableHead className="w-[130px]">Vật phẩm</TableHead>
+                      <TableHead className="w-[100px]">Danh mục</TableHead>
+                      <TableHead className="w-[100px]">Giá trị</TableHead>
+                      <TableHead className="w-[200px]">Sử dụng</TableHead>
+                      <TableHead className="w-[80px]">Trạng thái</TableHead>
+                      <TableHead className="w-[110px] text-right">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data?.donations?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center">
+                        <TableCell colSpan={7} className="text-center">
                           Không có dữ liệu
                         </TableCell>
                       </TableRow>
@@ -163,83 +161,83 @@ export default function InKindDonationsPage() {
                       data?.donations?.map((donation: any) => {
                         const status = getAutoStatus(donation);
                         return (
-                        <TableRow key={donation.id}>
-                          <TableCell>
+                        <TableRow key={donation.id} className="h-[44px]">
+                          <TableCell className="py-1">
                             <Link
                               href={`/donors/${donation.donor.id}`}
-                              className="font-medium hover:underline"
+                              className="font-medium hover:underline text-sm"
                             >
                               {donation.donor.fullName}
                             </Link>
                           </TableCell>
-                          <TableCell className="font-medium">
-                            {donation.itemName}
+                          <TableCell className="py-1">
+                            <div className="text-sm font-medium truncate">{donation.itemName}</div>
+                            <div className="text-xs text-muted-foreground">{donation.quantity} {donation.unit}</div>
                           </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">
+                          <TableCell className="py-1">
+                            <Badge variant="secondary" className="text-[10px]">
                               {inKindCategoryLabels[donation.category as keyof typeof inKindCategoryLabels]}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            {donation.quantity} {donation.unit}
-                          </TableCell>
-                          <TableCell>
-                            {editingUsed === donation.id ? (
-                              <div className="flex items-center gap-1">
-                                <Input type="number" min={0} max={donation.quantity} value={editUsedQty} onChange={(e) => setEditUsedQty(e.target.value)} className="h-7 w-20 text-xs" />
-                                <span className="text-xs text-muted-foreground">{donation.unit}</span>
-                              </div>
-                            ) : (
-                              <span className={`cursor-pointer hover:underline ${(donation.usedQuantity || 0) > 0 ? "font-medium" : "text-muted-foreground"}`} onClick={() => startEditUsed(donation)}>
-                                {donation.usedQuantity || 0} / {donation.quantity} {donation.unit}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="max-w-[220px]">
-                            {editingUsed === donation.id ? (
-                              <div className="flex items-center gap-1">
-                                <div className="flex-1">
-                                  <CustomOptionSelect
-                                    type="inkind_purpose"
-                                    value={editUsedPurpose}
-                                    onChange={setEditUsedPurpose}
-                                    placeholder="Chọn mục đích..."
-                                  />
-                                </div>
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-green-600 shrink-0" onClick={() => updateUsedMutation.mutate({ id: donation.id, usedQuantity: parseInt(editUsedQty) || 0, usedPurpose: editUsedPurpose })}>
-                                  <Check className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <span className={`text-sm cursor-pointer hover:underline ${donation.usedPurpose ? "" : "text-muted-foreground italic"}`} onClick={() => startEditUsed(donation)}>
-                                {donation.usedPurpose || "Chưa ghi"}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={`${status.color} border-0 text-xs`}>{status.label}</Badge>
-                          </TableCell>
-                          <TableCell className="font-semibold">
+                          <TableCell className="py-1 text-sm font-semibold">
                             {donation.estimatedValue ? formatCurrency(donation.estimatedValue.toString()) : "—"}
                           </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                              <Button variant="ghost" size="icon" asChild title="Nhập kho">
+                          <TableCell className="py-1">
+                            {editingUsed === donation.id ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1">
+                                  <Input type="number" min={0} max={donation.quantity} value={editUsedQty} onChange={(e) => setEditUsedQty(e.target.value)} className="h-7 w-16 text-xs" />
+                                  <span className="text-[10px] text-muted-foreground">/ {donation.quantity} {donation.unit}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <div className="flex-1">
+                                    <CustomOptionSelect
+                                      type="inkind_purpose"
+                                      value={editUsedPurpose}
+                                      onChange={setEditUsedPurpose}
+                                      placeholder="Mục đích..."
+                                    />
+                                  </div>
+                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-green-600 shrink-0" onClick={() => updateUsedMutation.mutate({ id: donation.id, usedQuantity: parseInt(editUsedQty) || 0, usedPurpose: editUsedPurpose })}>
+                                    <Check className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1" onClick={() => startEditUsed(donation)}>
+                                <div className="text-sm">
+                                  <span className={`${(donation.usedQuantity || 0) > 0 ? "font-medium" : "text-muted-foreground"}`}>
+                                    {donation.usedQuantity || 0} / {donation.quantity} {donation.unit}
+                                  </span>
+                                </div>
+                                {donation.usedPurpose && (
+                                  <div className="text-xs text-muted-foreground truncate">{donation.usedPurpose}</div>
+                                )}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-1">
+                            <Badge className={`${status.color} border-0 text-[10px] whitespace-nowrap`}>{status.label}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right py-1">
+                            <div className="flex justify-end gap-0.5">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" asChild title="Nhập kho">
                                 <Link href={`/warehouse?import_from=inkind&donation_id=${donation.id}&item_name=${encodeURIComponent(donation.itemName)}&quantity=${donation.quantity}&unit=${encodeURIComponent(donation.unit)}&donor=${encodeURIComponent(donation.donor.fullName)}&category=${donation.category}`}>
-                                  <ArrowRight className="h-4 w-4 text-blue-600" />
+                                  <ArrowRight className="h-3.5 w-3.5 text-blue-600" />
                                 </Link>
                               </Button>
-                              <Button variant="ghost" size="icon" asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
                                 <Link href={`/donations/in-kind/${donation.id}/edit`}>
-                                  <Edit className="h-4 w-4" />
+                                  <Edit className="h-3.5 w-3.5" />
                                 </Link>
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                className="h-7 w-7"
                                 onClick={() => setDeleteId(donation.id)}
                               >
-                                <Trash2 className="h-4 w-4 text-destructive" />
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
                               </Button>
                             </div>
                           </TableCell>
