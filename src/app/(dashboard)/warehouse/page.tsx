@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -576,6 +576,14 @@ function QuickImportDialog({ open, onClose, items, prefill }: { open: boolean; o
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 export default function WarehousePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Đang tải...</div>}>
+      <WarehouseContent />
+    </Suspense>
+  );
+}
+
+function WarehouseContent() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const searchParams = useSearchParams();
