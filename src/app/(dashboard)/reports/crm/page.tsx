@@ -285,10 +285,10 @@ export default function ReportsPage() {
     const totalWithout = planSelected.reduce((s, d) => d.id === donationId ? s : s + d._take, 0);
     const shortage = Math.max(0, planTarget - totalWithout);
 
-    // Tìm khoản thay thế từ pool (chưa có trong plan, chưa bị hardRemoved)
+    // Tìm khoản thay thế từ pool (chưa có trong plan, chưa bị soft/hard removed)
     const selectedIds = new Set(planSelected.map((d) => d.id));
     const candidates = filteredPool
-      .filter((d) => !selectedIds.has(d.id) && !hardRemovedIds.has(d.id) && d.id !== donationId)
+      .filter((d) => !selectedIds.has(d.id) && !hardRemovedIds.has(d.id) && !softRemovedIds.has(d.id) && d.id !== donationId)
       .sort((a, b) => Math.abs(a._avail - shortage) - Math.abs(b._avail - shortage));
 
     const replacement = candidates[0] || null;
@@ -484,6 +484,24 @@ export default function ReportsPage() {
       toast({ title: "Đã từ chối", description: "Kế hoạch bị từ chối" });
     } catch {
       toast({ variant: "destructive", title: "Lỗi", description: "Không thể từ chối" });
+    }
+  }, [savedPlanId, queryClient, toast]);
+
+  const handleUnapprovePlan = useCallback(async (planId: string) => {
+    if (!confirm("Huỷ duyệt sẽ hoàn lại tiền đã trừ vào các khoản tài trợ. Tiếp tục?")) return;
+    try {
+      const res = await fetch(`/api/mobilization-plans/${planId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unapprove" }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      if (planId === savedPlanId) setSavedPlanStatus("DRAFT");
+      queryClient.invalidateQueries({ queryKey: ["mobilization-plans"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-donations"] });
+      toast({ title: "Đã huỷ duyệt", description: "Tiền đã được hoàn lại vào các khoản tài trợ" });
+    } catch {
+      toast({ variant: "destructive", title: "Lỗi", description: "Không thể huỷ duyệt" });
     }
   }, [savedPlanId, queryClient, toast]);
 
@@ -1158,7 +1176,12 @@ export default function ReportsPage() {
                       </>
                     )}
                     {savedPlanId && savedPlanStatus === "APPROVED" && (
-                      <Badge className="text-xs bg-green-100 text-green-800 border-green-300"><CheckCircle2 className="h-3 w-3 mr-1" />Đã duyệt — tiền đã trừ</Badge>
+                      <>
+                        <Badge className="text-xs bg-green-100 text-green-800 border-green-300"><CheckCircle2 className="h-3 w-3 mr-1" />Đã duyệt — tiền đã trừ</Badge>
+                        <Button size="sm" variant="outline" className="text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => handleUnapprovePlan(savedPlanId)}>
+                          <XCircle className="h-4 w-4 mr-1" />Huỷ duyệt
+                        </Button>
+                      </>
                     )}
                     {savedPlanId && savedPlanStatus === "REJECTED" && (
                       <Badge variant="destructive" className="text-xs"><XCircle className="h-3 w-3 mr-1" />Từ chối</Badge>
@@ -1291,7 +1314,17 @@ export default function ReportsPage() {
                                 </Button>
                               )}
                               {p.status === "APPROVED" && (
-                                <span className="text-xs text-green-700">Duyệt lúc {p.approvedAt ? formatDate(p.approvedAt) : ""}</span>
+                                <>
+                                  <span className="text-xs text-green-700">Duyệt lúc {p.approvedAt ? formatDate(p.approvedAt) : ""}</span>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs text-orange-600 border-orange-300 hover:bg-orange-50"
+                                    onClick={() => handleUnapprovePlan(p.id)}
+                                  >
+                                    <XCircle className="h-3.5 w-3.5 mr-1" />Huỷ duyệt
+                                  </Button>
+                                </>
                               )}
                             </div>
                           </TableCell>

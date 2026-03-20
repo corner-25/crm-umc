@@ -117,6 +117,53 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json(updated);
     }
 
+    // Huỷ duyệt → hoàn lại tiền vào các khoản donation
+    if (action === "unapprove") {
+      if (plan.status !== "APPROVED") {
+        return NextResponse.json({ error: "Chỉ có thể huỷ duyệt kế hoạch đã duyệt" }, { status: 400 });
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        for (const item of plan.items) {
+          const donation = await tx.donationCash.findUnique({
+            where: { id: item.donationCashId },
+          });
+          if (!donation) continue;
+
+          const currentUsed = Number(donation.usedAmount);
+          const take = Number(item.takeAmount);
+          const newUsed = Math.max(0, currentUsed - take);
+
+          // Xoá entry trong usageItems có planId trùng
+          const existingItems = Array.isArray(donation.usageItems) ? donation.usageItems : [];
+          const newUsageItems = (existingItems as any[]).filter(
+            (u: any) => u.planId !== plan.id
+          );
+
+          await tx.donationCash.update({
+            where: { id: item.donationCashId },
+            data: {
+              usedAmount: newUsed,
+              usageItems: newUsageItems as any,
+            },
+          });
+        }
+
+        return tx.mobilizationPlan.update({
+          where: { id },
+          data: {
+            status: "DRAFT",
+            approvedAt: null,
+            approvedBy: null,
+            note: note ? `[Huỷ duyệt] ${note}` : `[Huỷ duyệt] ${plan.note || ""}`,
+          },
+          include: { items: true },
+        });
+      });
+
+      return NextResponse.json(result);
+    }
+
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error) {
     console.error("Update mobilization plan error:", error);
