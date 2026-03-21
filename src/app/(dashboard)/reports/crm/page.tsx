@@ -20,6 +20,23 @@ import Link from "next/link";
 
 type ReportType = "overview" | "yearly" | "pending";
 
+/** Parse purpose từ DB (JSON array string hoặc plain string) thành mảng */
+function parsePurposes(purpose: string | undefined | null): string[] {
+  if (!purpose) return [];
+  try {
+    const parsed = JSON.parse(purpose);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {}
+  return [purpose];
+}
+
+/** Hiển thị purpose: join bằng dấu phẩy */
+function displayPurpose(d: { purposeOther?: string; purpose?: string }): string {
+  if (d.purposeOther) return d.purposeOther;
+  const purposes = parsePurposes(d.purpose);
+  return purposes.length > 0 ? purposes.join(", ") : "Không rõ";
+}
+
 type DrilldownGroup = { label: string; items: any[] } | null;
 
 export default function ReportsPage() {
@@ -80,11 +97,14 @@ export default function ReportsPage() {
 
     const byPurpose: Record<string, { total: number; used: number; count: number }> = {};
     allCash.forEach((d) => {
-      const p = d.purposeOther || d.purpose || "Không rõ";
-      if (!byPurpose[p]) byPurpose[p] = { total: 0, used: 0, count: 0 };
-      byPurpose[p].total += Number(d.amount);
-      byPurpose[p].used += Number(d.usedAmount || 0);
-      byPurpose[p].count += 1;
+      const purposes = d.purposeOther ? [d.purposeOther] : parsePurposes(d.purpose);
+      const keys = purposes.length > 0 ? purposes : ["Không rõ"];
+      keys.forEach((p) => {
+        if (!byPurpose[p]) byPurpose[p] = { total: 0, used: 0, count: 0 };
+        byPurpose[p].total += Number(d.amount);
+        byPurpose[p].used += Number(d.usedAmount || 0);
+        byPurpose[p].count += 1;
+      });
     });
 
     const byCustodian: Record<string, { total: number; used: number; count: number }> = {};
@@ -129,7 +149,10 @@ export default function ReportsPage() {
   const filteredPool = useMemo(() => {
     let pool = allCash.filter((d) => Number(d.usedAmount || 0) < Number(d.amount));
     if (targetPurpose && targetPurpose !== "all") {
-      pool = pool.filter((d) => (d.purposeOther || d.purpose) === targetPurpose);
+      pool = pool.filter((d) => {
+        if (d.purposeOther) return d.purposeOther === targetPurpose;
+        return parsePurposes(d.purpose).includes(targetPurpose);
+      });
     }
     if (targetCustodian && targetCustodian !== "all") {
       pool = pool.filter((d) => (d.custodian || "Không rõ") === targetCustodian);
@@ -558,7 +581,7 @@ export default function ReportsPage() {
         ["Nhà tài trợ", "Ngày nhận", "Mục đích", "Số tiền", "Đã dùng", "Còn lại", "% SD", "Người giữ"],
         ...items.map((d) => {
           const amt = Number(d.amount), usd = Number(d.usedAmount || 0);
-          return [d.donor?.fullName || "", formatDate(d.receivedDate), d.purposeOther || d.purpose || "", amt, usd, amt - usd, amt > 0 ? `${((usd / amt) * 100).toFixed(1)}%` : "0%", d.custodian || ""];
+          return [d.donor?.fullName || "", formatDate(d.receivedDate), displayPurpose(d), amt, usd, amt - usd, amt > 0 ? `${((usd / amt) * 100).toFixed(1)}%` : "0%", d.custodian || ""];
         }),
       ];
       const ws = XLSX.utils.aoa_to_sheet(rows);
@@ -580,7 +603,7 @@ export default function ReportsPage() {
         ["STT", "Nhà tài trợ", "Ngày nhận", "Mục đích", "Tổng tiền", "Đã dùng", "Còn lại", "% Đã dùng", "Số ngày tồn", "Người giữ"],
         ...pendingData.map((d, i) => {
           const amt = Number(d.amount), usd = Number(d.usedAmount || 0);
-          return [i + 1, d.donor?.fullName || "", formatDate(d.receivedDate), d.purposeOther || d.purpose || "", amt, usd, amt - usd, amt > 0 ? `${((usd / amt) * 100).toFixed(1)}%` : "0%", differenceInDays(today, new Date(d.receivedDate)), d.custodian || ""];
+          return [i + 1, d.donor?.fullName || "", formatDate(d.receivedDate), displayPurpose(d), amt, usd, amt - usd, amt > 0 ? `${((usd / amt) * 100).toFixed(1)}%` : "0%", differenceInDays(today, new Date(d.receivedDate)), d.custodian || ""];
         }),
         [],
         ["TỔNG", "", "", "", pendingData.reduce((s, d) => s + Number(d.amount), 0), pendingData.reduce((s, d) => s + Number(d.usedAmount || 0), 0), pendingData.reduce((s, d) => s + Number(d.amount) - Number(d.usedAmount || 0), 0)],
@@ -593,7 +616,7 @@ export default function ReportsPage() {
       pendingData.forEach((d, i) => {
         const amt = Number(d.amount), usd = Number(d.usedAmount || 0);
         detailRows.push([`${i + 1}. ${d.donor?.fullName || "Không rõ"} — ${formatDate(d.receivedDate)}`]);
-        detailRows.push(["Mục đích:", d.purposeOther || d.purpose || "Không rõ"]);
+        detailRows.push(["Mục đích:", displayPurpose(d)]);
         detailRows.push(["Tổng tiền:", amt, "Đã dùng:", usd, "Còn lại:", amt - usd, amt > 0 ? `${((usd / amt) * 100).toFixed(1)}%` : "0%"]);
         detailRows.push(["Tồn đọng:", `${differenceInDays(today, new Date(d.receivedDate))} ngày`, "Người giữ:", d.custodian || ""]);
         const items: any[] = Array.isArray(d.usageItems) ? d.usageItems : [];
@@ -632,7 +655,7 @@ export default function ReportsPage() {
         [],
         ["STT", "Nhà tài trợ", "Ngày nhận", "Mục đích gốc", "Tổng khoản", "Đã dùng", "Còn lại", "Lấy bao nhiêu", "Ghi chú"],
         ...selected.map((d, i) => [
-          i + 1, d.donor?.fullName || "", formatDate(d.receivedDate), d.purposeOther || d.purpose || "",
+          i + 1, d.donor?.fullName || "", formatDate(d.receivedDate), displayPurpose(d),
           Number(d.amount), Number(d.usedAmount || 0), d._avail, d._take,
           Number(d.usedAmount || 0) === 0 ? "Chưa sử dụng" : "Đang sử dụng dở",
         ]),
@@ -742,7 +765,10 @@ export default function ReportsPage() {
                                   variant="ghost" size="icon" className="h-7 w-7"
                                   onClick={() => setDrilldown({
                                     label: `Mục đích: ${p}`,
-                                    items: allCash.filter((d) => (d.purposeOther || d.purpose || "Không rõ") === p),
+                                    items: allCash.filter((d) => {
+                                      const purposes = d.purposeOther ? [d.purposeOther] : parsePurposes(d.purpose);
+                                      return (purposes.length > 0 ? purposes : ["Không rõ"]).includes(p);
+                                    }),
                                   })}
                                 >
                                   <Eye className="h-4 w-4 text-muted-foreground" />
@@ -909,7 +935,7 @@ export default function ReportsPage() {
                           <TableRow key={d.id}>
                             <TableCell className="font-medium">{d.donor?.fullName || "—"}</TableCell>
                             <TableCell>{formatDate(d.receivedDate)}</TableCell>
-                            <TableCell className="max-w-[150px] truncate">{d.purposeOther || d.purpose || "—"}</TableCell>
+                            <TableCell className="max-w-[150px] truncate">{displayPurpose(d)}</TableCell>
                             <TableCell className="text-right">{formatCurrency(amt.toString())}</TableCell>
                             <TableCell className="text-right">{usd > 0 ? formatCurrency(usd.toString()) : "—"}</TableCell>
                             <TableCell className="text-right font-medium text-orange-600">{formatCurrency((amt - usd).toString())}</TableCell>
@@ -1089,7 +1115,7 @@ export default function ReportsPage() {
                       <TableRow key={d.id} className={`h-[44px] ${d._source === "manual" ? "bg-blue-50 dark:bg-blue-950/20" : d._take < d._avail ? "bg-yellow-50 dark:bg-yellow-950/20" : ""}`}>
                         <TableCell className="font-medium truncate">{d.donor?.fullName || "—"}</TableCell>
                         <TableCell className="text-sm">{formatDate(d.receivedDate)}</TableCell>
-                        <TableCell className="truncate text-sm">{d.purposeOther || d.purpose || "—"}</TableCell>
+                        <TableCell className="truncate text-sm">{displayPurpose(d)}</TableCell>
                         <TableCell className="text-right text-sm">{formatCurrency(Number(d.amount).toString())}</TableCell>
                         <TableCell className="text-right text-sm">{formatCurrency(d._avail.toString())}</TableCell>
                         <TableCell className="text-right font-bold text-green-700 text-sm">{formatCurrency(d._take.toString())}</TableCell>
@@ -1392,7 +1418,7 @@ export default function ReportsPage() {
                           {d._outOfFilter && <Badge variant="outline" className="ml-1.5 text-[9px] h-4 border-orange-400 text-orange-600">Ngoài filter</Badge>}
                         </TableCell>
                         <TableCell className="text-sm">{formatDate(d.receivedDate)}</TableCell>
-                        <TableCell className="text-sm max-w-[150px] truncate">{d.purposeOther || d.purpose || "—"}</TableCell>
+                        <TableCell className="text-sm max-w-[150px] truncate">{displayPurpose(d)}</TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(d._avail.toString())}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{d.custodian || "—"}</TableCell>
                         <TableCell>
@@ -1466,7 +1492,7 @@ export default function ReportsPage() {
                       </Link>
                     </TableCell>
                     <TableCell className="text-sm whitespace-nowrap">{formatDate(d.receivedDate)}</TableCell>
-                    <TableCell className="text-sm max-w-[180px] truncate">{d.purposeOther || d.purpose || "—"}</TableCell>
+                    <TableCell className="text-sm max-w-[180px] truncate">{displayPurpose(d)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{d.custodian || "—"}</TableCell>
                     <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(amt.toString())}</TableCell>
                     <TableCell className="text-right whitespace-nowrap text-muted-foreground">{used > 0 ? formatCurrency(used.toString()) : "—"}</TableCell>

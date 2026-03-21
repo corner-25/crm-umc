@@ -3,6 +3,16 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+/** Parse purpose từ DB (JSON array string hoặc plain string) thành chuỗi hiển thị */
+function displayPurpose(purpose: string | undefined | null): string {
+  if (!purpose) return "—";
+  try {
+    const parsed = JSON.parse(purpose);
+    if (Array.isArray(parsed)) return parsed.join(", ");
+  } catch {}
+  return purpose;
+}
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -451,7 +461,7 @@ export default function DonorDetailPage() {
                     receivedDate: d.receivedDate,
                     amount: Number(d.amount),
                     usedAmount: Number(d.usedAmount || 0),
-                    purpose: d.purpose,
+                    purpose: displayPurpose(d.purpose),
                     status: d.status,
                     currency: d.currency,
                     paymentMethod: d.paymentMethod,
@@ -505,7 +515,7 @@ export default function DonorDetailPage() {
                           return (
                             <TableRow key={`cash-${row.id}`}>
                               <TableCell className="whitespace-nowrap">{formatDate(row.receivedDate)}</TableCell>
-                              <TableCell className="font-medium">{row.purpose}</TableCell>
+                              <TableCell className="font-medium">{displayPurpose(row.purpose)}</TableCell>
                               <TableCell className="text-right whitespace-nowrap">
                                 {formatCurrency(row.amount.toString(), row.currency)}
                               </TableCell>
