@@ -26,7 +26,7 @@ export const cashDonationSchema = z.object({
   currency: z.enum(["VND", "USD", "EUR"]),
   paymentMethod: z.enum(["CASH", "BANK_TRANSFER", "E_WALLET"]),
   receivedDate: z.date(),
-  purpose: z.string().min(1, "Vui lòng chọn mục đích tài trợ"),
+  purpose: z.array(z.string()).min(1, "Vui lòng chọn mục đích tài trợ"),
   purposeOther: z.string().optional(),
   receiptUrl: z.string().optional(),
   status: z.enum(["COMMITTED", "RECEIVED", "IN_USE", "REPORTED"]),

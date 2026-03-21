@@ -35,7 +35,7 @@ const quickEntrySchema = z.object({
   currency: z.enum(["VND", "USD", "EUR"]),
   paymentMethod: z.enum(["CASH", "BANK_TRANSFER", "E_WALLET"]),
   receivedDate: z.date(),
-  purpose: z.string().min(1, "Vui lòng chọn mục đích"),
+  purpose: z.array(z.string()).min(1, "Vui lòng chọn mục đích"),
   status: z.enum(["COMMITTED", "RECEIVED", "IN_USE", "REPORTED"]),
   custodian: z.string().min(1, "Vui lòng chọn người giữ tiền"),
   voucherCode: z.string().optional(),
@@ -68,7 +68,7 @@ export default function QuickEntryPage() {
       currency: "VND",
       paymentMethod: "CASH",
       receivedDate: new Date(),
-      purpose: "",
+      purpose: [],
       status: "RECEIVED",
       custodian: "Uỷ quyền cho phòng CTXH",
       voucherCode: "",
@@ -338,6 +338,7 @@ export default function QuickEntryPage() {
                           value={field.value}
                           onChange={field.onChange}
                           placeholder="Chọn mục đích tài trợ"
+                          multiple
                         />
                       </FormControl>
                       <FormMessage />

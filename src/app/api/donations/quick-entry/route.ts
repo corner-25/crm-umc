@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
         currency: donationData.currency || "VND",
         paymentMethod: donationData.paymentMethod || "CASH",
         receivedDate: new Date(donationData.receivedDate),
-        purpose: donationData.purpose,
+        purpose: Array.isArray(donationData.purpose) ? JSON.stringify(donationData.purpose) : donationData.purpose,
         purposeOther: donationData.purposeOther || null,
         status: donationData.status || "RECEIVED",
         custodian: donationData.custodian || "Uỷ quyền cho phòng CTXH",

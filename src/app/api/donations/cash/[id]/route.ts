@@ -52,10 +52,16 @@ export async function PUT(
       ? usageItems.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0)
       : undefined;
 
+    // Serialize purpose array to JSON string for DB storage
+    const purpose = Array.isArray(body.purpose)
+      ? JSON.stringify(body.purpose)
+      : body.purpose;
+
     const donation = await prisma.donationCash.update({
       where: { id: params.id },
       data: {
         ...body,
+        purpose,
         receivedDate: body.receivedDate ? new Date(body.receivedDate) : undefined,
         ...(usedAmount !== undefined && { usedAmount }),
       },

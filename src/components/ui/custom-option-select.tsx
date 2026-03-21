@@ -11,17 +11,31 @@ import { cn } from "@/lib/utils";
 
 interface CustomOptionSelectProps {
   type: string;
-  value: string;
-  onChange: (value: string) => void;
+  value: string | string[];
+  onChange: (value: string | string[]) => void;
   placeholder?: string;
   disabled?: boolean;
   protectedValues?: string[];
+  multiple?: boolean;
 }
 
-export function CustomOptionSelect({ type, value, onChange, placeholder = "Chọn hoặc thêm mới...", disabled, protectedValues = [] }: CustomOptionSelectProps) {
+export function CustomOptionSelect({ type, value, onChange, placeholder = "Chọn hoặc thêm mới...", disabled, protectedValues = [], multiple = false }: CustomOptionSelectProps) {
   const [open, setOpen] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const queryClient = useQueryClient();
+
+  // Normalize value for multi-select
+  const selectedValues: string[] = multiple
+    ? (Array.isArray(value) ? value : value ? [value] : [])
+    : [];
+
+  const toggleValue = (label: string) => {
+    if (!multiple) return;
+    const newValues = selectedValues.includes(label)
+      ? selectedValues.filter(v => v !== label)
+      : [...selectedValues, label];
+    (onChange as (value: string[]) => void)(newValues);
+  };
 
   const { data: options = [] } = useQuery<{ id: string; label: string }[]>({
     queryKey: ["custom-options", type],
@@ -44,7 +58,11 @@ export function CustomOptionSelect({ type, value, onChange, placeholder = "Chọ
     },
     onSuccess: (newOption) => {
       queryClient.invalidateQueries({ queryKey: ["custom-options", type] });
-      onChange(newOption.label);
+      if (multiple) {
+        (onChange as (value: string[]) => void)([...selectedValues, newOption.label]);
+      } else {
+        (onChange as (value: string) => void)(newOption.label);
+      }
       setNewLabel("");
     },
   });
@@ -72,9 +90,13 @@ export function CustomOptionSelect({ type, value, onChange, placeholder = "Chọ
           variant="outline"
           role="combobox"
           disabled={disabled}
-          className={cn("w-full justify-between font-normal", !value && "text-muted-foreground")}
+          className={cn("w-full justify-between font-normal", (!value || (Array.isArray(value) && value.length === 0)) && "text-muted-foreground")}
         >
-          {value || placeholder}
+          <span className="truncate">
+            {multiple
+              ? (selectedValues.length > 0 ? selectedValues.join(", ") : placeholder)
+              : (value || placeholder)}
+          </span>
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -91,11 +113,19 @@ export function CustomOptionSelect({ type, value, onChange, placeholder = "Chọ
                 .map((option) => (
                   <CommandItem
                     key={option.id}
-                    onSelect={() => { onChange(option.label); setOpen(false); setNewLabel(""); }}
+                    onSelect={() => {
+                      if (multiple) {
+                        toggleValue(option.label);
+                      } else {
+                        (onChange as (value: string) => void)(option.label);
+                        setOpen(false);
+                        setNewLabel("");
+                      }
+                    }}
                     className="flex items-center justify-between pr-1"
                   >
                     <div className="flex items-center gap-2">
-                      <Check className={cn("h-4 w-4", value === option.label ? "opacity-100" : "opacity-0")} />
+                      <Check className={cn("h-4 w-4", (multiple ? selectedValues.includes(option.label) : value === option.label) ? "opacity-100" : "opacity-0")} />
                       {option.label}
                     </div>
                     {!protectedValues.includes(option.label) && (

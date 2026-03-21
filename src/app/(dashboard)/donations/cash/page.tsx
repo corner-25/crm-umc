@@ -102,7 +102,14 @@ export default function CashDonationsPage() {
       return {
         "STT": i + 1,
         "Nhà tài trợ": d.donor?.fullName || "",
-        "Mục đích": d.purpose || "",
+        "Mục đích": (() => {
+          try {
+            const parsed = JSON.parse(d.purpose);
+            return Array.isArray(parsed) ? parsed.join(", ") : d.purpose || "";
+          } catch {
+            return d.purpose || "";
+          }
+        })(),
         "Số tiền": amount,
         "Tiền tệ": d.currency || "VND",
         "Đã sử dụng": used,
@@ -269,7 +276,14 @@ export default function CashDonationsPage() {
                                 {donation.donor.fullName}
                               </Link>
                               <div className="text-xs text-muted-foreground truncate max-w-[180px] mt-0.5">
-                                {donation.purpose}
+                                {(() => {
+                                  try {
+                                    const parsed = JSON.parse(donation.purpose);
+                                    return Array.isArray(parsed) ? parsed.join(", ") : donation.purpose;
+                                  } catch {
+                                    return donation.purpose;
+                                  }
+                                })()}
                               </div>
                             </TableCell>
                             <TableCell className="font-semibold whitespace-nowrap">

@@ -63,7 +63,7 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
       currency: "VND",
       paymentMethod: "BANK_TRANSFER",
       receivedDate: new Date(),
-      purpose: "",
+      purpose: [],
       purposeOther: "",
       receiptUrl: "",
       status: "RECEIVED",
@@ -286,6 +286,7 @@ export function CashDonationForm({ defaultValues, onSubmit, isLoading }: CashDon
                     value={field.value}
                     onChange={field.onChange}
                     placeholder="Chọn hoặc thêm mục đích..."
+                    multiple
                   />
                 </FormControl>
                 <FormMessage />

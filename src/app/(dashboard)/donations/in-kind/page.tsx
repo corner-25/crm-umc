@@ -413,7 +413,7 @@ export default function InKindDonationsPage() {
               <CustomOptionSelect
                 type="inkind_purpose"
                 value={addUsagePurpose}
-                onChange={setAddUsagePurpose}
+                onChange={(v) => setAddUsagePurpose(v as string)}
                 placeholder="Chọn hoặc nhập mục đích..."
               />
             </div>

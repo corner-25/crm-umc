@@ -75,7 +75,14 @@ export default function EditCashDonationPage({ params }: { params: { id: string 
               currency: donation.currency,
               paymentMethod: donation.paymentMethod,
               receivedDate: new Date(donation.receivedDate),
-              purpose: donation.purpose,
+              purpose: (() => {
+                try {
+                  const parsed = JSON.parse(donation.purpose);
+                  return Array.isArray(parsed) ? parsed : [donation.purpose];
+                } catch {
+                  return donation.purpose ? [donation.purpose] : [];
+                }
+              })(),
               purposeOther: donation.purposeOther || undefined,
               receiptUrl: donation.receiptUrl || undefined,
               status: donation.status,

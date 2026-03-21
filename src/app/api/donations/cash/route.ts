@@ -203,9 +203,15 @@ export async function POST(request: NextRequest) {
     const usageItems = Array.isArray(donationData.usageItems) ? donationData.usageItems : [];
     const usedAmount = usageItems.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
 
+    // Serialize purpose array to JSON string for DB storage
+    const purpose = Array.isArray(donationData.purpose)
+      ? JSON.stringify(donationData.purpose)
+      : donationData.purpose;
+
     const donation = await prisma.donationCash.create({
       data: {
         ...donationData,
+        purpose,
         receivedDate: new Date(donationData.receivedDate),
         usedAmount,
       },
