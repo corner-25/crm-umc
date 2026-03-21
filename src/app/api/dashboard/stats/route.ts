@@ -140,8 +140,15 @@ export async function GET(request: NextRequest) {
     });
     const cashByPurposeMap: Record<string, number> = {};
     for (const d of cashDonations) {
-      const key = d.purpose || "Khác";
-      cashByPurposeMap[key] = (cashByPurposeMap[key] || 0) + Number(d.amount);
+      let purposes: string[] = [];
+      try {
+        const parsed = JSON.parse(d.purpose || "");
+        if (Array.isArray(parsed)) purposes = parsed;
+      } catch {}
+      if (purposes.length === 0) purposes = [d.purpose || "Khác"];
+      for (const p of purposes) {
+        cashByPurposeMap[p] = (cashByPurposeMap[p] || 0) + Number(d.amount);
+      }
     }
     const cashByPurpose = Object.entries(cashByPurposeMap)
       .map(([purpose, value]) => ({ purpose, value }))
