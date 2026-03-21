@@ -42,63 +42,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json(updated);
     }
 
-    // Duyệt → trừ tiền vào các khoản donation
+    // Duyệt → chỉ đổi trạng thái, không tự trừ tiền
     if (action === "approve") {
       if (plan.status !== "PENDING") {
         return NextResponse.json({ error: "Chỉ có thể duyệt kế hoạch đang chờ duyệt" }, { status: 400 });
       }
 
-      // Transaction: cập nhật plan + trừ tiền từng khoản
-      const result = await prisma.$transaction(async (tx) => {
-        // Cập nhật từng khoản DonationCash
-        for (const item of plan.items) {
-          const donation = await tx.donationCash.findUnique({
-            where: { id: item.donationCashId },
-          });
-          if (!donation) continue;
-
-          const currentUsed = Number(donation.usedAmount);
-          const take = Number(item.takeAmount);
-          const totalAmount = Number(donation.amount);
-          const newUsed = currentUsed + take;
-
-          // Kiểm tra không vượt quá tổng tài trợ
-          if (newUsed > totalAmount) {
-            throw new Error(`Khoản ${donation.id} không đủ số dư: cần ${take.toLocaleString()}, chỉ còn ${(totalAmount - currentUsed).toLocaleString()}`);
-          }
-
-          // Thêm vào usageItems
-          const existingItems = Array.isArray(donation.usageItems) ? donation.usageItems : [];
-          const newUsageItems = [
-            ...existingItems,
-            {
-              description: `Huy động theo KH ${plan.planCode}`,
-              amount: take,
-              date: new Date().toISOString(),
-              planId: plan.id,
-            },
-          ];
-
-          await tx.donationCash.update({
-            where: { id: item.donationCashId },
-            data: {
-              usedAmount: newUsed,
-              usageItems: newUsageItems as any,
-            },
-          });
-        }
-
-        // Cập nhật trạng thái plan
-        return tx.mobilizationPlan.update({
-          where: { id },
-          data: {
-            status: "APPROVED",
-            approvedAt: new Date(),
-            approvedBy: approvedBy || "Admin",
-            note: note || plan.note,
-          },
-          include: { items: true },
-        });
+      const result = await prisma.mobilizationPlan.update({
+        where: { id },
+        data: {
+          status: "APPROVED",
+          approvedAt: new Date(),
+          approvedBy: approvedBy || "Admin",
+          note: note || plan.note,
+        },
+        include: { items: true },
       });
 
       return NextResponse.json(result);
@@ -117,48 +75,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json(updated);
     }
 
-    // Huỷ duyệt → hoàn lại tiền vào các khoản donation
+    // Huỷ duyệt → chỉ đổi trạng thái về DRAFT
     if (action === "unapprove") {
       if (plan.status !== "APPROVED") {
         return NextResponse.json({ error: "Chỉ có thể huỷ duyệt kế hoạch đã duyệt" }, { status: 400 });
       }
 
-      const result = await prisma.$transaction(async (tx) => {
-        for (const item of plan.items) {
-          const donation = await tx.donationCash.findUnique({
-            where: { id: item.donationCashId },
-          });
-          if (!donation) continue;
-
-          const currentUsed = Number(donation.usedAmount);
-          const take = Number(item.takeAmount);
-          const newUsed = Math.max(0, currentUsed - take);
-
-          // Xoá entry trong usageItems có planId trùng
-          const existingItems = Array.isArray(donation.usageItems) ? donation.usageItems : [];
-          const newUsageItems = (existingItems as any[]).filter(
-            (u: any) => u.planId !== plan.id
-          );
-
-          await tx.donationCash.update({
-            where: { id: item.donationCashId },
-            data: {
-              usedAmount: newUsed,
-              usageItems: newUsageItems as any,
-            },
-          });
-        }
-
-        return tx.mobilizationPlan.update({
-          where: { id },
-          data: {
-            status: "DRAFT",
-            approvedAt: null,
-            approvedBy: null,
-            note: note ? `[Huỷ duyệt] ${note}` : `[Huỷ duyệt] ${plan.note || ""}`,
-          },
-          include: { items: true },
-        });
+      const result = await prisma.mobilizationPlan.update({
+        where: { id },
+        data: {
+          status: "DRAFT",
+          approvedAt: null,
+          approvedBy: null,
+          note: note ? `[Huỷ duyệt] ${note}` : `[Huỷ duyệt] ${plan.note || ""}`,
+        },
+        include: { items: true },
       });
 
       return NextResponse.json(result);
