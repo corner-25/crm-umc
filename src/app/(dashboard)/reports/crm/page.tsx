@@ -469,7 +469,7 @@ export default function ReportsPage() {
       if (planId === savedPlanId) setSavedPlanStatus("APPROVED");
       queryClient.invalidateQueries({ queryKey: ["mobilization-plans"] });
       queryClient.invalidateQueries({ queryKey: ["cash-report"] });
-      toast({ title: "Đã duyệt", description: "Kế hoạch huy động đã được duyệt" });
+      toast({ title: "Đã duyệt", description: "Tiền đã được trừ vào các khoản tài trợ tương ứng" });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Lỗi", description: err.message || "Không thể duyệt" });
     } finally {
