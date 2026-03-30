@@ -75,7 +75,7 @@ export default function CashDonationsPage() {
         fetch("/api/custom-options?type=cash_purpose").then(r => r.json()),
         fetch("/api/custom-options?type=custodian").then(r => r.json()),
       ]);
-      return { purposes: purposes.options || [], custodians: custodians.options || [] };
+      return { purposes: Array.isArray(purposes) ? purposes : [], custodians: Array.isArray(custodians) ? custodians : [] };
     },
   });
 
