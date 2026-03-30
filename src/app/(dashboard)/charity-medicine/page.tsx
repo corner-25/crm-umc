@@ -187,6 +187,17 @@ function TripFormDialog({ open, onClose, editItem, locations }: { open: boolean;
   const [expectedPatients, setExpectedPatients] = useState(editItem?.expectedPatients?.toString() || "");
   const [demographics, setDemographics] = useState(editItem?.demographics || "");
   const [notes, setNotes] = useState(editItem?.notes || "");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const { data: suggestionsData } = useQuery({
+    queryKey: ["medicine-suggestions"],
+    queryFn: async () => {
+      const res = await fetch("/api/charity-medicine/suggestions/medicine-list");
+      if (!res.ok) return { suggestions: [] };
+      return res.json();
+    },
+    enabled: !editItem, // chỉ fetch khi tạo mới
+  });
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
@@ -201,7 +212,7 @@ function TripFormDialog({ open, onClose, editItem, locations }: { open: boolean;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{editItem ? "Sửa chuyến đi" : "Thêm chuyến đi mới"}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div>
@@ -224,6 +235,69 @@ function TripFormDialog({ open, onClose, editItem, locations }: { open: boolean;
             <div><Label>Đặc điểm dân cư</Label><Input value={demographics} onChange={(e) => setDemographics(e.target.value)} placeholder="Tỷ lệ già/trẻ em..." /></div>
           </div>
           <div><Label>Ghi chú</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} /></div>
+
+          {/* Gợi ý danh mục thuốc — chỉ hiện khi tạo mới */}
+          {!editItem && (
+            <div className="border rounded-lg overflow-hidden">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between px-3 py-2 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                onClick={() => setShowSuggestions(!showSuggestions)}
+              >
+                <span className="flex items-center gap-2">
+                  <Pill className="h-3.5 w-3.5" />
+                  Gợi ý danh mục thuốc từ các chuyến trước
+                  {suggestionsData?.suggestions?.length > 0 && (
+                    <span className="bg-blue-600 text-white text-xs rounded-full px-1.5 py-0.5">
+                      {suggestionsData.suggestions.length}
+                    </span>
+                  )}
+                </span>
+                <span className="text-xs">{showSuggestions ? "▲ Thu gọn" : "▼ Xem"}</span>
+              </button>
+              {showSuggestions && (
+                <div className="max-h-56 overflow-y-auto">
+                  {!suggestionsData?.suggestions?.length ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">Chưa có dữ liệu lịch sử</p>
+                  ) : (
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="text-left px-3 py-1.5 font-medium text-muted-foreground">Tên thuốc</th>
+                          <th className="text-center px-2 py-1.5 font-medium text-muted-foreground">Tồn kho</th>
+                          <th className="text-center px-2 py-1.5 font-medium text-muted-foreground">Gợi ý</th>
+                          <th className="text-center px-2 py-1.5 font-medium text-muted-foreground">Cần nhập</th>
+                          <th className="text-center px-2 py-1.5 font-medium text-muted-foreground">Số chuyến</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {suggestionsData.suggestions.map((s: any) => (
+                          <tr key={s.medicineId} className="border-t hover:bg-gray-50">
+                            <td className="px-3 py-1.5">
+                              <p className="font-medium">{s.name}</p>
+                              <p className="text-muted-foreground">{s.code} · {s.unit}</p>
+                            </td>
+                            <td className="px-2 py-1.5 text-center">
+                              <span className={s.currentStock === 0 ? "text-red-500 font-medium" : "text-green-600 font-medium"}>
+                                {s.currentStock}
+                              </span>
+                            </td>
+                            <td className="px-2 py-1.5 text-center font-medium text-blue-600">{s.suggested}</td>
+                            <td className="px-2 py-1.5 text-center">
+                              {s.toImport > 0
+                                ? <span className="text-amber-600 font-medium">+{s.toImport}</span>
+                                : <span className="text-green-600">✓ Đủ</span>}
+                            </td>
+                            <td className="px-2 py-1.5 text-center text-muted-foreground">{s.tripCount}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Huỷ</Button>

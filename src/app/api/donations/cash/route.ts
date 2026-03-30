@@ -18,6 +18,9 @@ export async function GET(request: NextRequest) {
     const fromDate = searchParams.get("from");
     const toDate = searchParams.get("to");
     const hasRemaining = searchParams.get("hasRemaining"); // "true" = chưa sử dụng hết
+    const purpose = searchParams.get("purpose") || ""; // filter theo mục đích
+    const status = searchParams.get("status") || ""; // received | partial | used
+    const custodian = searchParams.get("custodian") || ""; // filter theo người giữ tiền
     const sortBy = searchParams.get("sortBy") || "";
     const sortDir = (searchParams.get("sortDir") === "asc" ? "asc" : "desc") as "asc" | "desc";
 
@@ -64,6 +67,17 @@ export async function GET(request: NextRequest) {
         whereConditions.push(`dc."receivedDate" <= $${paramIdx++}`);
         queryParams.push(to);
       }
+      if (purpose) {
+        whereConditions.push(`dc.purpose ILIKE $${paramIdx++}`);
+        queryParams.push(`%${purpose}%`);
+      }
+      if (custodian) {
+        whereConditions.push(`dc.custodian ILIKE $${paramIdx++}`);
+        queryParams.push(`%${custodian}%`);
+      }
+      if (status === "received") whereConditions.push(`dc."usedAmount" = 0`);
+      else if (status === "partial") whereConditions.push(`dc."usedAmount" > 0 AND dc."usedAmount" < dc.amount`);
+      else if (status === "used") whereConditions.push(`dc."usedAmount" >= dc.amount`);
 
       const whereClause = whereConditions.join(" AND ");
 
@@ -118,6 +132,17 @@ export async function GET(request: NextRequest) {
       whereConditions.push(`dc."receivedDate" <= $${paramIdx++}`);
       queryParams.push(to);
     }
+    if (purpose) {
+      whereConditions.push(`dc.purpose ILIKE $${paramIdx++}`);
+      queryParams.push(`%${purpose}%`);
+    }
+    if (custodian) {
+      whereConditions.push(`dc.custodian ILIKE $${paramIdx++}`);
+      queryParams.push(`%${custodian}%`);
+    }
+    if (status === "received") whereConditions.push(`dc."usedAmount" = 0`);
+    else if (status === "partial") whereConditions.push(`dc."usedAmount" > 0 AND dc."usedAmount" < dc.amount`);
+    else if (status === "used") whereConditions.push(`dc."usedAmount" >= dc.amount`);
 
     const whereClause = whereConditions.join(" AND ");
 

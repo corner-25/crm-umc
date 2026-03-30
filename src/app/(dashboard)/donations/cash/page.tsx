@@ -11,6 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Edit, Trash2, FilterX, Zap, Search, Download } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { donationStatusLabels, paymentMethodLabels } from "@/lib/validations/donation";
@@ -33,6 +36,9 @@ export default function CashDonationsPage() {
   const [donorSearch, setDonorSearch] = useState("");
   const [donorSearchDebounced, setDonorSearchDebounced] = useState("");
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" | null }>({ key: "", dir: null });
+  const [purposeFilter, setPurposeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [custodianFilter, setCustodianFilter] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -42,13 +48,16 @@ export default function CashDonationsPage() {
   }, [donorSearch]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["cash-donations", page, fromDate, toDate, hasRemaining, donorSearchDebounced, sort],
+    queryKey: ["cash-donations", page, fromDate, toDate, hasRemaining, donorSearchDebounced, sort, purposeFilter, statusFilter, custodianFilter],
     queryFn: async () => {
       const params = new URLSearchParams({ page: page.toString(), limit: "20" });
       if (fromDate) params.set("from", fromDate);
       if (toDate) params.set("to", toDate);
       if (hasRemaining) params.set("hasRemaining", "true");
       if (donorSearchDebounced) params.set("donorName", donorSearchDebounced);
+      if (purposeFilter) params.set("purpose", purposeFilter);
+      if (statusFilter) params.set("status", statusFilter);
+      if (custodianFilter) params.set("custodian", custodianFilter);
       if (sort.key && sort.dir) {
         params.set("sortBy", sort.key);
         params.set("sortDir", sort.dir);
@@ -56,6 +65,17 @@ export default function CashDonationsPage() {
       const res = await fetch(`/api/donations/cash?${params}`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
+    },
+  });
+
+  const { data: customOptions } = useQuery({
+    queryKey: ["custom-options-cash"],
+    queryFn: async () => {
+      const [purposes, custodians] = await Promise.all([
+        fetch("/api/custom-options?type=cash_purpose").then(r => r.json()),
+        fetch("/api/custom-options?type=custodian").then(r => r.json()),
+      ]);
+      return { purposes: purposes.options || [], custodians: custodians.options || [] };
     },
   });
 
@@ -124,13 +144,16 @@ export default function CashDonationsPage() {
     XLSX.writeFile(wb, `tai-tro-tien-mat-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  const hasFilter = fromDate || toDate || hasRemaining || donorSearch;
+  const hasFilter = fromDate || toDate || hasRemaining || donorSearch || purposeFilter || statusFilter || custodianFilter;
 
   const clearFilters = () => {
     setFromDate("");
     setToDate("");
     setHasRemaining(false);
     setDonorSearch("");
+    setPurposeFilter("");
+    setStatusFilter("");
+    setCustodianFilter("");
     setPage(1);
   };
 
@@ -210,6 +233,55 @@ export default function CashDonationsPage() {
               )} />
               Còn số dư
             </button>
+
+            {/* Filter trạng thái */}
+            <div className="space-y-1">
+              <Label className="text-xs">Trạng thái</Label>
+              <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v === "all" ? "" : v); setPage(1); }}>
+                <SelectTrigger className="w-40 h-8 text-sm">
+                  <SelectValue placeholder="Tất cả" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="received">Đã nhận</SelectItem>
+                  <SelectItem value="partial">Dùng một phần</SelectItem>
+                  <SelectItem value="used">Đã dùng hết</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Filter mục đích */}
+            <div className="space-y-1">
+              <Label className="text-xs">Mục đích</Label>
+              <Select value={purposeFilter} onValueChange={(v) => { setPurposeFilter(v === "all" ? "" : v); setPage(1); }}>
+                <SelectTrigger className="w-44 h-8 text-sm">
+                  <SelectValue placeholder="Tất cả" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  {customOptions?.purposes.map((o: any) => (
+                    <SelectItem key={o.id} value={o.label}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Filter người giữ tiền */}
+            <div className="space-y-1">
+              <Label className="text-xs">Người giữ tiền</Label>
+              <Select value={custodianFilter} onValueChange={(v) => { setCustodianFilter(v === "all" ? "" : v); setPage(1); }}>
+                <SelectTrigger className="w-44 h-8 text-sm">
+                  <SelectValue placeholder="Tất cả" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  {customOptions?.custodians.map((o: any) => (
+                    <SelectItem key={o.id} value={o.label}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {hasFilter && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground h-8">
                 <FilterX className="h-3.5 w-3.5 mr-1" />

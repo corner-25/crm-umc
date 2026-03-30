@@ -11,11 +11,17 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DollarSign, Users, Gift, Coins, CalendarIcon, Wallet } from "lucide-react";
+import { DollarSign, Users, Gift, Coins, CalendarIcon, Wallet, MapPin } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import { donorTierColors, donorTierLabels } from "@/types/donor";
 import { DonorTier } from "@prisma/client";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+const VietnamMapWidget = dynamic(() => import("@/components/charity-medicine/VietnamMapWidget"), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center h-64 text-muted-foreground">Đang tải bản đồ...</div>,
+});
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip,
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -102,6 +108,21 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview">Tổng quan</TabsTrigger>
+          <TabsTrigger value="map" className="flex items-center gap-1">
+            <MapPin className="h-3.5 w-3.5" />
+            Bản đồ từ thiện
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="map" className="mt-4">
+          <VietnamMapWidget />
+        </TabsContent>
+
+        <TabsContent value="overview" className="mt-4 space-y-6">
 
       {/* Row 1: KPI Cards — 6 cards (3x2) */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -485,6 +506,8 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

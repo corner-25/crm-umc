@@ -26,6 +26,7 @@ const navigation = [
     icon: LayoutDashboard,
     children: [
       { name: "Tổng quan", href: "/dashboard" },
+      { name: "Bản đồ từ thiện", href: "/charity-medicine/map" },
     ],
   },
   {
