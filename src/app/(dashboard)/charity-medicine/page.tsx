@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -518,6 +518,177 @@ function DemandStatDialog({ open, onClose, trips, medicines }: { open: boolean; 
   );
 }
 
+// ─── Bulk Export Dialog ────────────────────────────────────────────────────
+
+function BulkExportDialog({ open, onClose, trips }: { open: boolean; onClose: () => void; trips: any[] }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [tripId, setTripId] = useState("");
+  const [handledBy, setHandledBy] = useState("");
+  const [transactionDate, setTransactionDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+
+  // Load gợi ý khi mở dialog
+  const { data: suggestData, isLoading: loadingSuggest } = useQuery({
+    queryKey: ["medicine-suggestions"],
+    queryFn: async () => {
+      const res = await fetch("/api/charity-medicine/suggestions/medicine-list");
+      if (!res.ok) return { suggestions: [] };
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  const suggestions = suggestData?.suggestions || [];
+
+  // Khi suggestions load xong, điền sẵn số gợi ý vào quantities
+  useEffect(() => {
+    if (suggestions.length > 0) {
+      const initial: Record<string, number> = {};
+      suggestions.forEach((s: any) => {
+        initial[s.medicineId] = s.suggested;
+      });
+      setQuantities(initial);
+    }
+  }, [suggestions.length]);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const items = Object.entries(quantities)
+        .filter(([, qty]) => qty > 0)
+        .map(([medicineId, quantity]) => ({ medicineId, quantity }));
+      const res = await fetch("/api/charity-medicine/transactions/bulk-export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tripId, handledBy, transactionDate, items }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["charity-batches"] });
+      qc.invalidateQueries({ queryKey: ["charity-transactions"] });
+      const warn = data.warnings?.length ? ` (${data.warnings.length} mặt hàng thiếu kho)` : "";
+      toast({ title: `Đã xuất ${data.exported} lần giao dịch${warn}` });
+      onClose();
+    },
+    onError: (e: any) => toast({ title: "Lỗi", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ArrowUpFromLine className="h-4 w-4" />
+            Xuất nhanh thuốc cho chuyến đi
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          {/* Chọn chuyến + người thực hiện */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Chuyến đi *</Label>
+              <Select value={tripId} onValueChange={setTripId}>
+                <SelectTrigger><SelectValue placeholder="Chọn chuyến" /></SelectTrigger>
+                <SelectContent>
+                  {trips.map((t: any) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.tripCode} — {t.location?.province}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Ngày xuất</Label>
+              <Input type="date" value={transactionDate} onChange={(e) => setTransactionDate(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <Label>Người thực hiện</Label>
+            <Input value={handledBy} onChange={(e) => setHandledBy(e.target.value)} placeholder="Tên người xuất kho..." />
+          </div>
+
+          {/* Danh sách thuốc gợi ý */}
+          <div>
+            <p className="text-sm font-medium mb-2">
+              Danh sách thuốc{" "}
+              <span className="text-muted-foreground font-normal text-xs">(dựa trên lịch sử chuyến trước — có thể chỉnh số lượng)</span>
+            </p>
+            {loadingSuggest ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Đang tải gợi ý...</p>
+            ) : suggestions.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Chưa có dữ liệu lịch sử</p>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium text-muted-foreground">Tên thuốc</th>
+                      <th className="text-center px-2 py-2 font-medium text-muted-foreground w-20">Tồn kho</th>
+                      <th className="text-center px-2 py-2 font-medium text-muted-foreground w-20">Gợi ý</th>
+                      <th className="text-center px-2 py-2 font-medium text-muted-foreground w-28">Số lượng xuất</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {suggestions.map((s: any) => {
+                      const qty = quantities[s.medicineId] ?? s.suggested;
+                      const fromStock = Math.min(qty, s.currentStock);
+                      const toImport = Math.max(0, qty - s.currentStock);
+                      return (
+                        <tr key={s.medicineId} className="border-t">
+                          <td className="px-3 py-2">
+                            <p className="font-medium">{s.name}</p>
+                            <p className="text-xs text-muted-foreground">{s.code} · {s.unit}</p>
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            <span className={s.currentStock === 0 ? "text-red-500 font-medium" : "text-green-600 font-medium"}>
+                              {s.currentStock}
+                            </span>
+                          </td>
+                          <td className="px-2 py-2 text-center text-blue-600 font-medium">{s.suggested}</td>
+                          <td className="px-2 py-2">
+                            <div className="flex flex-col items-center gap-0.5">
+                              <Input
+                                type="number"
+                                min={0}
+                                className="h-7 text-sm text-center w-20"
+                                value={qty}
+                                onChange={(e) => setQuantities(prev => ({ ...prev, [s.medicineId]: parseInt(e.target.value) || 0 }))}
+                              />
+                              {qty > 0 && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  {fromStock > 0 && <span className="text-green-600">{fromStock} tồn</span>}
+                                  {toImport > 0 && <span className="text-amber-500"> +{toImport} cần nhập</span>}
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Huỷ</Button>
+          <Button
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending || !tripId || Object.values(quantities).every(q => q === 0)}
+          >
+            {mutation.isPending ? "Đang xuất..." : `Xuất kho (${Object.values(quantities).filter(q => q > 0).length} loại)`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────
 
 export default function CharityMedicinePage() {
@@ -532,6 +703,7 @@ export default function CharityMedicinePage() {
   const [tripDialog, setTripDialog] = useState<{ open: boolean; edit?: any }>({ open: false });
   const [batchDialog, setBatchDialog] = useState(false);
   const [txDialog, setTxDialog] = useState<{ open: boolean; type: "EXPORT" | "RETURN" }>({ open: false, type: "EXPORT" });
+  const [bulkExportDialog, setBulkExportDialog] = useState(false);
   const [demandDialog, setDemandDialog] = useState(false);
 
   // Queries
@@ -766,6 +938,9 @@ export default function CharityMedicinePage() {
         <TabsContent value="trips" className="space-y-4">
           <div className="flex items-center gap-3">
             <Button onClick={() => setTripDialog({ open: true })}><Plus className="h-4 w-4 mr-1" /> Thêm chuyến</Button>
+            <Button variant="outline" className="text-blue-600 border-blue-300 hover:bg-blue-50" onClick={() => setBulkExportDialog(true)}>
+              <ArrowUpFromLine className="h-4 w-4 mr-1" /> Xuất nhanh theo chuyến
+            </Button>
           </div>
           <Card>
             <Table>
@@ -924,6 +1099,7 @@ export default function CharityMedicinePage() {
       {tripDialog.open && <TripFormDialog open={tripDialog.open} onClose={() => setTripDialog({ open: false })} editItem={tripDialog.edit} locations={locations} />}
       {batchDialog && <BatchImportDialog open={batchDialog} onClose={() => setBatchDialog(false)} medicines={medicines} />}
       {txDialog.open && <TransactionDialog open={txDialog.open} onClose={() => setTxDialog({ open: false, type: "EXPORT" })} type={txDialog.type} trips={trips} batches={batches} />}
+      {bulkExportDialog && <BulkExportDialog open={bulkExportDialog} onClose={() => setBulkExportDialog(false)} trips={trips} />}
       {demandDialog && <DemandStatDialog open={demandDialog} onClose={() => setDemandDialog(false)} trips={trips} medicines={medicines} />}
     </div>
   );
