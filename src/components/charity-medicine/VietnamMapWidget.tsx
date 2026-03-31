@@ -80,10 +80,10 @@ export default function VietnamMapWidget() {
             <div className="relative">
               <ComposableMap
                 projection="geoMercator"
-                projectionConfig={{ center: [106, 16], scale: 1700 }}
-                width={500}
-                height={560}
-                style={{ width: "100%", height: "auto", maxHeight: "500px" }}
+                projectionConfig={{ center: [106, 16], scale: 2200 }}
+                width={600}
+                height={750}
+                style={{ width: "100%", height: "auto" }}
               >
                 <Geographies geography={GEO_URL}>
                   {({ geographies }: { geographies: any[] }) =>
