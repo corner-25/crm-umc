@@ -34,11 +34,13 @@ interface TooltipState { x: number; y: number; province: string }
 export default function VietnamMapWidget() {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [year, setYear] = useState<string>("all");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["charity-medicine-by-province"],
+    queryKey: ["charity-medicine-by-province", year],
     queryFn: async () => {
-      const res = await fetch("/api/charity-medicine/stats/by-province");
+      const params = year !== "all" ? `?year=${year}` : "";
+      const res = await fetch(`/api/charity-medicine/stats/by-province${params}`);
       if (!res.ok) throw new Error("Failed");
       const json = await res.json();
       return json.data as ProvinceStats[];
@@ -57,10 +59,27 @@ export default function VietnamMapWidget() {
       <div className="lg:col-span-2">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              Bản đồ Việt Nam — Tần suất chuyến đi từ thiện
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                Bản đồ Việt Nam — Tần suất chuyến đi từ thiện
+              </CardTitle>
+              <div className="flex gap-1">
+                {["all", "2024", "2025", "2026"].map((y) => (
+                  <button
+                    key={y}
+                    onClick={() => setYear(y)}
+                    className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${
+                      year === y
+                        ? "bg-red-500 text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {y === "all" ? "Tất cả" : y}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="flex gap-3 flex-wrap pt-1">
               {[
                 { color: "#e5e7eb", label: "Chưa đến" },
