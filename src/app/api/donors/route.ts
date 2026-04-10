@@ -54,7 +54,12 @@ export async function GET(request: NextRequest) {
             'inKindDonations', COALESCE(inkind_count.count, 0),
             'volunteerDonations', COALESCE(volunteer_count.count, 0)
           ) as "_count",
-          (COALESCE(cash_count.count, 0) + COALESCE(inkind_count.count, 0) + COALESCE(volunteer_count.count, 0)) as total_donations
+          (COALESCE(cash_count.count, 0) + COALESCE(inkind_count.count, 0) + COALESCE(volunteer_count.count, 0)) as total_donations,
+          GREATEST(
+            last_cash.last_date,
+            last_inkind.last_date,
+            last_volunteer.last_date
+          ) as "lastDonationDate"
         FROM donors d
         LEFT JOIN users u ON d."managerId" = u.id
         LEFT JOIN (
@@ -66,6 +71,15 @@ export async function GET(request: NextRequest) {
         LEFT JOIN (
           SELECT "donorId", COUNT(*)::int as count FROM donation_volunteer WHERE "deletedAt" IS NULL GROUP BY "donorId"
         ) volunteer_count ON d.id = volunteer_count."donorId"
+        LEFT JOIN (
+          SELECT "donorId", MAX("receivedDate") as last_date FROM donation_cash WHERE "deletedAt" IS NULL GROUP BY "donorId"
+        ) last_cash ON d.id = last_cash."donorId"
+        LEFT JOIN (
+          SELECT "donorId", MAX("receivedDate") as last_date FROM donation_in_kind WHERE "deletedAt" IS NULL GROUP BY "donorId"
+        ) last_inkind ON d.id = last_inkind."donorId"
+        LEFT JOIN (
+          SELECT "donorId", MAX("date") as last_date FROM donation_volunteer WHERE "deletedAt" IS NULL GROUP BY "donorId"
+        ) last_volunteer ON d.id = last_volunteer."donorId"
         WHERE d."deletedAt" IS NULL
         ${search ? Prisma.sql`AND (
           d."fullName" ILIKE ${`%${search}%`} OR
@@ -78,6 +92,7 @@ export async function GET(request: NextRequest) {
           ${sortBy === "fullName" ? (sortDir === "ASC" ? Prisma.sql`d."fullName" ASC` : Prisma.sql`d."fullName" DESC`) :
             sortBy === "type" ? (sortDir === "ASC" ? Prisma.sql`d.type ASC` : Prisma.sql`d.type DESC`) :
             sortBy === "donations" ? (sortDir === "ASC" ? Prisma.sql`total_donations ASC` : Prisma.sql`total_donations DESC`) :
+            sortBy === "lastDonationDate" ? (sortDir === "ASC" ? Prisma.sql`"lastDonationDate" ASC NULLS LAST` : Prisma.sql`"lastDonationDate" DESC NULLS LAST`) :
             Prisma.sql`CASE d.tier
               WHEN 'VIP' THEN 1
               WHEN 'REGULAR' THEN 2

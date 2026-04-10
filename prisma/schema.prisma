@@ -270,6 +270,7 @@ model DonationInKind {
   usedPurpose           String?
   usageItems            Json                        @default("[]")
   items                 Json                        @default("[]")
+  receivedDate          DateTime                    @default(now())
   notes                 String?
 
   createdAt             DateTime                    @default(now())
@@ -279,6 +280,7 @@ model DonationInKind {
   @@index([donorId])
   @@index([category])
   @@index([distributionStatus])
+  @@index([receivedDate])
   @@map("donation_in_kind")
 }
 

@@ -182,13 +182,16 @@ export default function DonorsPage() {
                       <SortableTableHead sortKey="donations" currentSort={sort} onSort={handleSort}>
                         Số khoản tài trợ
                       </SortableTableHead>
+                      <SortableTableHead sortKey="lastDonationDate" currentSort={sort} onSort={handleSort}>
+                        Tài trợ gần nhất
+                      </SortableTableHead>
                       <TableHead className="text-right">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data?.donors.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center">
+                        <TableCell colSpan={8} className="text-center">
                           Không có dữ liệu
                         </TableCell>
                       </TableRow>
@@ -215,6 +218,11 @@ export default function DonorsPage() {
                             {donor._count.cashDonations +
                               donor._count.inKindDonations +
                               donor._count.volunteerDonations}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {donor.lastDonationDate
+                              ? new Date(donor.lastDonationDate).toLocaleDateString("vi-VN")
+                              : "—"}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
