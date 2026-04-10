@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
           SELECT "donorId", MAX("receivedDate") as last_date FROM donation_in_kind WHERE "deletedAt" IS NULL GROUP BY "donorId"
         ) last_inkind ON d.id = last_inkind."donorId"
         LEFT JOIN (
-          SELECT "donorId", MAX("date") as last_date FROM donation_volunteer WHERE "deletedAt" IS NULL GROUP BY "donorId"
+          SELECT "donorId", MAX("startDate") as last_date FROM donation_volunteer WHERE "deletedAt" IS NULL GROUP BY "donorId"
         ) last_volunteer ON d.id = last_volunteer."donorId"
         WHERE d."deletedAt" IS NULL
         ${search ? Prisma.sql`AND (
