@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
     const donation = await prisma.donationInKind.create({
       data: {
         ...body,
+        receivedDate: body.receivedDate ? new Date(body.receivedDate) : new Date(),
         expiryDate: body.expiryDate ? new Date(body.expiryDate) : null,
       },
       include: {

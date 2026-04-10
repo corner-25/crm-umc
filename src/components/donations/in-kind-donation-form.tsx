@@ -85,6 +85,7 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
       quantity: defaultValues?.quantity || 1,
       unit: defaultValues?.unit || "—",
       condition: "NEW",
+      receivedDate: new Date(),
       expiryDate: null,
       estimatedValue: defaultValues?.estimatedValue || undefined,
       imageUrls: [],
@@ -324,6 +325,23 @@ export function InKindDonationForm({ defaultValues, onSubmit, isLoading }: InKin
                       {...field}
                       value={field.value ?? ""}
                       onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="receivedDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Ngày nhận tài trợ *</FormLabel>
+                  <FormControl>
+                    <DateInput
+                      value={field.value || undefined}
+                      onChange={field.onChange}
                     />
                   </FormControl>
                   <FormMessage />

@@ -61,6 +61,7 @@ export async function PUT(
       where: { id: params.id },
       data: {
         ...body,
+        receivedDate: body.receivedDate ? new Date(body.receivedDate) : undefined,
         expiryDate: body.expiryDate ? new Date(body.expiryDate) : undefined,
       },
       include: {
