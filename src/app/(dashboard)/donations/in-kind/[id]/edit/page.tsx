@@ -76,6 +76,7 @@ export default function EditInKindDonationPage({ params }: { params: { id: strin
               quantity: Number(donation.quantity),
               unit: donation.unit,
               condition: donation.condition,
+              receivedDate: donation.receivedDate ? new Date(donation.receivedDate) : new Date(),
               estimatedValue: Number(donation.estimatedValue),
               expiryDate: donation.expiryDate ? new Date(donation.expiryDate) : null,
               imageUrls: donation.imageUrls || [],
