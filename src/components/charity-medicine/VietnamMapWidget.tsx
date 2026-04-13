@@ -54,6 +54,7 @@ function WardDrillDown({
   const [wardGeo, setWardGeo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [wardTooltip, setWardTooltip] = useState<{ x: number; y: number; name: string; count: number } | null>(null);
   useEffect(() => {
     setLoading(true);
     setError(false);
@@ -128,11 +129,31 @@ function WardDrillDown({
                 fill={getWardColor(count)}
                 stroke="#fff"
                 strokeWidth={0.5}
-                style={{ cursor: "default" }}
+                style={{ cursor: "pointer" }}
+                onMouseEnter={(e) => {
+                  const rect = document.getElementById("ward-map-container")!.getBoundingClientRect();
+                  setWardTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, name: p.name, count });
+                }}
+                onMouseMove={(e) => {
+                  const rect = document.getElementById("ward-map-container")!.getBoundingClientRect();
+                  setWardTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, name: p.name, count });
+                }}
+                onMouseLeave={() => setWardTooltip(null)}
               />
             );
           })}
         </svg>
+        {wardTooltip && (
+          <div
+            className="absolute z-10 bg-white border rounded-lg shadow-lg p-2 text-sm pointer-events-none"
+            style={{ left: wardTooltip.x + 12, top: wardTooltip.y - 10 }}
+          >
+            <p className="font-semibold">{wardTooltip.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {wardTooltip.count > 0 ? `${wardTooltip.count} chuyến đi` : "Chưa có chuyến đi"}
+            </p>
+          </div>
+        )}
       </div>
       <div className="flex gap-3 flex-wrap justify-center pt-2 pb-1">
         {[
@@ -156,6 +177,7 @@ export default function VietnamMapWidget() {
   const [selected, setSelected] = useState<string | null>(null);
   const [drillProvince, setDrillProvince] = useState<string | null>(null);
   const [year, setYear] = useState<string>("all");
+  const [provTooltip, setProvTooltip] = useState<{ x: number; y: number; name: string; count: number; patients: number } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["charity-medicine-by-province", year],
@@ -233,7 +255,7 @@ export default function VietnamMapWidget() {
                 onBack={() => setDrillProvince(null)}
               />
             ) : (
-              <div className="relative">
+              <div className="relative" id="province-map-container">
                 <ComposableMap
                   projection="geoMercator"
                   projectionConfig={{ center: [106, 16], scale: 2200 }}
@@ -261,13 +283,38 @@ export default function VietnamMapWidget() {
                               pressed: { outline: "none" },
                             }}
                             onClick={() => handleProvinceClick(name)}
+                            onMouseEnter={(e: React.MouseEvent<SVGPathElement>) => {
+                              const rect = document.getElementById("province-map-container")!.getBoundingClientRect();
+                              setProvTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, name, count, patients: stats?.totalPatients ?? 0 });
+                            }}
+                            onMouseMove={(e: React.MouseEvent<SVGPathElement>) => {
+                              const rect = document.getElementById("province-map-container")!.getBoundingClientRect();
+                              setProvTooltip((prev) => prev ? { ...prev, x: e.clientX - rect.left, y: e.clientY - rect.top } : null);
+                            }}
+                            onMouseLeave={() => setProvTooltip(null)}
                           />
                         );
                       })
                     }
                   </Geographies>
                 </ComposableMap>
-
+                {provTooltip && (
+                  <div
+                    className="absolute z-10 bg-white border rounded-lg shadow-lg p-3 text-sm pointer-events-none min-w-[160px]"
+                    style={{ left: provTooltip.x + 12, top: provTooltip.y - 10 }}
+                  >
+                    <p className="font-semibold text-gray-800">{provTooltip.name}</p>
+                    {provTooltip.count > 0 ? (
+                      <>
+                        <p className="text-red-600 font-medium">{provTooltip.count} chuyến đi</p>
+                        <p className="text-gray-500">{provTooltip.patients} người bệnh</p>
+                      </>
+                    ) : (
+                      <p className="text-gray-400">Chưa có chuyến đi</p>
+                    )}
+                    <p className="text-xs text-blue-500 mt-1">Click để xem chi tiết</p>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
@@ -309,13 +356,13 @@ export default function VietnamMapWidget() {
           </CardContent>
         </Card>
 
-        {selected && selectedData ? (
+        {selected ? (
           <Card className="border-blue-200">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center justify-between">
                 <span>{selected}</span>
-                <Badge style={{ backgroundColor: getTripColor(selectedData.tripCount) }} className="text-white border-0">
-                  {selectedData.tripCount} chuyến
+                <Badge style={{ backgroundColor: getTripColor(selectedData?.tripCount ?? 0) }} className="text-white border-0">
+                  {selectedData?.tripCount ?? 0} chuyến
                 </Badge>
               </CardTitle>
             </CardHeader>
@@ -323,12 +370,12 @@ export default function VietnamMapWidget() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-red-50 rounded-lg p-3 text-center">
                   <Users className="h-4 w-4 text-red-500 mx-auto mb-1" />
-                  <p className="text-lg font-bold text-red-600">{selectedData.totalPatients}</p>
+                  <p className="text-lg font-bold text-red-600">{selectedData?.totalPatients ?? 0}</p>
                   <p className="text-xs text-muted-foreground">Người bệnh</p>
                 </div>
                 <div className="bg-blue-50 rounded-lg p-3 text-center">
                   <Pill className="h-4 w-4 text-blue-500 mx-auto mb-1" />
-                  <p className="text-sm font-bold text-blue-600">{formatCurrency(selectedData.totalMedicineCost)}</p>
+                  <p className="text-sm font-bold text-blue-600">{formatCurrency(selectedData?.totalMedicineCost ?? 0)}</p>
                   <p className="text-xs text-muted-foreground">Chi phí thuốc</p>
                 </div>
               </div>
@@ -340,31 +387,38 @@ export default function VietnamMapWidget() {
                   Xem bản đồ phường xã →
                 </button>
               )}
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">HUYỆN ĐÃ ĐẾN</p>
-                <div className="flex flex-wrap gap-1">
-                  {selectedData.districts.map((d) => (
-                    <Badge key={d} variant="secondary" className="text-xs">{d}</Badge>
-                  ))}
+              {selectedData && selectedData.districts.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">HUYỆN ĐÃ ĐẾN</p>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedData.districts.map((d) => (
+                      <Badge key={d} variant="secondary" className="text-xs">{d}</Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">LỊCH SỬ CHUYẾN ĐI</p>
-                <div className="space-y-1 max-h-[200px] overflow-y-auto">
-                  {selectedData.trips.map((t) => (
-                    <div key={t.tripCode} className="flex items-center justify-between text-xs py-1.5 border-b last:border-0">
-                      <div>
-                        <span className="font-medium text-blue-600">{t.tripCode}</span>
-                        <span className="text-muted-foreground ml-2">{t.district}</span>
+              )}
+              {selectedData && selectedData.trips.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">LỊCH SỬ CHUYẾN ĐI</p>
+                  <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                    {selectedData.trips.map((t) => (
+                      <div key={t.tripCode} className="flex items-center justify-between text-xs py-1.5 border-b last:border-0">
+                        <div>
+                          <span className="font-medium text-blue-600">{t.tripCode}</span>
+                          <span className="text-muted-foreground ml-2">{t.district}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-gray-600">{t.date}</p>
+                          <p className="text-muted-foreground">{t.patients} BN</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-gray-600">{t.date}</p>
-                        <p className="text-muted-foreground">{t.patients} BN</p>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+              {!selectedData && (
+                <p className="text-sm text-muted-foreground text-center">Chưa có chuyến đi nào</p>
+              )}
             </CardContent>
           </Card>
         ) : (
