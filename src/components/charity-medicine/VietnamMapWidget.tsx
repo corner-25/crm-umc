@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
+import { geoMercator, geoPath } from "d3-geo";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Activity, Pill, Users } from "lucide-react";
@@ -32,6 +33,9 @@ function getTripColor(count: number) {
 
 interface TooltipState { x: number; y: number; province: string; ward?: string; tripCount?: number }
 
+const WIDTH = 600;
+const HEIGHT = 750;
+
 function WardMap({
   province,
   selectedData,
@@ -41,44 +45,33 @@ function WardMap({
   selectedData: ProvinceStats | null;
   setTooltip: (t: TooltipState | null) => void;
 }) {
-  const [bounds, setBounds] = useState<{ cx: number; cy: number; scale: number } | null>(null);
   const [wardsData, setWardsData] = useState<any>(null);
 
   useEffect(() => {
-    fetch(GEO_WARDS).then(r => r.json()).then((json) => setWardsData(json));
+    fetch(GEO_WARDS).then(r => r.json()).then(setWardsData);
   }, []);
 
-  // Đếm số chuyến theo ward
   const wardCount: Record<string, number> = {};
   (selectedData?.trips || []).forEach((t) => {
     if (t.ward) wardCount[t.ward] = (wardCount[t.ward] || 0) + 1;
   });
 
-  // Filter features theo tỉnh + tính bounds
-  const filteredFeatures = (wardsData?.features || []).filter((f: any) => f.properties.ten_tinh === province);
+  const { features, projectionConfig } = useMemo(() => {
+    if (!wardsData) return { features: [], projectionConfig: null };
+    const feats = wardsData.features.filter((f: any) => f.properties.ten_tinh === province);
+    if (feats.length === 0) return { features: [], projectionConfig: null };
 
-  useEffect(() => {
-    if (filteredFeatures.length === 0) return;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    filteredFeatures.forEach((f: any) => {
-      const coords = f.geometry.type === "MultiPolygon"
-        ? f.geometry.coordinates.flat(2)
-        : f.geometry.coordinates.flat(1);
-      coords.forEach((c: number[]) => {
-        if (c[0] < minX) minX = c[0];
-        if (c[0] > maxX) maxX = c[0];
-        if (c[1] < minY) minY = c[1];
-        if (c[1] > maxY) maxY = c[1];
-      });
-    });
-    const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
-    const span = Math.max(maxX - minX, maxY - minY);
-    const scale = (60 / span) * 100;
-    setBounds({ cx, cy, scale });
+    const collection = { type: "FeatureCollection", features: feats };
+    const projection = geoMercator().fitExtent(
+      [[20, 20], [WIDTH - 20, HEIGHT - 20]],
+      collection as any
+    );
+    const [scale] = [projection.scale()];
+    const [cx, cy] = projection.invert!([WIDTH / 2, HEIGHT / 2]) as [number, number];
+    return { features: feats, projectionConfig: { center: [cx, cy] as [number, number], scale } };
   }, [wardsData, province]);
 
-  if (!wardsData || !bounds) {
+  if (!wardsData) {
     return (
       <div className="flex items-center justify-center" style={{ height: 500 }}>
         <p className="text-sm text-muted-foreground">Đang tải bản đồ phường xã...</p>
@@ -86,14 +79,22 @@ function WardMap({
     );
   }
 
-  const filteredCollection = { type: "FeatureCollection", features: filteredFeatures };
+  if (features.length === 0) {
+    return (
+      <div className="flex items-center justify-center" style={{ height: 500 }}>
+        <p className="text-sm text-muted-foreground">Không tìm thấy dữ liệu phường xã cho {province}</p>
+      </div>
+    );
+  }
+
+  const filteredCollection = { type: "FeatureCollection", features };
 
   return (
     <ComposableMap
       projection="geoMercator"
-      projectionConfig={{ center: [bounds.cx, bounds.cy], scale: bounds.scale }}
-      width={600}
-      height={750}
+      projectionConfig={projectionConfig!}
+      width={WIDTH}
+      height={HEIGHT}
       style={{ width: "100%", height: "auto" }}
     >
       <Geographies geography={filteredCollection}>
@@ -276,7 +277,7 @@ export default function VietnamMapWidget() {
                       {statsMap[tooltip.province] ? (
                         <>
                           <p className="text-red-600 font-medium">{statsMap[tooltip.province].tripCount} chuyến đi</p>
-                          <p className="text-gray-500">{statsMap[tooltip.province].totalPatients} bệnh nhân</p>
+                          <p className="text-gray-500">{statsMap[tooltip.province].totalPatients} người bệnh</p>
                           <p className="text-gray-500">{formatCurrency(statsMap[tooltip.province].totalMedicineCost)}</p>
                           <p className="text-xs text-blue-500 mt-1">Click để xem chi tiết</p>
                         </>
@@ -317,7 +318,7 @@ export default function VietnamMapWidget() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{p.province}</p>
-                  <p className="text-xs text-muted-foreground">{p.totalPatients} bệnh nhân</p>
+                  <p className="text-xs text-muted-foreground">{p.totalPatients} người bệnh</p>
                 </div>
                 <Badge variant="outline" className="text-xs flex-shrink-0">
                   {p.tripCount} chuyến
@@ -342,7 +343,7 @@ export default function VietnamMapWidget() {
                 <div className="bg-red-50 rounded-lg p-3 text-center">
                   <Users className="h-4 w-4 text-red-500 mx-auto mb-1" />
                   <p className="text-lg font-bold text-red-600">{selectedData.totalPatients}</p>
-                  <p className="text-xs text-muted-foreground">Bệnh nhân</p>
+                  <p className="text-xs text-muted-foreground">Người bệnh</p>
                 </div>
                 <div className="bg-blue-50 rounded-lg p-3 text-center">
                   <Pill className="h-4 w-4 text-blue-500 mx-auto mb-1" />
