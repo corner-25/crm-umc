@@ -68,12 +68,14 @@ function WardMap({
       collection as any
     );
     const pathGen = geoPath(projection);
-    return wardsData.features.map((f: any, i: number) => ({
+    const result = wardsData.features.map((f: any, i: number) => ({
       d: pathGen(f) || "",
       ward: f.properties.ten_xa as string,
       key: `${f.properties.ma_xa || i}`,
     }));
-  }, [wardsData]);
+    console.log("[WardMap]", province, "features:", wardsData.features.length, "paths with d:", result.filter((r: any) => r.d).length, "sample d len:", result[0]?.d?.length);
+    return result;
+  }, [wardsData, province]);
 
   if (!wardsData) {
     return (
@@ -94,7 +96,8 @@ function WardMap({
   return (
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      style={{ height: "100%", width: "auto", maxWidth: "100%" }}
+      preserveAspectRatio="xMidYMid meet"
+      style={{ width: "100%", height: "100%", display: "block" }}
     >
       {paths.map((p: { d: string; ward: string; key: string }) => {
         const count = wardCount[p.ward] || 0;
