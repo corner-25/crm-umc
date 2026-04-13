@@ -1,0 +1,172 @@
+{
+  "Hà Nội": {
+    "file": "ha-noi.json",
+    "features": 126,
+    "sizeKB": 2208
+  },
+  "Cao Bằng": {
+    "file": "cao-bang.json",
+    "features": 56,
+    "sizeKB": 5053
+  },
+  "Tuyên Quang": {
+    "file": "tuyen-quang.json",
+    "features": 124,
+    "sizeKB": 14522
+  },
+  "Điện Biên": {
+    "file": "dien-bien.json",
+    "features": 45,
+    "sizeKB": 6081
+  },
+  "Lai Châu": {
+    "file": "lai-chau.json",
+    "features": 38,
+    "sizeKB": 6558
+  },
+  "Sơn La": {
+    "file": "son-la.json",
+    "features": 75,
+    "sizeKB": 7702
+  },
+  "Lào Cai": {
+    "file": "lao-cai.json",
+    "features": 99,
+    "sizeKB": 9723
+  },
+  "Thái Nguyên": {
+    "file": "thai-nguyen.json",
+    "features": 92,
+    "sizeKB": 6873
+  },
+  "Lạng Sơn": {
+    "file": "lang-son.json",
+    "features": 65,
+    "sizeKB": 7088
+  },
+  "Quảng Ninh": {
+    "file": "quang-ninh.json",
+    "features": 54,
+    "sizeKB": 11427
+  },
+  "Bắc Ninh": {
+    "file": "bac-ninh.json",
+    "features": 99,
+    "sizeKB": 5994
+  },
+  "Phú Thọ": {
+    "file": "phu-tho.json",
+    "features": 148,
+    "sizeKB": 10347
+  },
+  "Hải Phòng": {
+    "file": "hai-phong.json",
+    "features": 114,
+    "sizeKB": 3778
+  },
+  "Hưng Yên": {
+    "file": "hung-yen.json",
+    "features": 104,
+    "sizeKB": 3094
+  },
+  "Ninh Bình": {
+    "file": "ninh-binh.json",
+    "features": 129,
+    "sizeKB": 4118
+  },
+  "Thanh Hóa": {
+    "file": "thanh-hoa.json",
+    "features": 166,
+    "sizeKB": 9558
+  },
+  "Nghệ An": {
+    "file": "nghe-an.json",
+    "features": 130,
+    "sizeKB": 9862
+  },
+  "Hà Tĩnh": {
+    "file": "ha-tinh.json",
+    "features": 69,
+    "sizeKB": 4047
+  },
+  "Quảng Trị": {
+    "file": "quang-tri.json",
+    "features": 78,
+    "sizeKB": 7128
+  },
+  "Huế": {
+    "file": "hue.json",
+    "features": 40,
+    "sizeKB": 4993
+  },
+  "Đà Nẵng": {
+    "file": "da-nang.json",
+    "features": 94,
+    "sizeKB": 7396
+  },
+  "Quảng Ngãi": {
+    "file": "quang-ngai.json",
+    "features": 96,
+    "sizeKB": 8728
+  },
+  "Gia Lai": {
+    "file": "gia-lai.json",
+    "features": 135,
+    "sizeKB": 16477
+  },
+  "Khánh Hòa": {
+    "file": "khanh-hoa.json",
+    "features": 65,
+    "sizeKB": 8504
+  },
+  "Đắk Lắk": {
+    "file": "dak-lak.json",
+    "features": 102,
+    "sizeKB": 16001
+  },
+  "Lâm Đồng": {
+    "file": "lam-dong.json",
+    "features": 124,
+    "sizeKB": 20414
+  },
+  "Đồng Nai": {
+    "file": "dong-nai.json",
+    "features": 95,
+    "sizeKB": 14473
+  },
+  "TP. Hồ Chí Minh": {
+    "file": "tp-ho-chi-minh.json",
+    "features": 168,
+    "sizeKB": 8757
+  },
+  "Tây Ninh": {
+    "file": "tay-ninh.json",
+    "features": 96,
+    "sizeKB": 6072
+  },
+  "Đồng Tháp": {
+    "file": "dong-thap.json",
+    "features": 102,
+    "sizeKB": 6408
+  },
+  "Vĩnh Long": {
+    "file": "vinh-long.json",
+    "features": 124,
+    "sizeKB": 7436
+  },
+  "An Giang": {
+    "file": "an-giang.json",
+    "features": 102,
+    "sizeKB": 7621
+  },
+  "Cần Thơ": {
+    "file": "can-tho.json",
+    "features": 103,
+    "sizeKB": 6175
+  },
+  "Cà Mau": {
+    "file": "ca-mau.json",
+    "features": 64,
+    "sizeKB": 8655
+  }
+}

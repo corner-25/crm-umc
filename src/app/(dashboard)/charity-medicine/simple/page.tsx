@@ -93,16 +93,48 @@ export default function SimpleCharityMedicinePage() {
   // ─── Tạo chuyến đi ───────────────────────────────────────────────────────
 
   const [tripCode, setTripCode] = useState("");
-  const [tripLocationId, setTripLocationId] = useState("");
+  const [tripProvince, setTripProvince] = useState("");
+  const [tripWard, setTripWard] = useState("");
   const [tripStart, setTripStart] = useState("");
   const [tripEnd, setTripEnd] = useState("");
   const [tripExpected, setTripExpected] = useState("");
   const [tripNotes, setTripNotes] = useState("");
 
+  const { data: wardsGeo } = useQuery({
+    queryKey: ["wards-by-province-simple", tripProvince],
+    queryFn: async () => {
+      const idx = await (await fetch("/wards/index.json")).json();
+      const entry = idx[tripProvince];
+      if (!entry) return null;
+      const res = await fetch(`/wards/${entry.file}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: showTripDialog && !!tripProvince,
+    staleTime: Infinity,
+  });
+
+  const provinceList: string[] = Array.from(new Set(locations.map((l: any) => l.province))).sort();
+  const wardList: string[] = wardsGeo?.features
+    ? wardsGeo.features.map((f: any) => f.properties.ten_xa as string).sort()
+    : [];
+
   const createTrip = useMutation({
     mutationFn: async (data: any) => {
+      let locationId = locations.find((l: any) => l.province === tripProvince && (l.ward || "") === (tripWard || ""))?.id;
+      if (!locationId) {
+        const res = await fetch("/api/charity-medicine/locations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ province: tripProvince, ward: tripWard || null }),
+        });
+        if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Không tạo được địa điểm"); }
+        const loc = await res.json();
+        locationId = loc.id;
+        qc.invalidateQueries({ queryKey: ["charity-locations"] });
+      }
       const res = await fetch("/api/charity-medicine/trips", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, locationId }),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
       return res.json();
@@ -111,7 +143,7 @@ export default function SimpleCharityMedicinePage() {
       qc.invalidateQueries({ queryKey: ["charity-trips"] });
       toast({ title: "Đã tạo chuyến đi" });
       setShowTripDialog(false);
-      setTripCode(""); setTripLocationId(""); setTripStart(""); setTripEnd(""); setTripExpected(""); setTripNotes("");
+      setTripCode(""); setTripProvince(""); setTripWard(""); setTripStart(""); setTripEnd(""); setTripExpected(""); setTripNotes("");
     },
     onError: (e: any) => toast({ title: "Lỗi", description: e.message, variant: "destructive" }),
   });
@@ -315,13 +347,25 @@ export default function SimpleCharityMedicinePage() {
           <DialogHeader><DialogTitle>Tạo chuyến đi mới</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Mã chuyến *</Label><Input value={tripCode} onChange={(e) => setTripCode(e.target.value)} placeholder="VD: TT-2026-001" /></div>
-            <div><Label>Địa điểm *</Label>
-              <Select value={tripLocationId} onValueChange={setTripLocationId}>
-                <SelectTrigger><SelectValue placeholder="Chọn địa điểm" /></SelectTrigger>
-                <SelectContent>
-                  {locations.map((l: any) => <SelectItem key={l.id} value={l.id}>{l.province}{l.district ? ` - ${l.district}` : ""}</SelectItem>)}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Tỉnh/TP *</Label>
+                <Select value={tripProvince} onValueChange={(v) => { setTripProvince(v); setTripWard(""); }}>
+                  <SelectTrigger><SelectValue placeholder="Chọn tỉnh/TP" /></SelectTrigger>
+                  <SelectContent>
+                    {provinceList.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Phường/Xã</Label>
+                <Select value={tripWard} onValueChange={setTripWard} disabled={!tripProvince}>
+                  <SelectTrigger><SelectValue placeholder={tripProvince ? "Chọn xã" : "Chọn tỉnh trước"} /></SelectTrigger>
+                  <SelectContent>
+                    {wardList.map((w) => <SelectItem key={w} value={w}>{w}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Ngày bắt đầu *</Label><Input type="date" value={tripStart} onChange={(e) => setTripStart(e.target.value)} /></div>
@@ -332,8 +376,8 @@ export default function SimpleCharityMedicinePage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowTripDialog(false)}>Huỷ</Button>
-            <Button onClick={() => createTrip.mutate({ tripCode, locationId: tripLocationId, startDate: tripStart, endDate: tripEnd, expectedPatients: tripExpected ? parseInt(tripExpected) : null, notes: tripNotes })}
-              disabled={createTrip.isPending || !tripCode || !tripLocationId || !tripStart || !tripEnd}>
+            <Button onClick={() => createTrip.mutate({ tripCode, startDate: tripStart, endDate: tripEnd, expectedPatients: tripExpected ? parseInt(tripExpected) : null, notes: tripNotes })}
+              disabled={createTrip.isPending || !tripCode || !tripProvince || !tripStart || !tripEnd}>
               {createTrip.isPending ? "Đang tạo..." : "Tạo chuyến"}
             </Button>
           </DialogFooter>
