@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { geoMercator, geoPath } from "d3-geo";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Activity, Pill, Users, ArrowLeft } from "lucide-react";
+import { MapPin, Activity, Pill, Users, ArrowLeft, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 const GEO_URL = "/vietnam-provinces.geojson";
@@ -55,9 +55,37 @@ function WardDrillDown({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [wardTooltip, setWardTooltip] = useState<{ x: number; y: number; name: string; count: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const isPanning = useRef(false);
+  const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    setZoom((z) => Math.min(8, Math.max(0.5, z * (e.deltaY < 0 ? 1.15 : 0.87))));
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    isPanning.current = true;
+    panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+  }, [pan]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isPanning.current) return;
+    setPan({
+      x: panStart.current.panX + (e.clientX - panStart.current.x),
+      y: panStart.current.panY + (e.clientY - panStart.current.y),
+    });
+  }, []);
+
+  const handleMouseUp = useCallback(() => { isPanning.current = false; }, []);
+
   useEffect(() => {
     setLoading(true);
     setError(false);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
     fetch("/wards/index.json")
       .then((r) => r.json())
       .then((index: Record<string, { file: string }>) => {
@@ -118,8 +146,27 @@ function WardDrillDown({
       <div className="text-center pt-2 pb-1">
         <p className="text-sm font-semibold text-gray-700">{province} — Bản đồ phường xã</p>
       </div>
-      <div className="relative" id="ward-map-container" style={{ width: "100%", maxWidth: WARD_MAP_W, margin: "0 auto" }}>
-        <svg width="100%" viewBox={`0 0 ${WARD_MAP_W} ${WARD_MAP_H}`} style={{ display: "block" }}>
+      <div
+        className="relative overflow-hidden"
+        id="ward-map-container"
+        style={{ width: "100%", maxWidth: WARD_MAP_W, margin: "0 auto", cursor: isPanning.current ? "grabbing" : "grab" }}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={(e) => {
+          handleMouseMove(e);
+          if (!isPanning.current && wardTooltip) {
+            const rect = document.getElementById("ward-map-container")!.getBoundingClientRect();
+            setWardTooltip((prev) => prev ? { ...prev, x: e.clientX - rect.left, y: e.clientY - rect.top } : null);
+          }
+        }}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={() => { handleMouseUp(); setWardTooltip(null); }}
+      >
+        <svg
+          width="100%"
+          viewBox={`0 0 ${WARD_MAP_W} ${WARD_MAP_H}`}
+          style={{ display: "block", transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "center center" }}
+        >
           {paths.map((p: any) => {
             const count = wardTripCount[p.name] || 0;
             return (
@@ -128,13 +175,9 @@ function WardDrillDown({
                 d={p.d}
                 fill={getWardColor(count)}
                 stroke="#fff"
-                strokeWidth={0.5}
+                strokeWidth={0.5 / zoom}
                 style={{ cursor: "pointer" }}
                 onMouseEnter={(e) => {
-                  const rect = document.getElementById("ward-map-container")!.getBoundingClientRect();
-                  setWardTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, name: p.name, count });
-                }}
-                onMouseMove={(e) => {
                   const rect = document.getElementById("ward-map-container")!.getBoundingClientRect();
                   setWardTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, name: p.name, count });
                 }}
@@ -143,6 +186,18 @@ function WardDrillDown({
             );
           })}
         </svg>
+        {/* Zoom controls */}
+        <div className="absolute top-2 right-2 z-20 flex flex-col gap-1">
+          <button onClick={() => setZoom((z) => Math.min(8, z * 1.4))} className="bg-white border rounded-lg p-1.5 hover:bg-gray-50 shadow-sm">
+            <ZoomIn className="h-4 w-4" />
+          </button>
+          <button onClick={() => setZoom((z) => Math.max(0.5, z / 1.4))} className="bg-white border rounded-lg p-1.5 hover:bg-gray-50 shadow-sm">
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="bg-white border rounded-lg p-1.5 hover:bg-gray-50 shadow-sm">
+            <RotateCcw className="h-4 w-4" />
+          </button>
+        </div>
         {wardTooltip && (
           <div
             className="absolute z-10 bg-white border rounded-lg shadow-lg p-2 text-sm pointer-events-none"
