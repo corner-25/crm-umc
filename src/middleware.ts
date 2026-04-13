@@ -23,6 +23,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder and static assets
      */
-    "/((?!api/|auth/|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.svg$|.*\\.ico$).*)",
+    "/((?!api/|auth/|_next/static|_next/image|favicon.ico|wards/|vietnam-provinces\\.geojson|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.svg$|.*\\.ico$|.*\\.json$|.*\\.geojson$).*)",
   ],
 };
