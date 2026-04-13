@@ -17,17 +17,15 @@ const VietnamMapWidget = dynamic(
 
 export default function VietnamMapPage() {
   return (
-    <div className="p-4 space-y-2 h-screen flex flex-col overflow-hidden">
-      <div className="flex items-center gap-3 flex-shrink-0">
+    <div className="p-6 space-y-4">
+      <div className="flex items-center gap-3">
         <MapPin className="h-5 w-5 text-red-500" />
         <div>
-          <h1 className="text-lg font-bold leading-tight">Bản đồ hoạt động từ thiện</h1>
-          <p className="text-muted-foreground text-xs">Phân bổ chuyến đi theo tỉnh thành</p>
+          <h1 className="text-xl font-bold">Bản đồ hoạt động từ thiện</h1>
+          <p className="text-muted-foreground text-sm">Phân bổ chuyến đi theo tỉnh thành</p>
         </div>
       </div>
-      <div className="flex-1 min-h-0">
-        <VietnamMapWidget />
-      </div>
+      <VietnamMapWidget />
     </div>
   );
 }

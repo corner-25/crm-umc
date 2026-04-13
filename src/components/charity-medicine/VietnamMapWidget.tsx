@@ -150,10 +150,10 @@ export default function VietnamMapWidget() {
   const selectedData = selected ? statsMap[selected] : null;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* Map */}
-      <div className="lg:col-span-2 min-h-0">
-        <Card className="h-full flex flex-col">
+      <div className="lg:col-span-2">
+        <Card className="flex flex-col" style={{ height: 820 }}>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
@@ -287,7 +287,7 @@ export default function VietnamMapWidget() {
       </div>
 
       {/* Right panel */}
-      <div className="flex flex-col gap-3 min-h-0">
+      <div className="flex flex-col gap-3" style={{ height: 820 }}>
         <Card className="flex-shrink-0">
           <CardHeader className="pb-2 pt-3">
             <CardTitle className="text-sm">Top 5 tỉnh đi nhiều nhất</CardTitle>
