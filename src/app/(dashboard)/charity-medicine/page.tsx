@@ -247,8 +247,11 @@ function TripFormDialog({ open, onClose, editItem, locations }: { open: boolean;
     queryKey: ["wards-by-province", province],
     queryFn: async () => {
       const res = await fetch(`/wards/${encodeURIComponent(province)}.json`);
+      console.log("[TripForm] fetch wards", province, "status:", res.status);
       if (!res.ok) return null;
-      return res.json();
+      const json = await res.json();
+      console.log("[TripForm] wards loaded", province, "features:", json?.features?.length);
+      return json;
     },
     enabled: open && !!province,
     staleTime: Infinity,
@@ -257,9 +260,10 @@ function TripFormDialog({ open, onClose, editItem, locations }: { open: boolean;
   const provinceList: string[] = provincesGeo
     ? (Array.from(new Set(provincesGeo.features.map((f: any) => f.properties.ten_tinh as string))) as string[]).sort()
     : [];
-  const wardList: string[] = wardsGeo
+  const wardList: string[] = wardsGeo?.features
     ? wardsGeo.features.map((f: any) => f.properties.ten_xa as string).sort()
     : [];
+  console.log("[TripForm] render", { province, wardListLen: wardList.length });
 
   const { data: suggestionsData } = useQuery({
     queryKey: ["medicine-suggestions"],
