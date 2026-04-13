@@ -139,6 +139,9 @@ model Donor {
   // Inactive Sponsor Notifications
   inactiveNotifications InactiveSponsorNotification[]
 
+  // Charity Trips sponsored
+  charityTrips          CharityTrip[] @relation("CharityTripSponsor")
+
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
   deletedAt             DateTime?
@@ -944,11 +947,18 @@ model CharityTrip {
   locationId      String
   location        CharityLocation       @relation(fields: [locationId], references: [id])
 
+  sponsorId       String?
+  sponsor         Donor?                @relation("CharityTripSponsor", fields: [sponsorId], references: [id])
+  sponsorNote     String?
+
   startDate       DateTime
   endDate         DateTime
-  expectedPatients Int?                          // Số lượng người dự kiến khám
-  actualPatients  Int?                           // Số thực tế (cập nhật sau chuyến)
-  demographics    String?                        // Ghi chú đặc điểm dân cư (tỷ lệ già/trẻ em)
+  expectedPatients Int?
+  actualPatients  Int?
+  staffCount      Int?
+  distance        Float?
+  transport       String?
+  demographics    String?
   notes           String?
 
   transactions    MedicineTransaction[]
@@ -959,6 +969,7 @@ model CharityTrip {
   deletedAt       DateTime?
 
   @@index([locationId])
+  @@index([sponsorId])
   @@index([startDate])
   @@map("charity_trips")
 }

@@ -83,7 +83,7 @@ const navigation = [
     href: "/charity-medicine",
     icon: Pill,
     children: [
-      { name: "Theo dõi đơn giản", href: "/charity-medicine/simple" },
+      { name: "Ghi nhận chuyến đi", href: "/charity-medicine/simple" },
       { name: "Quản lý chi tiết", href: "/charity-medicine" },
     ],
   },
@@ -128,11 +128,15 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
         {navigation.map((item) => {
-          // isActive: true nếu đang ở route của item HOẶC bất kỳ child nào
           const childHrefs = item.children?.map((c) => c.href.split("?")[0]) || [];
+          const allChildHrefs = navigation.flatMap((n) => n.children?.map((c) => c.href.split("?")[0]) || []);
+          const ownChildHrefs = new Set(childHrefs);
+          const otherChildHrefs = allChildHrefs.filter((h) => !ownChildHrefs.has(h));
+          const isClaimedByOther = otherChildHrefs.some((h) => pathname === h || pathname.startsWith(h + "/"));
           const isActive =
-            pathname.startsWith(item.href) ||
-            childHrefs.some((h) => pathname === h || pathname.startsWith(h + "/"));
+            !isClaimedByOther &&
+            (pathname.startsWith(item.href) ||
+            childHrefs.some((h) => pathname === h || pathname.startsWith(h + "/")));
           const Icon = item.icon;
 
           return (

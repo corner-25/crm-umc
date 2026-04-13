@@ -175,9 +175,9 @@ export default function VietnamMapWidget() {
   const selectedData = selected ? statsMap[selected] : null;
 
   const handleProvinceClick = useCallback((name: string) => {
-    setDrillProvince(name);
-    setSelected(name);
-  }, []);
+    setSelected(selected === name ? null : name);
+    setDrillProvince(null);
+  }, [selected]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
