@@ -10,7 +10,7 @@ import { MapPin, Activity, Pill, Users } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 const GEO_PROVINCES = "/vietnam-provinces.geojson";
-const GEO_WARDS = "/vietnam-wards.geojson";
+const WARDS_BY_PROVINCE = (province: string) => `/wards/${encodeURIComponent(province)}.json`;
 
 interface ProvinceStats {
   province: string;
@@ -48,8 +48,12 @@ function WardMap({
   const [wardsData, setWardsData] = useState<any>(null);
 
   useEffect(() => {
-    fetch(GEO_WARDS).then(r => r.json()).then(setWardsData);
-  }, []);
+    setWardsData(null);
+    fetch(WARDS_BY_PROVINCE(province))
+      .then(r => r.ok ? r.json() : null)
+      .then(setWardsData)
+      .catch(() => setWardsData(null));
+  }, [province]);
 
   const wardCount: Record<string, number> = {};
   (selectedData?.trips || []).forEach((t) => {
@@ -58,7 +62,7 @@ function WardMap({
 
   const { features, projectionConfig } = useMemo(() => {
     if (!wardsData) return { features: [], projectionConfig: null };
-    const feats = wardsData.features.filter((f: any) => f.properties.ten_tinh === province);
+    const feats = wardsData.features || [];
     if (feats.length === 0) return { features: [], projectionConfig: null };
 
     const collection = { type: "FeatureCollection", features: feats };

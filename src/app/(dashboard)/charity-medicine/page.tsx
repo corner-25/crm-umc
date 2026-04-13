@@ -140,25 +140,34 @@ function LocationFormDialog({ open, onClose, editItem }: { open: boolean; onClos
   const [epidemiology, setEpidemiology] = useState(editItem?.epidemiology || "");
   const [notes, setNotes] = useState(editItem?.notes || "");
 
-  // Load GeoJSON wards (cache forever via HTTP)
-  const { data: wardsGeo } = useQuery({
-    queryKey: ["wards-geojson"],
+  // Load tỉnh list từ file tỉnh (nhẹ 3MB, cache)
+  const { data: provincesGeo } = useQuery({
+    queryKey: ["provinces-geojson"],
     queryFn: async () => {
-      const res = await fetch("/vietnam-wards.geojson");
+      const res = await fetch("/vietnam-provinces.geojson");
       return res.json();
     },
     enabled: open,
     staleTime: Infinity,
   });
 
-  const provinces: string[] = wardsGeo
-    ? (Array.from(new Set(wardsGeo.features.map((f: any) => f.properties.ten_tinh as string))) as string[]).sort()
+  // Load wards riêng cho tỉnh đang chọn
+  const { data: wardsGeo } = useQuery({
+    queryKey: ["wards-by-province", province],
+    queryFn: async () => {
+      const res = await fetch(`/wards/${encodeURIComponent(province)}.json`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: open && !!province,
+    staleTime: Infinity,
+  });
+
+  const provinces: string[] = provincesGeo
+    ? (Array.from(new Set(provincesGeo.features.map((f: any) => f.properties.ten_tinh as string))) as string[]).sort()
     : [];
-  const wardsOfProvince: string[] = wardsGeo && province
-    ? wardsGeo.features
-        .filter((f: any) => f.properties.ten_tinh === province)
-        .map((f: any) => f.properties.ten_xa as string)
-        .sort()
+  const wardsOfProvince: string[] = wardsGeo
+    ? wardsGeo.features.map((f: any) => f.properties.ten_xa as string).sort()
     : [];
 
   const mutation = useMutation({
