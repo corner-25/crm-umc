@@ -95,7 +95,7 @@ function WardMap({
       projectionConfig={projectionConfig!}
       width={WIDTH}
       height={HEIGHT}
-      style={{ width: "100%", height: "auto" }}
+      style={{ height: "100%", width: "auto", maxWidth: "100%" }}
     >
       <Geographies geography={filteredCollection}>
         {({ geographies }: { geographies: any[] }) =>
@@ -157,10 +157,10 @@ export default function VietnamMapWidget() {
   const selectedData = selected ? statsMap[selected] : null;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full">
       {/* Map */}
-      <div className="lg:col-span-2">
-        <Card>
+      <div className="lg:col-span-2 min-h-0">
+        <Card className="h-full flex flex-col">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
@@ -198,7 +198,7 @@ export default function VietnamMapWidget() {
               ))}
             </div>
           </CardHeader>
-          <CardContent className="relative p-0">
+          <CardContent className="relative p-0 flex-1 min-h-0 overflow-hidden">
             {selected && (
               <div className="absolute top-2 left-2 z-20">
                 <button
@@ -209,7 +209,7 @@ export default function VietnamMapWidget() {
                 </button>
               </div>
             )}
-            <div className="relative">
+            <div className="relative h-full flex items-center justify-center">
               {selected ? (
                 <WardMap
                   province={selected}
@@ -221,8 +221,8 @@ export default function VietnamMapWidget() {
                   projection="geoMercator"
                   projectionConfig={{ center: [106, 16], scale: 2200 }}
                   width={600}
-                  height={750}
-                  style={{ width: "100%", height: "auto" }}
+                  height={800}
+                  style={{ height: "100%", width: "auto", maxWidth: "100%" }}
                 >
                   <Geographies geography={GEO_PROVINCES}>
                     {({ geographies }: { geographies: any[] }) =>
@@ -294,12 +294,12 @@ export default function VietnamMapWidget() {
       </div>
 
       {/* Right panel */}
-      <div className="space-y-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Top 5 tỉnh đi nhiều nhất</CardTitle>
+      <div className="flex flex-col gap-3 min-h-0">
+        <Card className="flex-shrink-0">
+          <CardHeader className="pb-2 pt-3">
+            <CardTitle className="text-sm">Top 5 tỉnh đi nhiều nhất</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-1 pb-3">
             {isLoading && <p className="text-xs text-muted-foreground text-center py-2">Đang tải...</p>}
             {!isLoading && top5.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">Chưa có dữ liệu</p>}
             {top5.map((p, i) => (
@@ -329,26 +329,24 @@ export default function VietnamMapWidget() {
         </Card>
 
         {selected && selectedData ? (
-          <Card className="border-blue-200">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center justify-between">
+          <Card className="border-blue-200 flex-1 min-h-0 flex flex-col">
+            <CardHeader className="pb-2 pt-3 flex-shrink-0">
+              <CardTitle className="text-sm flex items-center justify-between">
                 <span>{selected}</span>
                 <Badge style={{ backgroundColor: getTripColor(selectedData.tripCount) }} className="text-white border-0">
                   {selectedData.tripCount} chuyến
                 </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-red-50 rounded-lg p-3 text-center">
-                  <Users className="h-4 w-4 text-red-500 mx-auto mb-1" />
-                  <p className="text-lg font-bold text-red-600">{selectedData.totalPatients}</p>
-                  <p className="text-xs text-muted-foreground">Người bệnh</p>
+            <CardContent className="space-y-3 flex-1 min-h-0 overflow-y-auto pb-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-red-50 rounded-lg p-2 text-center">
+                  <p className="text-base font-bold text-red-600">{selectedData.totalPatients}</p>
+                  <p className="text-[10px] text-muted-foreground">Người bệnh</p>
                 </div>
-                <div className="bg-blue-50 rounded-lg p-3 text-center">
-                  <Pill className="h-4 w-4 text-blue-500 mx-auto mb-1" />
-                  <p className="text-sm font-bold text-blue-600">{formatCurrency(selectedData.totalMedicineCost)}</p>
-                  <p className="text-xs text-muted-foreground">Chi phí thuốc</p>
+                <div className="bg-blue-50 rounded-lg p-2 text-center">
+                  <p className="text-xs font-bold text-blue-600">{formatCurrency(selectedData.totalMedicineCost)}</p>
+                  <p className="text-[10px] text-muted-foreground">Chi phí thuốc</p>
                 </div>
               </div>
               <div>
@@ -361,7 +359,7 @@ export default function VietnamMapWidget() {
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-2">LỊCH SỬ CHUYẾN ĐI</p>
-                <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                <div className="space-y-1">
                   {selectedData.trips.map((t) => (
                     <div key={t.tripCode} className="flex items-center justify-between text-xs py-1.5 border-b last:border-0">
                       <div>
@@ -379,8 +377,8 @@ export default function VietnamMapWidget() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
+          <Card className="border-dashed flex-1 min-h-0">
+            <CardContent className="h-full flex flex-col items-center justify-center text-center text-muted-foreground">
               <MapPin className="h-8 w-8 mb-2 opacity-30" />
               <p className="text-sm">Click vào tỉnh trên bản đồ<br />để xem chi tiết</p>
             </CardContent>
