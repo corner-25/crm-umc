@@ -1,16 +1,14 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
-import { geoMercator, geoPath } from "d3-geo";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Activity, Pill, Users } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
-const GEO_PROVINCES = "/vietnam-provinces.geojson";
-const WARDS_BY_PROVINCE = (province: string) => `/wards/${encodeURIComponent(province)}.json`;
+const GEO_URL = "/vietnam-provinces.geojson";
 
 interface ProvinceStats {
   province: string;
@@ -31,101 +29,7 @@ function getTripColor(count: number) {
   return "#b91c1c";
 }
 
-interface TooltipState { x: number; y: number; province: string; ward?: string; tripCount?: number }
-
-const WIDTH = 600;
-const HEIGHT = 750;
-
-function WardMap({
-  province,
-  selectedData,
-  setTooltip,
-}: {
-  province: string;
-  selectedData: ProvinceStats | null;
-  setTooltip: (t: TooltipState | null) => void;
-}) {
-  const [wardsData, setWardsData] = useState<any>(null);
-
-  useEffect(() => {
-    setWardsData(null);
-    fetch(WARDS_BY_PROVINCE(province))
-      .then(r => r.ok ? r.json() : null)
-      .then(setWardsData)
-      .catch(() => setWardsData(null));
-  }, [province]);
-
-  const wardCount: Record<string, number> = {};
-  (selectedData?.trips || []).forEach((t) => {
-    if (t.ward) wardCount[t.ward] = (wardCount[t.ward] || 0) + 1;
-  });
-
-  const paths = useMemo(() => {
-    if (!wardsData?.features?.length) return null;
-    const collection = { type: "FeatureCollection", features: wardsData.features };
-    const projection = geoMercator().fitExtent(
-      [[20, 20], [WIDTH - 20, HEIGHT - 20]],
-      collection as any
-    );
-    const pathGen = geoPath(projection);
-    return wardsData.features.map((f: any, i: number) => ({
-      d: pathGen(f) || "",
-      ward: f.properties.ten_xa as string,
-      key: `${f.properties.ma_xa || i}`,
-    }));
-  }, [wardsData]);
-
-  if (!wardsData) {
-    return (
-      <div className="flex items-center justify-center" style={{ height: 500 }}>
-        <p className="text-sm text-muted-foreground">Đang tải bản đồ phường xã...</p>
-      </div>
-    );
-  }
-
-  if (!paths || paths.length === 0) {
-    return (
-      <div className="flex items-center justify-center" style={{ height: 500 }}>
-        <p className="text-sm text-muted-foreground">Không tìm thấy dữ liệu phường xã cho {province}</p>
-      </div>
-    );
-  }
-
-  return (
-    <svg
-      viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      preserveAspectRatio="xMidYMid meet"
-      style={{ width: "100%", height: "100%", display: "block" }}
-    >
-      {paths.map((p: { d: string; ward: string; key: string }) => {
-        const count = wardCount[p.ward] || 0;
-        return (
-          <path
-            key={p.key}
-            d={p.d}
-            fill={getTripColor(count)}
-            stroke="#fff"
-            strokeWidth={0.3}
-            style={{ cursor: "pointer", outline: "none" }}
-            onMouseEnter={(e) => {
-              const rect = (e.target as SVGElement).closest("svg")!.getBoundingClientRect();
-              setTooltip({
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top,
-                province,
-                ward: p.ward,
-                tripCount: count,
-              });
-            }}
-            onMouseLeave={() => setTooltip(null)}
-            onMouseOver={(e) => { (e.target as SVGPathElement).style.opacity = "0.7"; }}
-            onMouseOut={(e) => { (e.target as SVGPathElement).style.opacity = "1"; }}
-          />
-        );
-      })}
-    </svg>
-  );
-}
+interface TooltipState { x: number; y: number; province: string }
 
 export default function VietnamMapWidget() {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -150,10 +54,10 @@ export default function VietnamMapWidget() {
   const selectedData = selected ? statsMap[selected] : null;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Map */}
       <div className="lg:col-span-2">
-        <Card className="flex flex-col" style={{ height: 820 }}>
+        <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
@@ -191,93 +95,62 @@ export default function VietnamMapWidget() {
               ))}
             </div>
           </CardHeader>
-          <CardContent className="relative p-0 flex-1 min-h-0 overflow-hidden">
-            {selected && (
-              <div className="absolute top-2 left-2 z-20">
-                <button
-                  onClick={() => setSelected(null)}
-                  className="bg-white border rounded-md px-3 py-1.5 text-xs font-medium shadow hover:bg-gray-50"
-                >
-                  ← Quay lại bản đồ tỉnh
-                </button>
-              </div>
-            )}
-            <div className="relative h-full flex items-center justify-center">
-              {selected ? (
-                <WardMap
-                  province={selected}
-                  selectedData={selectedData}
-                  setTooltip={setTooltip}
-                />
-              ) : (
-                <ComposableMap
-                  projection="geoMercator"
-                  projectionConfig={{ center: [106, 16], scale: 2200 }}
-                  width={600}
-                  height={800}
-                  style={{ height: "100%", width: "auto", maxWidth: "100%" }}
-                >
-                  <Geographies geography={GEO_PROVINCES}>
-                    {({ geographies }: { geographies: any[] }) =>
-                      geographies.map((geo: any) => {
-                        const name = geo.properties.ten_tinh as string;
-                        const stats = statsMap[name];
-                        const count = stats?.tripCount ?? 0;
-                        return (
-                          <Geography
-                            key={geo.rsmKey}
-                            geography={geo}
-                            fill={getTripColor(count)}
-                            stroke="#fff"
-                            strokeWidth={0.5}
-                            style={{
-                              default: { outline: "none", cursor: "pointer" },
-                              hover: { outline: "none", opacity: 0.8, cursor: "pointer" },
-                              pressed: { outline: "none" },
-                            }}
-                            onClick={() => setSelected(name)}
-                            onMouseEnter={(e: React.MouseEvent<SVGPathElement>) => {
-                              const rect = (e.target as SVGElement).closest("svg")!.getBoundingClientRect();
-                              setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, province: name });
-                            }}
-                            onMouseLeave={() => setTooltip(null)}
-                          />
-                        );
-                      })
-                    }
-                  </Geographies>
-                </ComposableMap>
-              )}
+          <CardContent className="relative p-0">
+            <div className="relative">
+              <ComposableMap
+                projection="geoMercator"
+                projectionConfig={{ center: [106, 16], scale: 2200 }}
+                width={600}
+                height={750}
+                style={{ width: "100%", height: "auto" }}
+              >
+                <Geographies geography={GEO_URL}>
+                  {({ geographies }: { geographies: any[] }) =>
+                    geographies.map((geo: any) => {
+                      const name = geo.properties.ten_tinh as string;
+                      const stats = statsMap[name];
+                      const count = stats?.tripCount ?? 0;
+                      const isSelected = selected === name;
+                      return (
+                        <Geography
+                          key={geo.rsmKey}
+                          geography={geo}
+                          fill={isSelected ? "#1d4ed8" : getTripColor(count)}
+                          stroke="#fff"
+                          strokeWidth={0.5}
+                          style={{
+                            default: { outline: "none", cursor: "pointer" },
+                            hover: { outline: "none", opacity: 0.8, cursor: "pointer" },
+                            pressed: { outline: "none" },
+                          }}
+                          onClick={() => setSelected(selected === name ? null : name)}
+                          onMouseEnter={(e: React.MouseEvent<SVGPathElement>) => {
+                            const rect = (e.target as SVGElement).closest("svg")!.getBoundingClientRect();
+                            setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, province: name });
+                          }}
+                          onMouseLeave={() => setTooltip(null)}
+                        />
+                      );
+                    })
+                  }
+                </Geographies>
+              </ComposableMap>
 
               {tooltip && (
                 <div
                   className="absolute z-10 bg-white border rounded-lg shadow-lg p-3 text-sm pointer-events-none min-w-[180px]"
                   style={{ left: tooltip.x + 12, top: tooltip.y - 10 }}
                 >
-                  {tooltip.ward ? (
+                  <p className="font-semibold text-gray-800">{tooltip.province}</p>
+                  {statsMap[tooltip.province] ? (
                     <>
-                      <p className="font-semibold text-gray-800">{tooltip.ward}</p>
-                      <p className="text-xs text-muted-foreground">{tooltip.province}</p>
-                      {(tooltip.tripCount || 0) > 0 ? (
-                        <p className="text-red-600 font-medium mt-1">{tooltip.tripCount} chuyến đi</p>
-                      ) : (
-                        <p className="text-gray-400 mt-1">Chưa có chuyến đi</p>
-                      )}
+                      <p className="text-red-600 font-medium">{statsMap[tooltip.province].tripCount} chuyến đi</p>
+                      <p className="text-gray-500">{statsMap[tooltip.province].totalPatients} người bệnh</p>
+                      <p className="text-gray-500">{formatCurrency(statsMap[tooltip.province].totalMedicineCost)}</p>
+                      <p className="text-xs text-blue-500 mt-1">Click để xem chi tiết</p>
                     </>
                   ) : (
-                    <>
-                      <p className="font-semibold text-gray-800">{tooltip.province}</p>
-                      {statsMap[tooltip.province] ? (
-                        <>
-                          <p className="text-red-600 font-medium">{statsMap[tooltip.province].tripCount} chuyến đi</p>
-                          <p className="text-gray-500">{statsMap[tooltip.province].totalPatients} người bệnh</p>
-                          <p className="text-gray-500">{formatCurrency(statsMap[tooltip.province].totalMedicineCost)}</p>
-                          <p className="text-xs text-blue-500 mt-1">Click để xem chi tiết</p>
-                        </>
-                      ) : (
-                        <p className="text-gray-400">Chưa có chuyến đi</p>
-                      )}
-                    </>
+                    <p className="text-gray-400">Chưa có chuyến đi</p>
                   )}
                 </div>
               )}
@@ -287,12 +160,12 @@ export default function VietnamMapWidget() {
       </div>
 
       {/* Right panel */}
-      <div className="flex flex-col gap-3" style={{ height: 820 }}>
-        <Card className="flex-shrink-0">
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm">Top 5 tỉnh đi nhiều nhất</CardTitle>
+      <div className="space-y-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Top 5 tỉnh đi nhiều nhất</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1 pb-3">
+          <CardContent className="space-y-2">
             {isLoading && <p className="text-xs text-muted-foreground text-center py-2">Đang tải...</p>}
             {!isLoading && top5.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">Chưa có dữ liệu</p>}
             {top5.map((p, i) => (
@@ -322,24 +195,26 @@ export default function VietnamMapWidget() {
         </Card>
 
         {selected && selectedData ? (
-          <Card className="border-blue-200 flex-1 min-h-0 flex flex-col">
-            <CardHeader className="pb-2 pt-3 flex-shrink-0">
-              <CardTitle className="text-sm flex items-center justify-between">
+          <Card className="border-blue-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center justify-between">
                 <span>{selected}</span>
                 <Badge style={{ backgroundColor: getTripColor(selectedData.tripCount) }} className="text-white border-0">
                   {selectedData.tripCount} chuyến
                 </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 flex-1 min-h-0 overflow-y-auto pb-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-red-50 rounded-lg p-2 text-center">
-                  <p className="text-base font-bold text-red-600">{selectedData.totalPatients}</p>
-                  <p className="text-[10px] text-muted-foreground">Người bệnh</p>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-red-50 rounded-lg p-3 text-center">
+                  <Users className="h-4 w-4 text-red-500 mx-auto mb-1" />
+                  <p className="text-lg font-bold text-red-600">{selectedData.totalPatients}</p>
+                  <p className="text-xs text-muted-foreground">Người bệnh</p>
                 </div>
-                <div className="bg-blue-50 rounded-lg p-2 text-center">
-                  <p className="text-xs font-bold text-blue-600">{formatCurrency(selectedData.totalMedicineCost)}</p>
-                  <p className="text-[10px] text-muted-foreground">Chi phí thuốc</p>
+                <div className="bg-blue-50 rounded-lg p-3 text-center">
+                  <Pill className="h-4 w-4 text-blue-500 mx-auto mb-1" />
+                  <p className="text-sm font-bold text-blue-600">{formatCurrency(selectedData.totalMedicineCost)}</p>
+                  <p className="text-xs text-muted-foreground">Chi phí thuốc</p>
                 </div>
               </div>
               <div>
@@ -352,7 +227,7 @@ export default function VietnamMapWidget() {
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-2">LỊCH SỬ CHUYẾN ĐI</p>
-                <div className="space-y-1">
+                <div className="space-y-1 max-h-[200px] overflow-y-auto">
                   {selectedData.trips.map((t) => (
                     <div key={t.tripCode} className="flex items-center justify-between text-xs py-1.5 border-b last:border-0">
                       <div>
@@ -370,8 +245,8 @@ export default function VietnamMapWidget() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-dashed flex-1 min-h-0">
-            <CardContent className="h-full flex flex-col items-center justify-center text-center text-muted-foreground">
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
               <MapPin className="h-8 w-8 mb-2 opacity-30" />
               <p className="text-sm">Click vào tỉnh trên bản đồ<br />để xem chi tiết</p>
             </CardContent>
