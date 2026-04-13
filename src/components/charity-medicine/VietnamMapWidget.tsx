@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Activity, Pill, Users } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
-const GEO_URL = "/vietnam-provinces.geojson";
+const GEO_PROVINCES = "/vietnam-provinces.geojson";
+const GEO_WARDS = "/vietnam-wards.geojson";
 
 interface ProvinceStats {
   province: string;
@@ -29,7 +30,108 @@ function getTripColor(count: number) {
   return "#b91c1c";
 }
 
-interface TooltipState { x: number; y: number; province: string }
+interface TooltipState { x: number; y: number; province: string; ward?: string; tripCount?: number }
+
+function WardMap({
+  province,
+  selectedData,
+  setTooltip,
+}: {
+  province: string;
+  selectedData: ProvinceStats | null;
+  setTooltip: (t: TooltipState | null) => void;
+}) {
+  const [bounds, setBounds] = useState<{ cx: number; cy: number; scale: number } | null>(null);
+  const [wardsData, setWardsData] = useState<any>(null);
+
+  useEffect(() => {
+    fetch(GEO_WARDS).then(r => r.json()).then((json) => setWardsData(json));
+  }, []);
+
+  // Đếm số chuyến theo ward
+  const wardCount: Record<string, number> = {};
+  (selectedData?.trips || []).forEach((t) => {
+    if (t.ward) wardCount[t.ward] = (wardCount[t.ward] || 0) + 1;
+  });
+
+  // Filter features theo tỉnh + tính bounds
+  const filteredFeatures = (wardsData?.features || []).filter((f: any) => f.properties.ten_tinh === province);
+
+  useEffect(() => {
+    if (filteredFeatures.length === 0) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    filteredFeatures.forEach((f: any) => {
+      const coords = f.geometry.type === "MultiPolygon"
+        ? f.geometry.coordinates.flat(2)
+        : f.geometry.coordinates.flat(1);
+      coords.forEach((c: number[]) => {
+        if (c[0] < minX) minX = c[0];
+        if (c[0] > maxX) maxX = c[0];
+        if (c[1] < minY) minY = c[1];
+        if (c[1] > maxY) maxY = c[1];
+      });
+    });
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const span = Math.max(maxX - minX, maxY - minY);
+    const scale = (60 / span) * 100;
+    setBounds({ cx, cy, scale });
+  }, [wardsData, province]);
+
+  if (!wardsData || !bounds) {
+    return (
+      <div className="flex items-center justify-center" style={{ height: 500 }}>
+        <p className="text-sm text-muted-foreground">Đang tải bản đồ phường xã...</p>
+      </div>
+    );
+  }
+
+  const filteredCollection = { type: "FeatureCollection", features: filteredFeatures };
+
+  return (
+    <ComposableMap
+      projection="geoMercator"
+      projectionConfig={{ center: [bounds.cx, bounds.cy], scale: bounds.scale }}
+      width={600}
+      height={750}
+      style={{ width: "100%", height: "auto" }}
+    >
+      <Geographies geography={filteredCollection}>
+        {({ geographies }: { geographies: any[] }) =>
+          geographies.map((geo: any) => {
+            const wardName = geo.properties.ten_xa as string;
+            const count = wardCount[wardName] || 0;
+            return (
+              <Geography
+                key={geo.rsmKey}
+                geography={geo}
+                fill={getTripColor(count)}
+                stroke="#fff"
+                strokeWidth={0.3}
+                style={{
+                  default: { outline: "none", cursor: "pointer" },
+                  hover: { outline: "none", opacity: 0.7, cursor: "pointer" },
+                  pressed: { outline: "none" },
+                }}
+                onMouseEnter={(e: React.MouseEvent<SVGPathElement>) => {
+                  const rect = (e.target as SVGElement).closest("svg")!.getBoundingClientRect();
+                  setTooltip({
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top,
+                    province,
+                    ward: wardName,
+                    tripCount: count,
+                  });
+                }}
+                onMouseLeave={() => setTooltip(null)}
+              />
+            );
+          })
+        }
+      </Geographies>
+    </ComposableMap>
+  );
+}
 
 export default function VietnamMapWidget() {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -96,61 +198,92 @@ export default function VietnamMapWidget() {
             </div>
           </CardHeader>
           <CardContent className="relative p-0">
+            {selected && (
+              <div className="absolute top-2 left-2 z-20">
+                <button
+                  onClick={() => setSelected(null)}
+                  className="bg-white border rounded-md px-3 py-1.5 text-xs font-medium shadow hover:bg-gray-50"
+                >
+                  ← Quay lại bản đồ tỉnh
+                </button>
+              </div>
+            )}
             <div className="relative">
-              <ComposableMap
-                projection="geoMercator"
-                projectionConfig={{ center: [106, 16], scale: 2200 }}
-                width={600}
-                height={750}
-                style={{ width: "100%", height: "auto" }}
-              >
-                <Geographies geography={GEO_URL}>
-                  {({ geographies }: { geographies: any[] }) =>
-                    geographies.map((geo: any) => {
-                      const name = geo.properties.ten_tinh as string;
-                      const stats = statsMap[name];
-                      const count = stats?.tripCount ?? 0;
-                      const isSelected = selected === name;
-                      return (
-                        <Geography
-                          key={geo.rsmKey}
-                          geography={geo}
-                          fill={isSelected ? "#1d4ed8" : getTripColor(count)}
-                          stroke="#fff"
-                          strokeWidth={0.5}
-                          style={{
-                            default: { outline: "none", cursor: "pointer" },
-                            hover: { outline: "none", opacity: 0.8, cursor: "pointer" },
-                            pressed: { outline: "none" },
-                          }}
-                          onClick={() => setSelected(selected === name ? null : name)}
-                          onMouseEnter={(e: React.MouseEvent<SVGPathElement>) => {
-                            const rect = (e.target as SVGElement).closest("svg")!.getBoundingClientRect();
-                            setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, province: name });
-                          }}
-                          onMouseLeave={() => setTooltip(null)}
-                        />
-                      );
-                    })
-                  }
-                </Geographies>
-              </ComposableMap>
+              {selected ? (
+                <WardMap
+                  province={selected}
+                  selectedData={selectedData}
+                  setTooltip={setTooltip}
+                />
+              ) : (
+                <ComposableMap
+                  projection="geoMercator"
+                  projectionConfig={{ center: [106, 16], scale: 2200 }}
+                  width={600}
+                  height={750}
+                  style={{ width: "100%", height: "auto" }}
+                >
+                  <Geographies geography={GEO_PROVINCES}>
+                    {({ geographies }: { geographies: any[] }) =>
+                      geographies.map((geo: any) => {
+                        const name = geo.properties.ten_tinh as string;
+                        const stats = statsMap[name];
+                        const count = stats?.tripCount ?? 0;
+                        return (
+                          <Geography
+                            key={geo.rsmKey}
+                            geography={geo}
+                            fill={getTripColor(count)}
+                            stroke="#fff"
+                            strokeWidth={0.5}
+                            style={{
+                              default: { outline: "none", cursor: "pointer" },
+                              hover: { outline: "none", opacity: 0.8, cursor: "pointer" },
+                              pressed: { outline: "none" },
+                            }}
+                            onClick={() => setSelected(name)}
+                            onMouseEnter={(e: React.MouseEvent<SVGPathElement>) => {
+                              const rect = (e.target as SVGElement).closest("svg")!.getBoundingClientRect();
+                              setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, province: name });
+                            }}
+                            onMouseLeave={() => setTooltip(null)}
+                          />
+                        );
+                      })
+                    }
+                  </Geographies>
+                </ComposableMap>
+              )}
 
               {tooltip && (
                 <div
                   className="absolute z-10 bg-white border rounded-lg shadow-lg p-3 text-sm pointer-events-none min-w-[180px]"
                   style={{ left: tooltip.x + 12, top: tooltip.y - 10 }}
                 >
-                  <p className="font-semibold text-gray-800">{tooltip.province}</p>
-                  {statsMap[tooltip.province] ? (
+                  {tooltip.ward ? (
                     <>
-                      <p className="text-red-600 font-medium">{statsMap[tooltip.province].tripCount} chuyến đi</p>
-                      <p className="text-gray-500">{statsMap[tooltip.province].totalPatients} bệnh nhân</p>
-                      <p className="text-gray-500">{formatCurrency(statsMap[tooltip.province].totalMedicineCost)}</p>
-                      <p className="text-xs text-blue-500 mt-1">Click để xem chi tiết</p>
+                      <p className="font-semibold text-gray-800">{tooltip.ward}</p>
+                      <p className="text-xs text-muted-foreground">{tooltip.province}</p>
+                      {(tooltip.tripCount || 0) > 0 ? (
+                        <p className="text-red-600 font-medium mt-1">{tooltip.tripCount} chuyến đi</p>
+                      ) : (
+                        <p className="text-gray-400 mt-1">Chưa có chuyến đi</p>
+                      )}
                     </>
                   ) : (
-                    <p className="text-gray-400">Chưa có chuyến đi</p>
+                    <>
+                      <p className="font-semibold text-gray-800">{tooltip.province}</p>
+                      {statsMap[tooltip.province] ? (
+                        <>
+                          <p className="text-red-600 font-medium">{statsMap[tooltip.province].tripCount} chuyến đi</p>
+                          <p className="text-gray-500">{statsMap[tooltip.province].totalPatients} bệnh nhân</p>
+                          <p className="text-gray-500">{formatCurrency(statsMap[tooltip.province].totalMedicineCost)}</p>
+                          <p className="text-xs text-blue-500 mt-1">Click để xem chi tiết</p>
+                        </>
+                      ) : (
+                        <p className="text-gray-400">Chưa có chuyến đi</p>
+                      )}
+                    </>
                   )}
                 </div>
               )}

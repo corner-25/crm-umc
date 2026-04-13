@@ -140,6 +140,27 @@ function LocationFormDialog({ open, onClose, editItem }: { open: boolean; onClos
   const [epidemiology, setEpidemiology] = useState(editItem?.epidemiology || "");
   const [notes, setNotes] = useState(editItem?.notes || "");
 
+  // Load GeoJSON wards (cache forever via HTTP)
+  const { data: wardsGeo } = useQuery({
+    queryKey: ["wards-geojson"],
+    queryFn: async () => {
+      const res = await fetch("/vietnam-wards.geojson");
+      return res.json();
+    },
+    enabled: open,
+    staleTime: Infinity,
+  });
+
+  const provinces: string[] = wardsGeo
+    ? (Array.from(new Set(wardsGeo.features.map((f: any) => f.properties.ten_tinh as string))) as string[]).sort()
+    : [];
+  const wardsOfProvince: string[] = wardsGeo && province
+    ? wardsGeo.features
+        .filter((f: any) => f.properties.ten_tinh === province)
+        .map((f: any) => f.properties.ten_xa as string)
+        .sort()
+    : [];
+
   const mutation = useMutation({
     mutationFn: async (data: any) => {
       const url = editItem ? `/api/charity-medicine/locations/${editItem.id}` : "/api/charity-medicine/locations";
@@ -156,10 +177,26 @@ function LocationFormDialog({ open, onClose, editItem }: { open: boolean; onClos
       <DialogContent className="max-w-lg">
         <DialogHeader><DialogTitle>{editItem ? "Sửa địa điểm" : "Thêm địa điểm mới"}</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <div><Label>Tỉnh/TP *</Label><Input value={province} onChange={(e) => setProvince(e.target.value)} /></div>
+          <div>
+            <Label>Tỉnh/TP *</Label>
+            <Select value={province} onValueChange={(v) => { setProvince(v); setWard(""); }}>
+              <SelectTrigger><SelectValue placeholder="Chọn tỉnh/TP" /></SelectTrigger>
+              <SelectContent>
+                {provinces.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>Quận/Huyện</Label><Input value={district} onChange={(e) => setDistrict(e.target.value)} /></div>
-            <div><Label>Phường/Xã</Label><Input value={ward} onChange={(e) => setWard(e.target.value)} /></div>
+            <div><Label>Quận/Huyện (cũ)</Label><Input value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="Tuỳ chọn" /></div>
+            <div>
+              <Label>Phường/Xã</Label>
+              <Select value={ward} onValueChange={setWard} disabled={!province}>
+                <SelectTrigger><SelectValue placeholder={province ? "Chọn xã" : "Chọn tỉnh trước"} /></SelectTrigger>
+                <SelectContent>
+                  {wardsOfProvince.map((w) => <SelectItem key={w} value={w}>{w}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div><Label>Đặc điểm dịch tễ</Label><Input value={epidemiology} onChange={(e) => setEpidemiology(e.target.value)} placeholder="Vùng núi, đồng bằng, ngập nước..." /></div>
           <div><Label>Ghi chú</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} /></div>
