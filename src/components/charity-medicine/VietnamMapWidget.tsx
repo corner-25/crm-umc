@@ -60,20 +60,20 @@ function WardMap({
     if (t.ward) wardCount[t.ward] = (wardCount[t.ward] || 0) + 1;
   });
 
-  const { features, projectionConfig } = useMemo(() => {
-    if (!wardsData) return { features: [], projectionConfig: null };
-    const feats = wardsData.features || [];
-    if (feats.length === 0) return { features: [], projectionConfig: null };
-
-    const collection = { type: "FeatureCollection", features: feats };
+  const paths = useMemo(() => {
+    if (!wardsData?.features?.length) return null;
+    const collection = { type: "FeatureCollection", features: wardsData.features };
     const projection = geoMercator().fitExtent(
       [[20, 20], [WIDTH - 20, HEIGHT - 20]],
       collection as any
     );
-    const [scale] = [projection.scale()];
-    const [cx, cy] = projection.invert!([WIDTH / 2, HEIGHT / 2]) as [number, number];
-    return { features: feats, projectionConfig: { center: [cx, cy] as [number, number], scale } };
-  }, [wardsData, province]);
+    const pathGen = geoPath(projection);
+    return wardsData.features.map((f: any, i: number) => ({
+      d: pathGen(f) || "",
+      ward: f.properties.ten_xa as string,
+      key: `${f.properties.ma_xa || i}`,
+    }));
+  }, [wardsData]);
 
   if (!wardsData) {
     return (
@@ -83,7 +83,7 @@ function WardMap({
     );
   }
 
-  if (features.length === 0) {
+  if (!paths || paths.length === 0) {
     return (
       <div className="flex items-center justify-center" style={{ height: 500 }}>
         <p className="text-sm text-muted-foreground">Không tìm thấy dữ liệu phường xã cho {province}</p>
@@ -91,50 +91,38 @@ function WardMap({
     );
   }
 
-  const filteredCollection = { type: "FeatureCollection", features };
-
   return (
-    <ComposableMap
-      projection="geoMercator"
-      projectionConfig={projectionConfig!}
-      width={WIDTH}
-      height={HEIGHT}
+    <svg
+      viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       style={{ height: "100%", width: "auto", maxWidth: "100%" }}
     >
-      <Geographies geography={filteredCollection}>
-        {({ geographies }: { geographies: any[] }) =>
-          geographies.map((geo: any) => {
-            const wardName = geo.properties.ten_xa as string;
-            const count = wardCount[wardName] || 0;
-            return (
-              <Geography
-                key={geo.rsmKey}
-                geography={geo}
-                fill={getTripColor(count)}
-                stroke="#fff"
-                strokeWidth={0.3}
-                style={{
-                  default: { outline: "none", cursor: "pointer" },
-                  hover: { outline: "none", opacity: 0.7, cursor: "pointer" },
-                  pressed: { outline: "none" },
-                }}
-                onMouseEnter={(e: React.MouseEvent<SVGPathElement>) => {
-                  const rect = (e.target as SVGElement).closest("svg")!.getBoundingClientRect();
-                  setTooltip({
-                    x: e.clientX - rect.left,
-                    y: e.clientY - rect.top,
-                    province,
-                    ward: wardName,
-                    tripCount: count,
-                  });
-                }}
-                onMouseLeave={() => setTooltip(null)}
-              />
-            );
-          })
-        }
-      </Geographies>
-    </ComposableMap>
+      {paths.map((p: { d: string; ward: string; key: string }) => {
+        const count = wardCount[p.ward] || 0;
+        return (
+          <path
+            key={p.key}
+            d={p.d}
+            fill={getTripColor(count)}
+            stroke="#fff"
+            strokeWidth={0.3}
+            style={{ cursor: "pointer", outline: "none" }}
+            onMouseEnter={(e) => {
+              const rect = (e.target as SVGElement).closest("svg")!.getBoundingClientRect();
+              setTooltip({
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top,
+                province,
+                ward: p.ward,
+                tripCount: count,
+              });
+            }}
+            onMouseLeave={() => setTooltip(null)}
+            onMouseOver={(e) => { (e.target as SVGPathElement).style.opacity = "0.7"; }}
+            onMouseOut={(e) => { (e.target as SVGPathElement).style.opacity = "1"; }}
+          />
+        );
+      })}
+    </svg>
   );
 }
 
