@@ -227,13 +227,39 @@ function TripFormDialog({ open, onClose, editItem, locations }: { open: boolean;
   const { toast } = useToast();
   const qc = useQueryClient();
   const [tripCode, setTripCode] = useState(editItem?.tripCode || "");
-  const [locationId, setLocationId] = useState(editItem?.locationId || "");
+  const [province, setProvince] = useState(editItem?.location?.province || "");
+  const [ward, setWard] = useState(editItem?.location?.ward || "");
   const [startDate, setStartDate] = useState(editItem?.startDate ? format(new Date(editItem.startDate), "yyyy-MM-dd") : "");
   const [endDate, setEndDate] = useState(editItem?.endDate ? format(new Date(editItem.endDate), "yyyy-MM-dd") : "");
   const [expectedPatients, setExpectedPatients] = useState(editItem?.expectedPatients?.toString() || "");
   const [demographics, setDemographics] = useState(editItem?.demographics || "");
   const [notes, setNotes] = useState(editItem?.notes || "");
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const { data: provincesGeo } = useQuery({
+    queryKey: ["provinces-geojson"],
+    queryFn: async () => (await fetch("/vietnam-provinces.geojson")).json(),
+    enabled: open,
+    staleTime: Infinity,
+  });
+
+  const { data: wardsGeo } = useQuery({
+    queryKey: ["wards-by-province", province],
+    queryFn: async () => {
+      const res = await fetch(`/wards/${encodeURIComponent(province)}.json`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: open && !!province,
+    staleTime: Infinity,
+  });
+
+  const provinceList: string[] = provincesGeo
+    ? (Array.from(new Set(provincesGeo.features.map((f: any) => f.properties.ten_tinh as string))) as string[]).sort()
+    : [];
+  const wardList: string[] = wardsGeo
+    ? wardsGeo.features.map((f: any) => f.properties.ten_xa as string).sort()
+    : [];
 
   const { data: suggestionsData } = useQuery({
     queryKey: ["medicine-suggestions"],
@@ -247,8 +273,21 @@ function TripFormDialog({ open, onClose, editItem, locations }: { open: boolean;
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
+      // Tìm hoặc tạo location theo tỉnh + xã
+      let locationId = locations.find((l: any) => l.province === province && (l.ward || "") === (ward || ""))?.id;
+      if (!locationId) {
+        const res = await fetch("/api/charity-medicine/locations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ province, ward: ward || null }),
+        });
+        if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Không tạo được địa điểm"); }
+        const loc = await res.json();
+        locationId = loc.id;
+        qc.invalidateQueries({ queryKey: ["charity-locations"] });
+      }
       const url = editItem ? `/api/charity-medicine/trips/${editItem.id}` : "/api/charity-medicine/trips";
-      const res = await fetch(url, { method: editItem ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await fetch(url, { method: editItem ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, locationId }) });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
       return res.json();
     },
@@ -264,13 +303,25 @@ function TripFormDialog({ open, onClose, editItem, locations }: { open: boolean;
           <div>
             <Label>Mã chuyến *</Label><Input value={tripCode} onChange={(e) => setTripCode(e.target.value)} disabled={!!editItem} placeholder="VD: TT-2026-001" />
           </div>
-          <div><Label>Địa điểm *</Label>
-            <Select value={locationId} onValueChange={setLocationId}>
-              <SelectTrigger><SelectValue placeholder="Chọn địa điểm" /></SelectTrigger>
-              <SelectContent>
-                {locations.map((l: any) => <SelectItem key={l.id} value={l.id}>{l.province}{l.district ? ` - ${l.district}` : ""}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Tỉnh/TP *</Label>
+              <Select value={province} onValueChange={(v) => { setProvince(v); setWard(""); }}>
+                <SelectTrigger><SelectValue placeholder="Chọn tỉnh/TP" /></SelectTrigger>
+                <SelectContent>
+                  {provinceList.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Phường/Xã</Label>
+              <Select value={ward} onValueChange={setWard} disabled={!province}>
+                <SelectTrigger><SelectValue placeholder={province ? "Chọn xã" : "Chọn tỉnh trước"} /></SelectTrigger>
+                <SelectContent>
+                  {wardList.map((w) => <SelectItem key={w} value={w}>{w}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Ngày bắt đầu *</Label><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></div>
@@ -347,7 +398,7 @@ function TripFormDialog({ open, onClose, editItem, locations }: { open: boolean;
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Huỷ</Button>
-          <Button onClick={() => mutation.mutate({ tripCode, locationId, startDate, endDate, expectedPatients: expectedPatients ? parseInt(expectedPatients) : null, demographics, notes })} disabled={mutation.isPending}>
+          <Button onClick={() => mutation.mutate({ tripCode, startDate, endDate, expectedPatients: expectedPatients ? parseInt(expectedPatients) : null, demographics, notes })} disabled={mutation.isPending || !province}>
             {mutation.isPending ? "Đang lưu..." : "Lưu"}
           </Button>
         </DialogFooter>
