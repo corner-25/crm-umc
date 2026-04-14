@@ -31,11 +31,11 @@ function getTripColor(count: number) {
 }
 
 function getWardColor(count: number) {
-  if (count === 0) return "#e5e7eb";
-  if (count === 1) return "#bfdbfe";
-  if (count === 2) return "#93c5fd";
-  if (count <= 4) return "#3b82f6";
-  return "#1d4ed8";
+  if (count === 0) return "#d1d5db";
+  if (count === 1) return "#93c5fd";
+  if (count === 2) return "#60a5fa";
+  if (count <= 4) return "#2563eb";
+  return "#1e40af";
 }
 
 
@@ -174,8 +174,8 @@ function WardDrillDown({
                 key={p.key}
                 d={p.d}
                 fill={getWardColor(count)}
-                stroke="#fff"
-                strokeWidth={0.5 / zoom}
+                stroke="#374151"
+                strokeWidth={0.8 / zoom}
                 style={{ cursor: "pointer" }}
                 onMouseEnter={(e) => {
                   const rect = document.getElementById("ward-map-container")!.getBoundingClientRect();
@@ -212,11 +212,11 @@ function WardDrillDown({
       </div>
       <div className="flex gap-3 flex-wrap justify-center pt-2 pb-1">
         {[
-          { color: "#e5e7eb", label: "Chưa đến" },
-          { color: "#bfdbfe", label: "1 chuyến" },
-          { color: "#93c5fd", label: "2 chuyến" },
-          { color: "#3b82f6", label: "3–4 chuyến" },
-          { color: "#1d4ed8", label: "5+ chuyến" },
+          { color: "#d1d5db", label: "Chưa đến" },
+          { color: "#93c5fd", label: "1 chuyến" },
+          { color: "#60a5fa", label: "2 chuyến" },
+          { color: "#2563eb", label: "3–4 chuyến" },
+          { color: "#1e40af", label: "5+ chuyến" },
         ].map((item) => (
           <div key={item.label} className="flex items-center gap-1 text-xs text-muted-foreground">
             <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: item.color }} />
