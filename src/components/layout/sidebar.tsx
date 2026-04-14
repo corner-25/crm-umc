@@ -79,7 +79,7 @@ const navigation = [
     ],
   },
   {
-    name: "Thuốc từ thiện",
+    name: "Quản lý chuyến đi",
     href: "/charity-medicine",
     icon: Pill,
     children: [
