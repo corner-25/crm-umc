@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Edit, Trash2, ArrowLeft, Phone, Mail, MapPin, Briefcase, Calendar, Plus, FileText, ExternalLink, ChevronDown, Banknote, Package, Heart } from "lucide-react";
+import { Edit, Trash2, ArrowLeft, Phone, Mail, MapPin, Briefcase, Calendar, Plus, FileText, ExternalLink, ChevronDown, Banknote, Package, Heart, Building2, User as UserIcon, MessageCircle } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -294,49 +294,54 @@ export default function DonorDetailPage() {
             <CardTitle className="text-sm font-medium">Thông tin nhà tài trợ</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-              {donor.phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span>{donor.phone}</span>
-                </div>
-              )}
-              {donor.email && (
-                <div className="flex items-center gap-2">
-                  <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="truncate">{donor.email}</span>
-                </div>
-              )}
-              {donor.address && (
-                <div className="flex items-center gap-2 col-span-2">
-                  <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span>{donor.address}</span>
-                </div>
-              )}
-              {(donor.occupation || donor.company) && (
-                <div className="flex items-center gap-2">
-                  <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span>{[donor.occupation, donor.company].filter(Boolean).join(" - ")}</span>
-                </div>
-              )}
-              {donor.position && (
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">{donor.position}</span>
-                </div>
-              )}
-              {donor.birthday && (
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span>Sinh nhật: {formatDate(donor.birthday)}</span>
-                </div>
-              )}
-              {donor.firstDonationDate && (
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span>Tài trợ lần đầu: {formatDate(donor.firstDonationDate)}</span>
-                </div>
-              )}
-            </div>
+            {(() => {
+              const isOrg = donor.type === "COMPANY" || donor.type === "ORGANIZATION";
+              const fields: { icon: React.ReactNode; label: string; value: React.ReactNode; span?: boolean }[] = [
+                { icon: <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />, label: "Điện thoại", value: donor.phone || "—" },
+                { icon: <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />, label: "Email", value: donor.email || "—" },
+                { icon: <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />, label: "Địa chỉ", value: donor.address || "—", span: true },
+                ...(isOrg
+                  ? [
+                      { icon: <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />, label: "Ngành", value: donor.occupation || "—" },
+                      { icon: <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />, label: "Người đại diện", value: donor.contactName || "—" },
+                    ]
+                  : [
+                      { icon: <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />, label: "Nghề nghiệp", value: [donor.occupation, donor.company].filter(Boolean).join(" — ") || "—" },
+                      { icon: <UserIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />, label: "Vị trí", value: donor.position || "—" },
+                    ]),
+                { icon: <MessageCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />, label: "Liên lạc qua", value: [donor.contactMethod, donor.contactName].filter(Boolean).join(" — ") || "—" },
+                ...(isOrg
+                  ? [{ icon: <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />, label: "Ngày thành lập", value: donor.foundingDate ? formatDate(donor.foundingDate) : "—" }]
+                  : [{ icon: <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />, label: "Sinh nhật", value: donor.birthday ? formatDate(donor.birthday) : "—" }]),
+                { icon: <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />, label: "Tài trợ lần đầu", value: donor.firstDonationDate ? formatDate(donor.firstDonationDate) : "—" },
+              ];
+              return (
+                <>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm">
+                    {fields.map((f, i) => (
+                      <div
+                        key={i}
+                        className={cn("flex items-start gap-2", f.span && "col-span-2")}
+                      >
+                        {f.icon}
+                        <div className="min-w-0 flex-1">
+                          <span className="text-muted-foreground">{f.label}: </span>
+                          <span className={cn("text-foreground", f.value === "—" && "text-muted-foreground")}>
+                            {f.value}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {isOrg && donor.foundingNote && (
+                    <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">Ghi chú ngày thành lập: </span>
+                      {donor.foundingNote}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </CardContent>
         </Card>
 
