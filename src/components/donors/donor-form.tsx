@@ -60,6 +60,8 @@ export function DonorForm({ defaultValues, onSubmit, isLoading }: DonorFormProps
       company: "",
       position: "",
       birthday: null,
+      foundingDate: null,
+      foundingNote: "",
       firstDonationDate: null,
       personalInterests: "",
       areasOfInterest: [],
@@ -73,6 +75,8 @@ export function DonorForm({ defaultValues, onSubmit, isLoading }: DonorFormProps
   });
 
   const isAnonymous = form.watch("isAnonymous");
+  const donorType = form.watch("type");
+  const isOrganization = donorType === "COMPANY" || donorType === "ORGANIZATION";
 
   return (
     <Form {...form}>
@@ -392,6 +396,54 @@ export function DonorForm({ defaultValues, onSubmit, isLoading }: DonorFormProps
                 )}
               />
             </div>
+
+            {isOrganization && (
+              <div className="grid gap-4 md:grid-cols-2 rounded-lg border border-indigo-200 bg-indigo-50/40 p-4">
+                <FormField
+                  control={form.control}
+                  name="foundingDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ngày thành lập</FormLabel>
+                      <FormControl>
+                        <DatePicker
+                          value={field.value || undefined}
+                          onChange={field.onChange}
+                          disabled={(date) =>
+                            date > new Date() || date < new Date("1900-01-01")
+                          }
+                          placeholder="Chọn ngày thành lập"
+                          yearRange={{ start: 1900, end: new Date().getFullYear() }}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Hệ thống sẽ nhắc tri ân trước 1 tuần mỗi năm
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="foundingNote"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ghi chú ngày thành lập</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Thông tin chi tiết về ngày truyền thống, sự kiện kỷ niệm..."
+                          rows={3}
+                          {...field}
+                          value={field.value || ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
           </div>
         )}
 

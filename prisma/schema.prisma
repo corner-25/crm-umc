@@ -99,6 +99,8 @@ model Donor {
   company               String?
   position              String?
   birthday              DateTime?
+  foundingDate          DateTime?
+  foundingNote          String?
   firstDonationDate     DateTime?
   personalInterests     String?
   areasOfInterest       String[]    @default([])
@@ -453,6 +455,7 @@ model Reminder {
 
 enum ReminderType {
   BIRTHDAY              // Sinh nhật
+  FOUNDING_ANNIVERSARY  // Ngày thành lập (tổ chức/doanh nghiệp)
   DONATION_ANNIVERSARY  // Kỷ niệm tài trợ
   SEND_REPORT           // Gửi báo cáo
   FOLLOW_UP             // Theo dõi

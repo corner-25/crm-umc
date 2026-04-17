@@ -2,14 +2,11 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, Phone, Check, ChevronDown, ChevronUp, UserX } from "lucide-react";
+import { Phone, Check, ChevronDown, ChevronUp, UserX, Clock4, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface ContactHistory {
   id: string;
@@ -42,12 +40,25 @@ interface InactiveSponsorNotification {
   contactHistory: ContactHistory[];
 }
 
+const tierLabel = (tier: string) => {
+  if (tier === "VIP") return "VIP";
+  if (tier === "REGULAR") return "Thường xuyên";
+  if (tier === "NEW") return "Mới";
+  return "Tiềm năng";
+};
+
+const tierColor = (tier: string) => {
+  if (tier === "VIP") return "bg-amber-100 text-amber-800 border-amber-300";
+  if (tier === "REGULAR") return "bg-emerald-100 text-emerald-800 border-emerald-300";
+  if (tier === "NEW") return "bg-sky-100 text-sky-800 border-sky-300";
+  return "bg-slate-100 text-slate-700 border-slate-300";
+};
+
 export function InactiveSponsorsDropdown() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
-  // Fetch inactive sponsor notifications
   const { data, isLoading } = useQuery({
     queryKey: ["inactive-sponsors-notifications"],
     queryFn: async () => {
@@ -55,10 +66,9 @@ export function InactiveSponsorsDropdown() {
       if (!res.ok) throw new Error("Failed to fetch notifications");
       return res.json();
     },
-    refetchInterval: 300000, // Refetch every 5 minutes
+    refetchInterval: 300000,
   });
 
-  // Check for new inactive sponsors
   const checkMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/notifications/inactive-sponsors", {
@@ -74,11 +84,15 @@ export function InactiveSponsorsDropdown() {
           title: "Thông báo mới",
           description: `Phát hiện ${data.newNotifications.length} nhà tài trợ không hoạt động`,
         });
+      } else {
+        toast({
+          title: "Đã cập nhật",
+          description: "Không có nhà tài trợ nào mới cần kết nối lại",
+        });
       }
     },
   });
 
-  // Add contact history
   const addContactMutation = useMutation({
     mutationFn: async (notificationId: string) => {
       const res = await fetch(
@@ -94,14 +108,10 @@ export function InactiveSponsorsDropdown() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inactive-sponsors-notifications"] });
-      toast({
-        title: "Đã ghi nhận",
-        description: "Đã thêm lịch sử liên hệ",
-      });
+      toast({ title: "Đã ghi nhận", description: "Đã thêm lịch sử liên hệ" });
     },
   });
 
-  // Mark as resolved
   const resolveMutation = useMutation({
     mutationFn: async (notificationId: string) => {
       const res = await fetch(
@@ -117,10 +127,7 @@ export function InactiveSponsorsDropdown() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inactive-sponsors-notifications"] });
-      toast({
-        title: "Đã xử lý",
-        description: "Đã đánh dấu thông báo đã xử lý",
-      });
+      toast({ title: "Đã xử lý", description: "Đã đánh dấu thông báo đã xử lý" });
     },
   });
 
@@ -129,11 +136,8 @@ export function InactiveSponsorsDropdown() {
 
   const toggleExpand = (id: string) => {
     const newSet = new Set(expandedIds);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
     setExpandedIds(newSet);
   };
 
@@ -142,134 +146,162 @@ export function InactiveSponsorsDropdown() {
     return format(new Date(dateStr), "dd/MM/yyyy", { locale: vi });
   };
 
+  const daysSince = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    const diff = Date.now() - new Date(dateStr).getTime();
+    return Math.floor(diff / 86400000);
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <UserX className="h-5 w-5" />
+          <UserX className={cn("h-5 w-5", unresolved.length > 0 && "text-orange-600")} />
           {unresolved.length > 0 && (
-            <Badge className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center bg-orange-500">
+            <span className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-orange-600 text-white text-[10px] flex items-center justify-center font-semibold shadow-sm">
               {unresolved.length > 9 ? "9+" : unresolved.length}
-            </Badge>
+            </span>
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[400px]">
-        <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Nhà tài trợ cần kết nối lại</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => checkMutation.mutate()}
-            disabled={checkMutation.isPending}
-          >
-            {checkMutation.isPending ? "Đang kiểm tra..." : "Kiểm tra"}
-          </Button>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
+      <DropdownMenuContent align="end" className="w-[400px] p-0 overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-3 text-white">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Clock4 className="h-4 w-4" />
+              <div>
+                <p className="text-sm font-semibold leading-tight">Cần kết nối lại</p>
+                <p className="text-[11px] opacity-90 leading-tight">
+                  NTT lâu chưa tài trợ
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => checkMutation.mutate()}
+              disabled={checkMutation.isPending}
+              className="h-7 px-2 text-xs text-white hover:bg-white/20 hover:text-white"
+            >
+              <RefreshCw
+                className={cn(
+                  "h-3 w-3 mr-1",
+                  checkMutation.isPending && "animate-spin"
+                )}
+              />
+              {checkMutation.isPending ? "Đang kiểm tra" : "Kiểm tra"}
+            </Button>
+          </div>
+        </div>
 
         {isLoading ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
+          <div className="p-6 text-center text-sm text-muted-foreground">
             Đang tải...
           </div>
         ) : unresolved.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            Không có thông báo mới
+          <div className="p-6 text-center text-sm text-muted-foreground">
+            <UserX className="h-10 w-10 mx-auto mb-2 text-slate-300" />
+            Tất cả NTT đang hoạt động
           </div>
         ) : (
-          <ScrollArea className="h-[400px]">
-            <div className="space-y-2 p-2">
-              {unresolved.map((notification) => (
-                <div
-                  key={notification.id}
-                  className="rounded-lg border bg-card p-3 space-y-2"
-                >
-                  {/* Header */}
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <p className="font-medium text-sm">
-                        {notification.donor.fullName}
-                      </p>
-                      {notification.donor.phone && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {notification.donor.phone}
-                        </p>
-                      )}
-                    </div>
-                    <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
-                      {notification.donor.tier === "VIP" ? "VIP" :
-                       notification.donor.tier === "REGULAR" ? "Thường xuyên" :
-                       notification.donor.tier === "NEW" ? "Mới" : "Tiềm năng"}
-                    </Badge>
-                  </div>
-
-                  {/* Last donation date */}
-                  <p className="text-xs text-muted-foreground">
-                    Tài trợ cuối: {formatDate(notification.lastDonationDate)}
-                  </p>
-
-                  {/* Contact History Toggle */}
-                  <button
-                    onClick={() => toggleExpand(notification.id)}
-                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+          <ScrollArea className="max-h-[460px]">
+            <div className="p-2 space-y-1.5">
+              {unresolved.map((n) => {
+                const days = daysSince(n.lastDonationDate);
+                return (
+                  <div
+                    key={n.id}
+                    className="rounded-lg border border-slate-200 bg-white p-3 space-y-2"
                   >
-                    {expandedIds.has(notification.id) ? (
-                      <ChevronUp className="h-3 w-3" />
-                    ) : (
-                      <ChevronDown className="h-3 w-3" />
-                    )}
-                    Trạng thái liên hệ ({notification.contactHistory.length} lần)
-                  </button>
-
-                  {/* Expanded Contact History */}
-                  {expandedIds.has(notification.id) && (
-                    <div className="space-y-2 pl-2 border-l-2 border-slate-200 ml-1">
-                      {notification.contactHistory.length === 0 ? (
-                        <p className="text-xs text-muted-foreground italic">
-                          Chưa có lịch sử liên hệ
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-slate-900 truncate">
+                          {n.donor.fullName}
                         </p>
-                      ) : (
-                        notification.contactHistory.map((contact) => (
-                          <div
-                            key={contact.id}
-                            className="flex items-center gap-2 text-xs"
-                          >
-                            <Checkbox checked disabled className="h-3 w-3" />
-                            <span>
-                              Lần {contact.contactNumber} - {formatDate(contact.contactDate)}
-                            </span>
-                          </div>
-                        ))
+                        {n.donor.phone && (
+                          <p className="text-xs text-slate-600 flex items-center gap-1 mt-0.5">
+                            <Phone className="h-3 w-3" />
+                            {n.donor.phone}
+                          </p>
+                        )}
+                      </div>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                          tierColor(n.donor.tier)
+                        )}
+                      >
+                        {tierLabel(n.donor.tier)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-slate-600">
+                        Tài trợ cuối: {formatDate(n.lastDonationDate)}
+                      </span>
+                      {days !== null && (
+                        <span className="inline-flex items-center rounded-full bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 font-medium">
+                          {days} ngày
+                        </span>
                       )}
                     </div>
-                  )}
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 pt-2 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 text-xs h-7"
-                      onClick={() => addContactMutation.mutate(notification.id)}
-                      disabled={addContactMutation.isPending}
+                    <button
+                      onClick={() => toggleExpand(n.id)}
+                      className="flex items-center gap-1 text-xs text-slate-600 hover:text-slate-900"
                     >
-                      <Phone className="h-3 w-3 mr-1" />
-                      Đã liên hệ
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="flex-1 text-xs h-7"
-                      onClick={() => resolveMutation.mutate(notification.id)}
-                      disabled={resolveMutation.isPending}
-                    >
-                      <Check className="h-3 w-3 mr-1" />
-                      Hoàn tất
-                    </Button>
+                      {expandedIds.has(n.id) ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
+                      Lịch sử liên hệ ({n.contactHistory.length})
+                    </button>
+
+                    {expandedIds.has(n.id) && (
+                      <div className="space-y-1 pl-2 border-l-2 border-slate-200 ml-1">
+                        {n.contactHistory.length === 0 ? (
+                          <p className="text-xs text-muted-foreground italic">
+                            Chưa có liên hệ nào
+                          </p>
+                        ) : (
+                          n.contactHistory.map((c) => (
+                            <div key={c.id} className="flex items-center gap-2 text-xs text-slate-700">
+                              <Checkbox checked disabled className="h-3 w-3" />
+                              <span>
+                                Lần {c.contactNumber} — {formatDate(c.contactDate)}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs h-7"
+                        onClick={() => addContactMutation.mutate(n.id)}
+                        disabled={addContactMutation.isPending}
+                      >
+                        <Phone className="h-3 w-3 mr-1" />
+                        Đã liên hệ
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 text-xs h-7 bg-emerald-600 hover:bg-emerald-700"
+                        onClick={() => resolveMutation.mutate(n.id)}
+                        disabled={resolveMutation.isPending}
+                      >
+                        <Check className="h-3 w-3 mr-1" />
+                        Hoàn tất
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </ScrollArea>
         )}

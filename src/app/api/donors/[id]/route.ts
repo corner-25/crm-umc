@@ -73,7 +73,7 @@ export async function PUT(
 
     const {
       fullName, isAnonymous, email, phone, address, type, tier,
-      occupation, company, position, birthday, firstDonationDate,
+      occupation, company, position, birthday, foundingDate, foundingNote, firstDonationDate,
       personalInterests, areasOfInterest, notes,
       isPatient, isPatientFamily,
       contactMethod, contactName,
@@ -85,6 +85,8 @@ export async function PUT(
         fullName, isAnonymous, email, phone, address, type, tier,
         occupation, company, position,
         birthday: birthday ? new Date(birthday) : null,
+        foundingDate: foundingDate ? new Date(foundingDate) : null,
+        foundingNote: foundingNote || null,
         firstDonationDate: firstDonationDate ? new Date(firstDonationDate) : null,
         personalInterests, areasOfInterest, notes,
         isPatient: isPatient ?? false,

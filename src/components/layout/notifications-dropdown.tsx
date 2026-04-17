@@ -1,20 +1,19 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Cake, FileText, Clock, Facebook, Package, Stethoscope, AlertTriangle } from "lucide-react";
+import { Bell, FileText, Clock, Facebook, Package, Stethoscope, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+
+type AlertLike = Record<string, unknown>;
 
 export function NotificationsDropdown() {
   const { data: alerts } = useQuery({
@@ -27,186 +26,203 @@ export function NotificationsDropdown() {
     refetchInterval: 5 * 60 * 1000,
   });
 
-  const totalAlerts = alerts?.totalAlerts || 0;
+  const expiringContracts: AlertLike[] = alerts?.expiringContracts || [];
+  const upcomingTreatments: AlertLike[] = alerts?.upcomingTreatments || [];
+  const overdueReminders: AlertLike[] = alerts?.overdueReminders || [];
+  const upcomingFanpostPosts: AlertLike[] = alerts?.upcomingFanpostPosts || [];
+  const warehouseExpiry: AlertLike[] = alerts?.warehouseExpiry || [];
+
+  const count =
+    expiringContracts.length +
+    upcomingTreatments.length +
+    overdueReminders.length +
+    upcomingFanpostPosts.length +
+    warehouseExpiry.length;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <Bell className={cn("h-5 w-5", totalAlerts > 0 && "text-red-600")} />
-          {totalAlerts > 0 && (
-            <span className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-red-600 text-white text-xs flex items-center justify-center font-medium">
-              {totalAlerts > 9 ? "9+" : totalAlerts}
+          <Bell className={cn("h-5 w-5", count > 0 && "text-red-600")} />
+          {count > 0 && (
+            <span className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-red-600 text-white text-[10px] flex items-center justify-center font-semibold shadow-sm">
+              {count > 9 ? "9+" : count}
             </span>
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[420px]">
-        <DropdownMenuLabel className="flex items-center gap-2">
-          <Bell className="h-4 w-4" />
-          {totalAlerts > 0 ? `${totalAlerts} nhắc nhở cần chú ý` : "Không có thông báo"}
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
+      <DropdownMenuContent align="end" className="w-[420px] p-0 overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-4 py-3 text-white">
+          <div className="flex items-center gap-2">
+            <Bell className="h-4 w-4" />
+            <div>
+              <p className="text-sm font-semibold leading-tight">Thông báo hệ thống</p>
+              <p className="text-[11px] opacity-90 leading-tight">
+                {count > 0 ? `${count} mục cần chú ý` : "Không có thông báo"}
+              </p>
+            </div>
+          </div>
+        </div>
 
-        {!alerts || totalAlerts === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            Không có thông báo nào
+        {count === 0 ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">
+            <Bell className="h-10 w-10 mx-auto mb-2 text-slate-300" />
+            Tất cả đều ổn
           </div>
         ) : (
-          <ScrollArea className="h-[480px]">
-            <div className="p-2 space-y-4">
-
-              {/* Sinh nhật */}
-              {alerts.birthdays?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-2 flex items-center gap-1 px-1">
-                    <Cake className="h-3 w-3" /> Sinh nhật trong 7 ngày tới
-                  </p>
-                  <div className="flex flex-wrap gap-2 px-1">
-                    {alerts.birthdays.map((alert: any) => (
-                      <Link key={alert.donorId} href={`/donors/${alert.donorId}`}>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "cursor-pointer border-orange-300 text-orange-800 hover:bg-orange-100",
-                            alert.isToday && "bg-orange-200 font-semibold"
-                          )}
-                        >
-                          {alert.isToday ? "Hôm nay: " : ""}{alert.donorName} ({format(new Date(alert.date), "dd/MM")})
-                        </Badge>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+          <ScrollArea className="max-h-[500px]">
+            <div className="p-3 space-y-4">
+              {overdueReminders.length > 0 && (
+                <Section
+                  title="Nhắc nhở chưa xử lý"
+                  icon={<Clock className="h-3.5 w-3.5" />}
+                  tone="red"
+                >
+                  {overdueReminders.map((alert: any) => (
+                    <Link key={alert.reminderId} href={`/donors/${alert.donorId}`}>
+                      <Chip tone="red" highlight={alert.isOverdue}>
+                        {alert.isOverdue && <AlertTriangle className="h-3 w-3 inline mr-1" />}
+                        {alert.donorName}: {alert.title}
+                      </Chip>
+                    </Link>
+                  ))}
+                </Section>
               )}
 
-              {/* Hợp đồng sắp hết hạn */}
-              {alerts.expiringContracts?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-2 flex items-center gap-1 px-1">
-                    <FileText className="h-3 w-3" /> Hợp đồng sắp hết hạn (30 ngày)
-                  </p>
-                  <div className="flex flex-wrap gap-2 px-1">
-                    {alerts.expiringContracts.map((alert: any) => (
-                      <Link key={alert.contractId} href={`/contracts/${alert.contractId}/edit`}>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "cursor-pointer border-orange-300 text-orange-800 hover:bg-orange-100",
-                            alert.isUrgent && "bg-red-100 border-red-300 text-red-800"
-                          )}
-                        >
-                          {alert.isUrgent && <AlertTriangle className="h-3 w-3 mr-1 inline" />}
-                          {alert.contractNumber} — {alert.donorName} ({format(new Date(alert.date), "dd/MM/yyyy")})
-                        </Badge>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+              {expiringContracts.length > 0 && (
+                <Section
+                  title="Hợp đồng sắp hết hạn (30 ngày)"
+                  icon={<FileText className="h-3.5 w-3.5" />}
+                  tone="orange"
+                >
+                  {expiringContracts.map((alert: any) => (
+                    <Link key={alert.contractId} href={`/contracts/${alert.contractId}/edit`}>
+                      <Chip tone="orange" highlight={alert.isUrgent}>
+                        {alert.isUrgent && <AlertTriangle className="h-3 w-3 inline mr-1" />}
+                        {alert.contractNumber} — {alert.donorName} ({format(new Date(alert.date), "dd/MM/yyyy")})
+                      </Chip>
+                    </Link>
+                  ))}
+                </Section>
               )}
 
-              {/* Chu kỳ điều trị */}
-              {alerts.upcomingTreatments?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-2 flex items-center gap-1 px-1">
-                    <Stethoscope className="h-3 w-3" /> Chu kỳ điều trị trong 7 ngày tới
-                  </p>
-                  <div className="flex flex-wrap gap-2 px-1">
-                    {alerts.upcomingTreatments.map((alert: any) => (
-                      <Link key={alert.treatmentId} href={`/cancer-support/patients/${alert.patientId}`}>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "cursor-pointer border-orange-300 text-orange-800 hover:bg-orange-100",
-                            alert.isToday && "bg-orange-200 font-semibold"
-                          )}
-                        >
-                          {alert.isToday ? "Hôm nay: " : ""}{alert.patientCode} — {alert.medicationName} ({format(new Date(alert.date), "dd/MM")})
-                        </Badge>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+              {upcomingTreatments.length > 0 && (
+                <Section
+                  title="Chu kỳ điều trị (7 ngày)"
+                  icon={<Stethoscope className="h-3.5 w-3.5" />}
+                  tone="blue"
+                >
+                  {upcomingTreatments.map((alert: any) => (
+                    <Link key={alert.treatmentId} href={`/cancer-support/patients/${alert.patientId}`}>
+                      <Chip tone="blue" highlight={alert.isToday}>
+                        {alert.isToday ? "Hôm nay: " : ""}{alert.patientCode} — {alert.medicationName} ({format(new Date(alert.date), "dd/MM")})
+                      </Chip>
+                    </Link>
+                  ))}
+                </Section>
               )}
 
-              {/* Nhắc nhở quá hạn */}
-              {alerts.overdueReminders?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-2 flex items-center gap-1 px-1">
-                    <Clock className="h-3 w-3" /> Nhắc nhở chưa xử lý / quá hạn
-                  </p>
-                  <div className="flex flex-wrap gap-2 px-1">
-                    {alerts.overdueReminders.map((alert: any) => (
-                      <Link key={alert.reminderId} href={`/donors/${alert.donorId}`}>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "cursor-pointer border-red-300 text-red-800 hover:bg-red-50",
-                            alert.isOverdue && "bg-red-100"
-                          )}
-                        >
-                          {alert.isOverdue && <AlertTriangle className="h-3 w-3 mr-1 inline" />}
-                          {alert.donorName}: {alert.title}
-                        </Badge>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+              {upcomingFanpostPosts.length > 0 && (
+                <Section
+                  title="Lịch đăng Fanpage (7 ngày)"
+                  icon={<Facebook className="h-3.5 w-3.5" />}
+                  tone="sky"
+                >
+                  {upcomingFanpostPosts.map((alert: any) => (
+                    <Link key={alert.postId} href="/fanpage">
+                      <Chip tone="sky" highlight={alert.isToday}>
+                        {alert.isToday ? "Hôm nay: " : ""}{format(new Date(alert.date), "dd/MM HH:mm")} — {alert.title}
+                      </Chip>
+                    </Link>
+                  ))}
+                </Section>
               )}
 
-              {/* Lịch đăng Fanpage */}
-              {alerts.upcomingFanpostPosts?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2 flex items-center gap-1 px-1">
-                    <Facebook className="h-3 w-3" /> Lịch đăng bài Fanpage (7 ngày tới)
-                  </p>
-                  <div className="flex flex-wrap gap-2 px-1">
-                    {alerts.upcomingFanpostPosts.map((alert: any) => (
-                      <Link key={alert.postId} href="/fanpage">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "cursor-pointer border-blue-300 text-blue-800 hover:bg-blue-50",
-                            alert.isToday && "bg-blue-100 font-semibold"
-                          )}
-                        >
-                          {alert.isToday ? "Hôm nay: " : ""}{format(new Date(alert.date), "dd/MM HH:mm")} — {alert.title}
-                        </Badge>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+              {warehouseExpiry.length > 0 && (
+                <Section
+                  title="Hàng kho sắp/đã hết hạn"
+                  icon={<Package className="h-3.5 w-3.5" />}
+                  tone="red"
+                >
+                  {warehouseExpiry.map((alert: any) => (
+                    <Link key={`${alert.itemId}-${alert.batchCode || ""}`} href="/warehouse">
+                      <Chip tone="red" highlight={alert.isExpired}>
+                        {alert.isExpired && <AlertTriangle className="h-3 w-3 inline mr-1" />}
+                        [{alert.itemCode}] {alert.itemName} — HSD: {format(new Date(alert.date), "dd/MM/yyyy")}
+                      </Chip>
+                    </Link>
+                  ))}
+                </Section>
               )}
-
-              {/* Hàng kho sắp/đã hết hạn */}
-              {alerts.warehouseExpiry?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-2 flex items-center gap-1 px-1">
-                    <Package className="h-3 w-3" /> Hàng kho sắp/đã hết hạn
-                  </p>
-                  <div className="flex flex-wrap gap-2 px-1">
-                    {alerts.warehouseExpiry.map((alert: any) => (
-                      <Link key={alert.itemId} href="/warehouse">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "cursor-pointer border-orange-300 text-orange-800 hover:bg-orange-50",
-                            alert.isExpired && "bg-red-100 border-red-300 text-red-800"
-                          )}
-                        >
-                          {alert.isExpired && <AlertTriangle className="h-3 w-3 mr-1 inline" />}
-                          [{alert.itemCode}] {alert.itemName} — HSD: {format(new Date(alert.date), "dd/MM/yyyy")}
-                        </Badge>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-
             </div>
           </ScrollArea>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+type Tone = "red" | "orange" | "blue" | "sky";
+
+function Section({
+  title,
+  icon,
+  tone,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  tone: Tone;
+  children: React.ReactNode;
+}) {
+  const toneClass: Record<Tone, string> = {
+    red: "text-red-700",
+    orange: "text-orange-700",
+    blue: "text-blue-700",
+    sky: "text-sky-700",
+  };
+  return (
+    <div>
+      <p className={cn("text-[11px] font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1.5", toneClass[tone])}>
+        {icon}
+        {title}
+      </p>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
+  );
+}
+
+function Chip({
+  tone,
+  highlight,
+  children,
+}: {
+  tone: Tone;
+  highlight?: boolean;
+  children: React.ReactNode;
+}) {
+  const base: Record<Tone, string> = {
+    red: "border-red-200 text-red-800 bg-red-50 hover:bg-red-100",
+    orange: "border-orange-200 text-orange-800 bg-orange-50 hover:bg-orange-100",
+    blue: "border-blue-200 text-blue-800 bg-blue-50 hover:bg-blue-100",
+    sky: "border-sky-200 text-sky-800 bg-sky-50 hover:bg-sky-100",
+  };
+  const hl: Record<Tone, string> = {
+    red: "bg-red-100 border-red-300 font-semibold",
+    orange: "bg-orange-100 border-orange-300 font-semibold",
+    blue: "bg-blue-100 border-blue-300 font-semibold",
+    sky: "bg-sky-100 border-sky-300 font-semibold",
+  };
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border px-2.5 py-1 text-xs transition-colors cursor-pointer",
+        base[tone],
+        highlight && hl[tone]
+      )}
+    >
+      {children}
+    </span>
   );
 }

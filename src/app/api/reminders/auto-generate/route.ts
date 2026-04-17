@@ -52,7 +52,7 @@ export async function POST() {
       created.push(title);
     }
 
-    // 2. Sinh nhật nhà tài trợ (thông báo trước 1 tháng)
+    // 2. Sinh nhật nhà tài trợ (thông báo trước 1 tuần)
     const donors = await prisma.donor.findMany({
       where: { deletedAt: null, birthday: { not: null } },
       select: { id: true, fullName: true, birthday: true },
@@ -61,17 +61,14 @@ export async function POST() {
     for (const donor of donors) {
       if (!donor.birthday) continue;
       const dob = new Date(donor.birthday);
-      // Sinh nhật năm nay
       const birthdayThisYear = new Date(now.getFullYear(), dob.getMonth(), dob.getDate());
-      // Nếu đã qua thì lấy năm sau
       if (birthdayThisYear < now) {
         birthdayThisYear.setFullYear(birthdayThisYear.getFullYear() + 1);
       }
 
-      // Chỉ tạo nếu còn ≤ 1 tháng
-      const oneMonthBefore = new Date(birthdayThisYear);
-      oneMonthBefore.setMonth(oneMonthBefore.getMonth() - 1);
-      if (now < oneMonthBefore) continue;
+      const oneWeekBefore = new Date(birthdayThisYear);
+      oneWeekBefore.setDate(oneWeekBefore.getDate() - 7);
+      if (now < oneWeekBefore) continue;
 
       const title = `Sinh nhật NTT: ${donor.fullName}`;
       const existing = await prisma.reminder.findFirst({
@@ -91,6 +88,52 @@ export async function POST() {
           title,
           description: `Ngày sinh: ${dob.toLocaleDateString("vi-VN")}`,
           dueDate: birthdayThisYear,
+        },
+      });
+      created.push(title);
+    }
+
+    // 2b. Ngày thành lập của tổ chức/doanh nghiệp (thông báo trước 1 tuần)
+    const orgs = await prisma.donor.findMany({
+      where: {
+        deletedAt: null,
+        foundingDate: { not: null },
+        type: { in: ["COMPANY", "ORGANIZATION"] },
+      },
+      select: { id: true, fullName: true, foundingDate: true },
+    });
+
+    for (const org of orgs) {
+      if (!org.foundingDate) continue;
+      const founded = new Date(org.foundingDate);
+      const anniversaryThisYear = new Date(now.getFullYear(), founded.getMonth(), founded.getDate());
+      if (anniversaryThisYear < now) {
+        anniversaryThisYear.setFullYear(anniversaryThisYear.getFullYear() + 1);
+      }
+
+      const oneWeekBefore = new Date(anniversaryThisYear);
+      oneWeekBefore.setDate(oneWeekBefore.getDate() - 7);
+      if (now < oneWeekBefore) continue;
+
+      const years = anniversaryThisYear.getFullYear() - founded.getFullYear();
+      const title = `Ngày thành lập: ${org.fullName}`;
+      const existing = await prisma.reminder.findFirst({
+        where: {
+          donorId: org.id,
+          title,
+          deletedAt: null,
+          isCompleted: false,
+        },
+      });
+      if (existing) continue;
+
+      await prisma.reminder.create({
+        data: {
+          donorId: org.id,
+          type: "FOUNDING_ANNIVERSARY",
+          title,
+          description: `Ngày thành lập: ${founded.toLocaleDateString("vi-VN")}${years > 0 ? ` — Kỷ niệm ${years} năm` : ""}`,
+          dueDate: anniversaryThisYear,
         },
       });
       created.push(title);

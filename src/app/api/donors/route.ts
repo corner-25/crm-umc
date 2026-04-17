@@ -174,6 +174,8 @@ export async function POST(request: NextRequest) {
         company: body.company || null,
         position: body.position || null,
         birthday: body.birthday ? new Date(body.birthday) : null,
+        foundingDate: body.foundingDate ? new Date(body.foundingDate) : null,
+        foundingNote: body.foundingNote || null,
         firstDonationDate: body.firstDonationDate ? new Date(body.firstDonationDate) : null,
         personalInterests: body.personalInterests || null,
         areasOfInterest: body.areasOfInterest ?? [],

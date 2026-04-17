@@ -14,6 +14,7 @@ import { ReminderFormDialog, ReminderFormValues } from "@/components/reminders/r
 
 const reminderTypeLabels = {
   BIRTHDAY: "Sinh nhật",
+  FOUNDING_ANNIVERSARY: "Ngày thành lập",
   DONATION_ANNIVERSARY: "Kỷ niệm tài trợ",
   SEND_REPORT: "Gửi báo cáo",
   FOLLOW_UP: "Theo dõi",

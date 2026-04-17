@@ -79,6 +79,8 @@ export default function EditDonorPage() {
             defaultValues={{
               ...donor,
               birthday: donor?.birthday ? new Date(donor.birthday) : null,
+              foundingDate: donor?.foundingDate ? new Date(donor.foundingDate) : null,
+              foundingNote: donor?.foundingNote ?? "",
               firstDonationDate: donor?.firstDonationDate ? new Date(donor.firstDonationDate) : null,
               areasOfInterest: donor?.areasOfInterest ?? [],
               isPatient: donor?.isPatient ?? false,

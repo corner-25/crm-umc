@@ -12,6 +12,8 @@ export const donorSchema = z.object({
   company: z.string().optional().nullable(),
   position: z.string().optional().nullable(),
   birthday: z.date().optional().nullable(),
+  foundingDate: z.date().optional().nullable(),
+  foundingNote: z.string().optional().nullable(),
   firstDonationDate: z.date().optional().nullable(),
   personalInterests: z.string().optional().nullable(),
   areasOfInterest: z.array(z.string()).optional().default([]),

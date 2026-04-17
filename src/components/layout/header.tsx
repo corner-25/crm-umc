@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { signOut, useSession } from "next-auth/react";
 import { InactiveSponsorsDropdown } from "./inactive-sponsors-dropdown";
 import { NotificationsDropdown } from "./notifications-dropdown";
+import { GratitudeIndividualDropdown } from "./gratitude-individual-dropdown";
+import { GratitudeOrgDropdown } from "./gratitude-org-dropdown";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -58,11 +60,17 @@ export function Header({ onMenuClick }: HeaderProps) {
         </h1>
       </div>
 
-      <div className="flex items-center gap-2 md:gap-4">
-        {/* Inactive Sponsors Notifications */}
+      <div className="flex items-center gap-1 md:gap-2">
+        {/* 1. Nhà tài trợ lâu chưa quay lại */}
         <InactiveSponsorsDropdown />
 
-        {/* Alerts Notifications Bell */}
+        {/* 2. Tri ân nhà tài trợ cá nhân (sinh nhật) */}
+        <GratitudeIndividualDropdown />
+
+        {/* 3. Tri ân doanh nghiệp / tổ chức (ngày thành lập) */}
+        <GratitudeOrgDropdown />
+
+        {/* Hệ thống (hợp đồng, kho, fanpage, chu kỳ) */}
         <NotificationsDropdown />
 
         {/* User Menu */}

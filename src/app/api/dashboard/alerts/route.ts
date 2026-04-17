@@ -21,20 +21,16 @@ export async function GET(request: NextRequest) {
     const nextWeekMonth = in7Days.getMonth() + 1;
     const nextWeekDay = in7Days.getDate();
 
-    // 1. Sinh nhật trong 7 ngày tới
+    // 1. Sinh nhật trong 7 ngày tới (cá nhân)
     const donorsWithBirthday = await prisma.donor.findMany({
       where: { deletedAt: null, birthday: { not: null } },
-      select: { id: true, fullName: true, birthday: true, phone: true, email: true },
+      select: { id: true, fullName: true, birthday: true, phone: true, email: true, tier: true },
     });
 
     const birthdayAlerts = donorsWithBirthday.filter((donor) => {
       if (!donor.birthday) return false;
       const bDay = new Date(donor.birthday);
-      const bMonth = bDay.getMonth() + 1;
-      const bDayOfMonth = bDay.getDate();
-
-      // Check ngày sinh nhật trong 7 ngày tới (kể cả wrap tháng)
-      const birthdayThisYear = new Date(today.getFullYear(), bMonth - 1, bDayOfMonth);
+      const birthdayThisYear = new Date(today.getFullYear(), bDay.getMonth(), bDay.getDate());
       if (birthdayThisYear < today) {
         birthdayThisYear.setFullYear(today.getFullYear() + 1);
       }
@@ -43,15 +39,60 @@ export async function GET(request: NextRequest) {
       const bDay = new Date(donor.birthday!);
       const birthdayThisYear = new Date(today.getFullYear(), bDay.getMonth(), bDay.getDate());
       if (birthdayThisYear < today) birthdayThisYear.setFullYear(today.getFullYear() + 1);
+      const daysUntil = Math.round((birthdayThisYear.getTime() - startOfDay(today).getTime()) / 86400000);
       return {
         type: "BIRTHDAY" as const,
         donorId: donor.id,
         donorName: donor.fullName,
+        tier: donor.tier,
+        phone: donor.phone,
+        email: donor.email,
         date: birthdayThisYear.toISOString(),
         message: `Sinh nhật ${donor.fullName}`,
-        isToday: birthdayThisYear.toDateString() === today.toDateString(),
+        isToday: daysUntil === 0,
+        daysUntil,
       };
+    }).sort((a, b) => a.daysUntil - b.daysUntil);
+
+    // 1b. Ngày thành lập tổ chức / doanh nghiệp trong 7 ngày tới
+    const orgsWithFounding = await prisma.donor.findMany({
+      where: {
+        deletedAt: null,
+        foundingDate: { not: null },
+        type: { in: ["COMPANY", "ORGANIZATION"] },
+      },
+      select: { id: true, fullName: true, foundingDate: true, phone: true, email: true, tier: true, type: true },
     });
+
+    const foundingAlerts = orgsWithFounding.filter((org) => {
+      if (!org.foundingDate) return false;
+      const f = new Date(org.foundingDate);
+      const anniversaryThisYear = new Date(today.getFullYear(), f.getMonth(), f.getDate());
+      if (anniversaryThisYear < today) {
+        anniversaryThisYear.setFullYear(today.getFullYear() + 1);
+      }
+      return anniversaryThisYear <= in7Days;
+    }).map((org) => {
+      const f = new Date(org.foundingDate!);
+      const anniversaryThisYear = new Date(today.getFullYear(), f.getMonth(), f.getDate());
+      if (anniversaryThisYear < today) anniversaryThisYear.setFullYear(today.getFullYear() + 1);
+      const years = anniversaryThisYear.getFullYear() - f.getFullYear();
+      const daysUntil = Math.round((anniversaryThisYear.getTime() - startOfDay(today).getTime()) / 86400000);
+      return {
+        type: "FOUNDING_ANNIVERSARY" as const,
+        donorId: org.id,
+        donorName: org.fullName,
+        donorType: org.type,
+        tier: org.tier,
+        phone: org.phone,
+        email: org.email,
+        years,
+        date: anniversaryThisYear.toISOString(),
+        message: `${org.fullName} — ${years} năm`,
+        isToday: daysUntil === 0,
+        daysUntil,
+      };
+    }).sort((a, b) => a.daysUntil - b.daysUntil);
 
     // 2. Hợp đồng hết hạn trong 30 ngày
     const expiringContracts = await prisma.contract.findMany({
@@ -174,6 +215,7 @@ export async function GET(request: NextRequest) {
 
     const totalAlerts =
       birthdayAlerts.length +
+      foundingAlerts.length +
       contractAlerts.length +
       treatmentAlerts.length +
       reminderAlerts.length +
@@ -183,6 +225,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       totalAlerts,
       birthdays: birthdayAlerts,
+      foundingAnniversaries: foundingAlerts,
       expiringContracts: contractAlerts,
       upcomingTreatments: treatmentAlerts,
       overdueReminders: reminderAlerts,
