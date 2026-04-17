@@ -10,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -157,7 +156,7 @@ export function InactiveSponsorsDropdown() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[380px] p-0">
+      <DropdownMenuContent align="end" className="w-[420px] p-0">
         <div className="flex items-center justify-between px-4 py-2.5 border-b">
           <div>
             <p className="text-sm font-semibold">Cần kết nối lại</p>
@@ -186,87 +185,83 @@ export function InactiveSponsorsDropdown() {
             Tất cả NTT đang hoạt động
           </div>
         ) : (
-          <ScrollArea className="max-h-[460px]">
-            <div className="p-2 space-y-1.5">
-              {unresolved.map((n) => {
-                const days = daysSince(n.lastDonationDate);
-                return (
-                  <div key={n.id} className="rounded-md border border-slate-200 p-3 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{n.donor.fullName}</p>
-                        {n.donor.phone && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                            <Phone className="h-3 w-3" />
-                            {n.donor.phone}
-                          </p>
-                        )}
-                      </div>
-                      <span className="shrink-0 rounded border border-slate-200 px-1.5 py-0 text-[10px] text-muted-foreground">
-                        {tierLabel(n.donor.tier)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>Tài trợ cuối: {formatDate(n.lastDonationDate)}</span>
-                      {days !== null && (
-                        <span>· {days} ngày trước</span>
+          <div className="max-h-[70vh] overflow-y-auto p-2 space-y-1.5">
+            {unresolved.map((n) => {
+              const days = daysSince(n.lastDonationDate);
+              return (
+                <div key={n.id} className="rounded-md border border-slate-200 p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm break-words">{n.donor.fullName}</p>
+                      {n.donor.phone && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <Phone className="h-3 w-3 shrink-0" />
+                          <span className="break-all">{n.donor.phone}</span>
+                        </p>
                       )}
                     </div>
-
-                    <button
-                      onClick={() => toggleExpand(n.id)}
-                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      {expandedIds.has(n.id) ? (
-                        <ChevronUp className="h-3 w-3" />
-                      ) : (
-                        <ChevronDown className="h-3 w-3" />
-                      )}
-                      Lịch sử liên hệ ({n.contactHistory.length})
-                    </button>
-
-                    {expandedIds.has(n.id) && (
-                      <div className="space-y-1 pl-2 border-l border-slate-200 ml-1">
-                        {n.contactHistory.length === 0 ? (
-                          <p className="text-xs text-muted-foreground italic">Chưa có liên hệ nào</p>
-                        ) : (
-                          n.contactHistory.map((c) => (
-                            <div key={c.id} className="flex items-center gap-2 text-xs">
-                              <Checkbox checked disabled className="h-3 w-3" />
-                              <span>Lần {c.contactNumber} — {formatDate(c.contactDate)}</span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-1.5 pt-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-xs h-7"
-                        onClick={() => addContactMutation.mutate(n.id)}
-                        disabled={addContactMutation.isPending}
-                      >
-                        <Phone className="h-3 w-3 mr-1" />
-                        Đã liên hệ
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1 text-xs h-7"
-                        onClick={() => resolveMutation.mutate(n.id)}
-                        disabled={resolveMutation.isPending}
-                      >
-                        <Check className="h-3 w-3 mr-1" />
-                        Hoàn tất
-                      </Button>
-                    </div>
+                    <span className="shrink-0 rounded border border-slate-200 px-1.5 py-0 text-[10px] text-muted-foreground whitespace-nowrap">
+                      {tierLabel(n.donor.tier)}
+                    </span>
                   </div>
-                );
-              })}
-            </div>
-          </ScrollArea>
+
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                    <span>Tài trợ cuối: {formatDate(n.lastDonationDate)}</span>
+                    {days !== null && <span>· {days} ngày trước</span>}
+                  </div>
+
+                  <button
+                    onClick={() => toggleExpand(n.id)}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {expandedIds.has(n.id) ? (
+                      <ChevronUp className="h-3 w-3" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" />
+                    )}
+                    Lịch sử liên hệ ({n.contactHistory.length})
+                  </button>
+
+                  {expandedIds.has(n.id) && (
+                    <div className="space-y-1 pl-2 border-l border-slate-200 ml-1">
+                      {n.contactHistory.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">Chưa có liên hệ nào</p>
+                      ) : (
+                        n.contactHistory.map((c) => (
+                          <div key={c.id} className="flex items-center gap-2 text-xs">
+                            <Checkbox checked disabled className="h-3 w-3" />
+                            <span>Lần {c.contactNumber} — {formatDate(c.contactDate)}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs h-7"
+                      onClick={() => addContactMutation.mutate(n.id)}
+                      disabled={addContactMutation.isPending}
+                    >
+                      <Phone className="h-3 w-3 mr-1" />
+                      Đã liên hệ
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1 text-xs h-7"
+                      onClick={() => resolveMutation.mutate(n.id)}
+                      disabled={resolveMutation.isPending}
+                    >
+                      <Check className="h-3 w-3 mr-1" />
+                      Hoàn tất
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

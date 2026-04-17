@@ -8,7 +8,6 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -64,7 +63,7 @@ export function NotificationsDropdown() {
             Tất cả đều ổn
           </div>
         ) : (
-          <ScrollArea className="max-h-[500px]">
+          <div className="max-h-[70vh] overflow-y-auto">
             <div className="p-3 space-y-4">
               {overdueReminders.length > 0 && (
                 <Section title="Nhắc nhở chưa xử lý" icon={<Clock className="h-3.5 w-3.5" />}>
@@ -129,7 +128,7 @@ export function NotificationsDropdown() {
                 </Section>
               )}
             </div>
-          </ScrollArea>
+          </div>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
