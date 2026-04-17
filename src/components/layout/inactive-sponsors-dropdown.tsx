@@ -151,7 +151,7 @@ export function InactiveSponsorsDropdown() {
         <Button variant="ghost" size="icon" className="relative">
           <UserX className="h-5 w-5" />
           {unresolved.length > 0 && (
-            <span className="absolute -right-1 -top-1 h-4 min-w-[16px] rounded-full bg-slate-700 text-white text-[10px] flex items-center justify-center font-semibold px-1">
+            <span className="absolute -right-1 -top-1 h-4 min-w-[16px] rounded-full bg-red-600 text-white text-[10px] flex items-center justify-center font-semibold px-1">
               {unresolved.length > 9 ? "9+" : unresolved.length}
             </span>
           )}

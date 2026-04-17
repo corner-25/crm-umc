@@ -43,9 +43,9 @@ export function NotificationsDropdown() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
+          <Bell className={cn("h-5 w-5", count > 0 && "text-red-600")} />
           {count > 0 && (
-            <span className="absolute -right-1 -top-1 h-4 min-w-[16px] rounded-full bg-slate-700 text-white text-[10px] flex items-center justify-center font-semibold px-1">
+            <span className="absolute -right-1 -top-1 h-4 min-w-[16px] rounded-full bg-red-600 text-white text-[10px] flex items-center justify-center font-semibold px-1">
               {count > 9 ? "9+" : count}
             </span>
           )}
