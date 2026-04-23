@@ -947,6 +947,7 @@ model CharityLocation {
 model CharityTrip {
   id              String                @id @default(cuid())
   tripCode        String                @unique  // Mã chuyến
+  tripName        String?                         // Tên hiển thị, tự ghép: "Từ thiện <Tỉnh> - <Xã>"
   locationId      String
   location        CharityLocation       @relation(fields: [locationId], references: [id])
 
@@ -958,14 +959,18 @@ model CharityTrip {
   endDate         DateTime
   expectedPatients Int?
   actualPatients  Int?
-  staffCount      Int?
-  distance        Float?
+  staffCount      Int?                            // Giữ lại cho dữ liệu cũ; chuyến mới tự tính từ staffs
+  distanceKm      Float?                          // Quãng đường 1 chiều xã → bệnh viện (km)
   transport       String?
+  targetAudience  String?                         // Đối tượng (trẻ em, người già, hộ nghèo,...)
   demographics    String?
   notes           String?
 
   transactions    MedicineTransaction[]
   demandStats     CharityDemandStat[]
+  staffs          CharityTripStaff[]
+  gifts           TripGift[]
+  fundings        CharityTripFunding[]
 
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
@@ -975,6 +980,106 @@ model CharityTrip {
   @@index([sponsorId])
   @@index([startDate])
   @@map("charity_trips")
+}
+
+// Nhân viên y tế — danh bạ dùng cho chuyến đi từ thiện
+model Staff {
+  id          String              @id @default(cuid())
+  staffCode   String?             @unique  // Mã nhân viên
+  fullName    String
+  department  String?                      // Khoa / Phòng
+  role        String?                      // Chức danh (Bác sĩ, Điều dưỡng, KTV,...)
+  phone       String?
+  email       String?
+  isActive    Boolean             @default(true)
+  notes       String?
+
+  trips       CharityTripStaff[]
+
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  deletedAt   DateTime?
+
+  @@index([fullName])
+  @@index([department])
+  @@map("staffs")
+}
+
+// Nhiều-nhiều: Chuyến đi <-> NVYT
+model CharityTripStaff {
+  id        String        @id @default(cuid())
+  tripId    String
+  trip      CharityTrip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  staffId   String
+  staff     Staff         @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  tripRole  String?       // Vai trò riêng trong chuyến (trưởng đoàn, thành viên,...) - tùy chọn
+
+  createdAt DateTime      @default(now())
+
+  @@unique([tripId, staffId])
+  @@index([tripId])
+  @@index([staffId])
+  @@map("charity_trip_staffs")
+}
+
+// Danh mục loại quà tặng (xe lăn, xe đạp, bò, cầu,...)
+model TripGiftType {
+  id        String      @id @default(cuid())
+  name      String      @unique       // Tên quà (xe lăn, xe đạp,...)
+  unit      String?                    // Đơn vị (chiếc, con, cái,...)
+  isDefault Boolean     @default(false) // Quà mặc định (xe lăn, xe đạp)
+  notes     String?
+
+  gifts     TripGift[]
+
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  deletedAt DateTime?
+
+  @@map("trip_gift_types")
+}
+
+// Quà của từng chuyến đi
+model TripGift {
+  id          String         @id @default(cuid())
+  tripId      String
+  trip        CharityTrip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  giftTypeId  String
+  giftType    TripGiftType   @relation(fields: [giftTypeId], references: [id], onDelete: Restrict)
+  quantity    Int
+  notes       String?
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([tripId])
+  @@index([giftTypeId])
+  @@map("trip_gifts")
+}
+
+// Nguồn tài trợ của chuyến đi
+// Kịch bản A (EXISTING): trích từ DonationCash đã nhận sẵn (donationCashId không null)
+// Kịch bản B (NEW): tự tạo DonationCash mới từ form chuyến đi (donationCashId = DonationCash vừa tạo)
+enum CharityTripFundingSource {
+  EXISTING    // Trích từ khoản tài trợ có sẵn
+  NEW         // Tài trợ riêng cho chuyến này
+}
+
+model CharityTripFunding {
+  id              String                    @id @default(cuid())
+  tripId          String
+  trip            CharityTrip               @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  source          CharityTripFundingSource
+  donationCashId  String                    // Link DonationCash (với A: có sẵn; với B: vừa tạo)
+  amount          Decimal                   @db.Decimal(15, 2)
+  notes           String?
+
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@index([tripId])
+  @@index([donationCashId])
+  @@map("charity_trip_fundings")
 }
 
 // Lô thuốc (quản lý theo Date — cốt lõi)

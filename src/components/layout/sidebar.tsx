@@ -83,8 +83,7 @@ const navigation = [
     href: "/charity-medicine",
     icon: Pill,
     children: [
-      { name: "Ghi nhận chuyến đi", href: "/charity-medicine/simple" },
-      { name: "Quản lý chi tiết", href: "/charity-medicine" },
+      { name: "Tổng quan", href: "/charity-medicine" },
     ],
   },
   {
