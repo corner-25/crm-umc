@@ -15,6 +15,9 @@ import {
   Facebook,
   Warehouse,
   Pill,
+  Truck,
+  Gift,
+  UserSquare2,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -84,6 +87,9 @@ const navigation = [
     icon: Pill,
     children: [
       { name: "Tổng quan", href: "/charity-medicine" },
+      { name: "Chuyến đi", href: "/charity-medicine/trips" },
+      { name: "Nhân viên y tế", href: "/charity-medicine/staffs" },
+      { name: "Quà tặng", href: "/charity-medicine/gifts" },
     ],
   },
   {

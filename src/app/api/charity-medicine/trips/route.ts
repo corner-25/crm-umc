@@ -50,7 +50,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      tripCode,
       tripName,
       locationId,
       startDate,
@@ -69,12 +68,25 @@ export async function POST(request: NextRequest) {
       fundings,     // [{source: "EXISTING"|"NEW", donationCashId?, donorId?, amount, notes?}]
     } = body;
 
-    if (!tripCode || !locationId || !startDate || !endDate) {
+    if (!locationId || !startDate || !endDate) {
       return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
     }
 
-    const existing = await prisma.charityTrip.findFirst({ where: { tripCode, deletedAt: null } });
-    if (existing) return NextResponse.json({ error: "Mã chuyến đã tồn tại" }, { status: 400 });
+    // Auto-gen mã chuyến: TT-YYYY-XXX (reset theo năm)
+    const year = new Date(startDate).getFullYear();
+    const prefix = `TT-${year}-`;
+    const latestInYear = await prisma.charityTrip.findFirst({
+      where: { tripCode: { startsWith: prefix } },
+      orderBy: { tripCode: "desc" },
+      select: { tripCode: true },
+    });
+    let nextSeq = 1;
+    if (latestInYear?.tripCode) {
+      const parts = latestInYear.tripCode.split("-");
+      const lastNum = parseInt(parts[parts.length - 1], 10);
+      if (!Number.isNaN(lastNum)) nextSeq = lastNum + 1;
+    }
+    const tripCode = `${prefix}${String(nextSeq).padStart(3, "0")}`;
 
     const location = await prisma.charityLocation.findUnique({
       where: { id: locationId },

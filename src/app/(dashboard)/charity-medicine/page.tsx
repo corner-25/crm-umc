@@ -18,7 +18,7 @@ import {
   Pill, MapPin, Package, Plus, Search, Pencil, Trash2,
   AlertTriangle, ArrowDownToLine, ArrowUpFromLine, RotateCcw, BarChart3, Truck,
 } from "lucide-react";
-import { TripFormDialog } from "@/components/charity-medicine/trip-form-dialog";
+import Link from "next/link";
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
@@ -609,7 +609,6 @@ export default function CharityMedicinePage() {
   // Dialogs
   const [medDialog, setMedDialog] = useState<{ open: boolean; edit?: any }>({ open: false });
   const [locDialog, setLocDialog] = useState<{ open: boolean; edit?: any }>({ open: false });
-  const [tripDialog, setTripDialog] = useState<{ open: boolean; edit?: any }>({ open: false });
   const [batchDialog, setBatchDialog] = useState(false);
   const [txDialog, setTxDialog] = useState<{ open: boolean; type: "EXPORT" | "RETURN" }>({ open: false, type: "EXPORT" });
   const [bulkExportDialog, setBulkExportDialog] = useState(false);
@@ -846,7 +845,12 @@ export default function CharityMedicinePage() {
         {/* ─── Tab: Chuyến đi ─── */}
         <TabsContent value="trips" className="space-y-4">
           <div className="flex items-center gap-3">
-            <Button onClick={() => setTripDialog({ open: true })}><Plus className="h-4 w-4 mr-1" /> Thêm chuyến</Button>
+            <Link href="/charity-medicine/trips/new">
+              <Button><Plus className="h-4 w-4 mr-1" /> Tạo chuyến mới</Button>
+            </Link>
+            <Link href="/charity-medicine/trips">
+              <Button variant="outline">Xem đầy đủ</Button>
+            </Link>
             <Button variant="outline" className="text-blue-600 border-blue-300 hover:bg-blue-50" onClick={() => setBulkExportDialog(true)}>
               <ArrowUpFromLine className="h-4 w-4 mr-1" /> Xuất nhanh theo chuyến
             </Button>
@@ -874,8 +878,10 @@ export default function CharityMedicinePage() {
                       <TableCell className="text-right">{trip.expectedPatients?.toLocaleString() || "—"}</TableCell>
                       <TableCell className="text-right">{trip.actualPatients?.toLocaleString() || "—"}</TableCell>
                       <TableCell className="text-right">
-                        <Button size="icon" variant="ghost" onClick={() => setTripDialog({ open: true, edit: trip })}><Pencil className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="ghost" onClick={() => { if (confirm("Xoá chuyến này?")) deleteTrip.mutate(trip.id); }}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                        <Link href={`/charity-medicine/trips/${trip.id}/edit`}>
+                          <Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>
+                        </Link>
+                        <Button size="icon" variant="ghost" onClick={() => { if (confirm("Xoá chuyến này? Các nguồn tài trợ đã trích sẽ được hoàn trả.")) deleteTrip.mutate(trip.id); }}><Trash2 className="h-4 w-4 text-red-500" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1005,7 +1011,6 @@ export default function CharityMedicinePage() {
       {/* Dialogs */}
       {medDialog.open && <MedicineFormDialog open={medDialog.open} onClose={() => setMedDialog({ open: false })} editItem={medDialog.edit} />}
       {locDialog.open && <LocationFormDialog open={locDialog.open} onClose={() => setLocDialog({ open: false })} editItem={locDialog.edit} />}
-      {tripDialog.open && <TripFormDialog open={tripDialog.open} onClose={() => setTripDialog({ open: false })} editItem={tripDialog.edit} locations={locations} />}
       {batchDialog && <BatchImportDialog open={batchDialog} onClose={() => setBatchDialog(false)} medicines={medicines} />}
       {txDialog.open && <TransactionDialog open={txDialog.open} onClose={() => setTxDialog({ open: false, type: "EXPORT" })} type={txDialog.type} trips={trips} batches={batches} />}
       {bulkExportDialog && <BulkExportDialog open={bulkExportDialog} onClose={() => setBulkExportDialog(false)} trips={trips} />}
