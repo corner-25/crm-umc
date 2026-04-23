@@ -4,6 +4,23 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { addDays, startOfDay, endOfDay } from "date-fns";
 
+// Đếm số ngày làm việc (không tính Chủ Nhật) từ today đến targetDate.
+// Trả về -1 nếu target đã qua, 0 nếu hôm nay. Nếu hôm nay là CN, ngày CN không được đếm
+// nhưng vẫn cho thông báo hiển thị (dựa trên số ngày làm việc còn lại).
+function businessDaysUntil(from: Date, to: Date): number {
+  const start = startOfDay(from);
+  const end = startOfDay(to);
+  if (end < start) return -1;
+  if (end.getTime() === start.getTime()) return 0;
+  let count = 0;
+  const cursor = new Date(start);
+  while (cursor < end) {
+    cursor.setDate(cursor.getDate() + 1);
+    if (cursor.getDay() !== 0) count++; // 0 = Chủ Nhật
+  }
+  return count;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -64,35 +81,39 @@ export async function GET(request: NextRequest) {
       select: { id: true, fullName: true, foundingDate: true, phone: true, email: true, tier: true, type: true },
     });
 
-    const foundingAlerts = orgsWithFounding.filter((org) => {
-      if (!org.foundingDate) return false;
-      const f = new Date(org.foundingDate);
-      const anniversaryThisYear = new Date(today.getFullYear(), f.getMonth(), f.getDate());
-      if (anniversaryThisYear < today) {
-        anniversaryThisYear.setFullYear(today.getFullYear() + 1);
-      }
-      return anniversaryThisYear <= in7Days;
-    }).map((org) => {
-      const f = new Date(org.foundingDate!);
-      const anniversaryThisYear = new Date(today.getFullYear(), f.getMonth(), f.getDate());
-      if (anniversaryThisYear < today) anniversaryThisYear.setFullYear(today.getFullYear() + 1);
-      const years = anniversaryThisYear.getFullYear() - f.getFullYear();
-      const daysUntil = Math.round((anniversaryThisYear.getTime() - startOfDay(today).getTime()) / 86400000);
-      return {
-        type: "FOUNDING_ANNIVERSARY" as const,
-        donorId: org.id,
-        donorName: org.fullName,
-        donorType: org.type,
-        tier: org.tier,
-        phone: org.phone,
-        email: org.email,
-        years,
-        date: anniversaryThisYear.toISOString(),
-        message: `${org.fullName} — ${years} năm`,
-        isToday: daysUntil === 0,
-        daysUntil,
-      };
-    }).sort((a, b) => a.daysUntil - b.daysUntil);
+    // Hiện thông báo trong 5 ngày làm việc cuối trước kỷ niệm (bỏ Chủ Nhật).
+    // Hôm nay là CN thì không hiện.
+    const isSunday = today.getDay() === 0;
+    const foundingAlerts = isSunday ? [] : orgsWithFounding
+      .map((org) => {
+        const f = new Date(org.foundingDate!);
+        const anniversaryThisYear = new Date(today.getFullYear(), f.getMonth(), f.getDate());
+        if (anniversaryThisYear < startOfDay(today)) {
+          anniversaryThisYear.setFullYear(today.getFullYear() + 1);
+        }
+        const businessDaysLeft = businessDaysUntil(today, anniversaryThisYear);
+        const calendarDaysUntil = Math.round(
+          (anniversaryThisYear.getTime() - startOfDay(today).getTime()) / 86400000
+        );
+        const years = anniversaryThisYear.getFullYear() - f.getFullYear();
+        return {
+          type: "FOUNDING_ANNIVERSARY" as const,
+          donorId: org.id,
+          donorName: org.fullName,
+          donorType: org.type,
+          tier: org.tier,
+          phone: org.phone,
+          email: org.email,
+          years,
+          date: anniversaryThisYear.toISOString(),
+          message: `${org.fullName} — ${years} năm`,
+          isToday: calendarDaysUntil === 0,
+          daysUntil: calendarDaysUntil,
+          businessDaysUntil: businessDaysLeft,
+        };
+      })
+      .filter((a) => a.businessDaysUntil >= 0 && a.businessDaysUntil <= 5)
+      .sort((a, b) => a.businessDaysUntil - b.businessDaysUntil);
 
     // 2. Hợp đồng hết hạn trong 30 ngày
     const expiringContracts = await prisma.contract.findMany({

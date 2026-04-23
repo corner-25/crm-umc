@@ -21,6 +21,7 @@ interface FoundingAlert {
   date: string;
   isToday: boolean;
   daysUntil: number;
+  businessDaysUntil: number;
 }
 
 const tierLabel = (tier: string) => {
@@ -59,7 +60,7 @@ export function GratitudeOrgDropdown() {
       <DropdownMenuContent align="end" className="w-[380px] p-0">
         <div className="px-4 py-2.5 border-b">
           <p className="text-sm font-semibold">Tri ân doanh nghiệp / tổ chức</p>
-          <p className="text-xs text-muted-foreground">Ngày thành lập trong 7 ngày tới</p>
+          <p className="text-xs text-muted-foreground">Ngày thành lập trong 5 ngày làm việc tới</p>
         </div>
 
         {count === 0 ? (
@@ -98,7 +99,7 @@ export function GratitudeOrgDropdown() {
                       {!alert.isToday && (
                         <>
                           <span>·</span>
-                          <span>Còn {alert.daysUntil} ngày</span>
+                          <span>Còn {alert.businessDaysUntil} ngày làm việc</span>
                         </>
                       )}
                     </div>

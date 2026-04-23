@@ -111,9 +111,14 @@ export async function POST() {
         anniversaryThisYear.setFullYear(anniversaryThisYear.getFullYear() + 1);
       }
 
-      const oneWeekBefore = new Date(anniversaryThisYear);
-      oneWeekBefore.setDate(oneWeekBefore.getDate() - 7);
-      if (now < oneWeekBefore) continue;
+      // Tính ngày bắt đầu nhắc = lùi 5 ngày làm việc (bỏ Chủ Nhật) từ ngày kỷ niệm.
+      const notifyStart = new Date(anniversaryThisYear);
+      let businessDaysLeft = 5;
+      while (businessDaysLeft > 0) {
+        notifyStart.setDate(notifyStart.getDate() - 1);
+        if (notifyStart.getDay() !== 0) businessDaysLeft--;
+      }
+      if (now < notifyStart) continue;
 
       const years = anniversaryThisYear.getFullYear() - founded.getFullYear();
       const title = `Ngày thành lập: ${org.fullName}`;
