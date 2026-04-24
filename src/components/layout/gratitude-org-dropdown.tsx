@@ -11,6 +11,7 @@ import {
 import { format } from "date-fns";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { Avatar, TierBadge } from "./alert-item";
 
 interface FoundingAlert {
   donorId: string;
@@ -23,13 +24,6 @@ interface FoundingAlert {
   daysUntil: number;
   businessDaysUntil: number;
 }
-
-const tierLabel = (tier: string) => {
-  if (tier === "VIP") return "VIP";
-  if (tier === "REGULAR") return "Thường xuyên";
-  if (tier === "NEW") return "Mới";
-  return "Tiềm năng";
-};
 
 export function GratitudeOrgDropdown() {
   const { data: alerts } = useQuery({
@@ -57,56 +51,63 @@ export function GratitudeOrgDropdown() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[380px] p-0">
-        <div className="px-4 py-2.5 border-b">
-          <p className="text-sm font-semibold">Tri ân doanh nghiệp / tổ chức</p>
-          <p className="text-xs text-muted-foreground">Ngày thành lập trong 5 ngày làm việc tới</p>
+      <DropdownMenuContent align="end" className="w-[420px] p-0">
+        <div className="px-4 py-3 border-b">
+          <p className="text-sm font-semibold">Ngày thành lập</p>
+          <p className="text-xs text-muted-foreground">
+            {count > 0 ? `${count} tổ chức trong 5 ngày làm việc tới` : "5 ngày làm việc tới"}
+          </p>
         </div>
 
         {count === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            <Building2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
             Không có ngày thành lập sắp tới
           </div>
         ) : (
-          <div className="max-h-[70vh] overflow-y-auto p-2 space-y-1">
+          <div className="max-h-[70vh] overflow-y-auto">
             {foundings.map((alert) => (
               <Link
                 key={alert.donorId}
                 href={`/donors/${alert.donorId}`}
                 className={cn(
-                  "block rounded-md border px-3 py-2 transition-colors hover:bg-slate-50",
-                  alert.isToday ? "border-red-300 bg-red-50" : "border-slate-200"
+                  "block px-3 py-2.5 border-b last:border-b-0 border-slate-100 hover:bg-slate-50 transition-colors",
+                  alert.isToday && "bg-slate-50"
                 )}
               >
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2.5">
+                  <Avatar name={alert.donorName} size={36} />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {alert.isToday && (
-                        <span className="inline-flex items-center rounded bg-red-600 px-1.5 py-0 text-[10px] font-semibold text-white">
-                          HÔM NAY
-                        </span>
-                      )}
-                      <p className="font-medium text-sm break-words">{alert.donorName}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm break-words leading-tight">
+                          {alert.donorName}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Ngày thành lập {format(new Date(alert.date), "dd/MM")}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        {alert.years > 0 && (
+                          <span className="inline-flex items-center rounded bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-800 whitespace-nowrap">
+                            {alert.years} năm
+                          </span>
+                        )}
+                        <TierBadge tier={alert.tier} />
+                      </div>
                     </div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                      <span>{format(new Date(alert.date), "dd/MM")}</span>
-                      {alert.years > 0 && (
-                        <>
-                          <span>·</span>
-                          <span className="font-medium text-foreground">{alert.years} năm</span>
-                        </>
-                      )}
-                      {!alert.isToday && (
-                        <>
-                          <span>·</span>
-                          <span>Còn {alert.businessDaysUntil} ngày làm việc</span>
-                        </>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      {alert.isToday ? (
+                        <span className="inline-flex items-center rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-white uppercase tracking-wide">
+                          Hôm nay
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
+                          D-{alert.businessDaysUntil} ngày làm việc
+                        </span>
                       )}
                     </div>
                   </div>
-                  <span className="shrink-0 rounded border border-slate-200 px-1.5 py-0 text-[10px] text-muted-foreground whitespace-nowrap">
-                    {tierLabel(alert.tier)}
-                  </span>
                 </div>
               </Link>
             ))}

@@ -1210,3 +1210,22 @@ model MobilizationPlanItem {
   @@index([donationCashId])
   @@map("mobilization_plan_items")
 }
+
+// ================================
+// DISMISSED ALERTS
+// ================================
+
+// Ẩn thông báo chuông hệ thống: user đánh dấu "đã biết, không cần hiện nữa"
+// Áp dụng cho các loại alert không bắt buộc hành động ngay (hợp đồng sắp hết hạn,
+// fanpage, kho, reminder còn hạn). KHÔNG cho dismiss: quá hạn, chu kỳ điều trị hôm nay.
+model DismissedAlert {
+  id           String   @id @default(cuid())
+  alertType    String   // "REMINDER" | "CONTRACT" | "TREATMENT" | "FANPAGE" | "WAREHOUSE"
+  alertKey     String   // ID record tương ứng (reminderId, contractId,...)
+  dismissedAt  DateTime @default(now())
+  dismissedBy  String?
+
+  @@unique([alertType, alertKey])
+  @@index([alertType])
+  @@map("dismissed_alerts")
+}

@@ -46,3 +46,7 @@ import_data/
 # scripts & docs
 /scripts/
 /docs/
+
+# Local dev env overrides
+.env.local
+.claude/scheduled_tasks.lock

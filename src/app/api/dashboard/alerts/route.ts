@@ -166,11 +166,13 @@ export async function GET(request: NextRequest) {
     }));
 
     // 4. Nhắc nhở đến hạn hôm nay / quá hạn
+    // Loại BIRTHDAY + FOUNDING_ANNIVERSARY vì đã có chuông tri ân riêng
     const overdueReminders = await prisma.reminder.findMany({
       where: {
         deletedAt: null,
         isCompleted: false,
         dueDate: { lte: endOfDay(today) },
+        type: { notIn: ["BIRTHDAY", "FOUNDING_ANNIVERSARY"] },
       },
       include: {
         donor: { select: { id: true, fullName: true } },
@@ -234,24 +236,47 @@ export async function GET(request: NextRequest) {
         message: `[${batch.item.code}] ${batch.item.name} — Lô: ${batch.batchCode || "N/A"} — HSD: ${batch.expiryDate!.toLocaleDateString("vi-VN")}`,
       }));
 
+    // Lọc các alert đã dismiss (chỉ áp dụng cho 5 nhóm trong chuông hệ thống)
+    const dismissed = await prisma.dismissedAlert.findMany({
+      select: { alertType: true, alertKey: true },
+    });
+    const dismissedSet = new Set(dismissed.map((d) => `${d.alertType}:${d.alertKey}`));
+    const notDismissed = (type: string, key: string) => !dismissedSet.has(`${type}:${key}`);
+
+    const reminderAlertsFiltered = reminderAlerts.filter((a) =>
+      notDismissed("REMINDER", a.reminderId)
+    );
+    const contractAlertsFiltered = contractAlerts.filter((a) =>
+      notDismissed("CONTRACT", a.contractId)
+    );
+    const treatmentAlertsFiltered = treatmentAlerts.filter((a) =>
+      notDismissed("TREATMENT", a.treatmentId)
+    );
+    const fanpageAlertsFiltered = fanpageAlerts.filter((a) =>
+      notDismissed("FANPAGE", a.postId)
+    );
+    const warehouseAlertsFiltered = warehouseAlerts.filter((a) =>
+      notDismissed("WAREHOUSE", `${a.itemId}-${a.batchCode || ""}`)
+    );
+
     const totalAlerts =
       birthdayAlerts.length +
       foundingAlerts.length +
-      contractAlerts.length +
-      treatmentAlerts.length +
-      reminderAlerts.length +
-      fanpageAlerts.length +
-      warehouseAlerts.length;
+      contractAlertsFiltered.length +
+      treatmentAlertsFiltered.length +
+      reminderAlertsFiltered.length +
+      fanpageAlertsFiltered.length +
+      warehouseAlertsFiltered.length;
 
     return NextResponse.json({
       totalAlerts,
       birthdays: birthdayAlerts,
       foundingAnniversaries: foundingAlerts,
-      expiringContracts: contractAlerts,
-      upcomingTreatments: treatmentAlerts,
-      overdueReminders: reminderAlerts,
-      upcomingFanpostPosts: fanpageAlerts,
-      warehouseExpiry: warehouseAlerts,
+      expiringContracts: contractAlertsFiltered,
+      upcomingTreatments: treatmentAlertsFiltered,
+      overdueReminders: reminderAlertsFiltered,
+      upcomingFanpostPosts: fanpageAlertsFiltered,
+      warehouseExpiry: warehouseAlertsFiltered,
     });
   } catch (error) {
     console.error("Error fetching alerts:", error);

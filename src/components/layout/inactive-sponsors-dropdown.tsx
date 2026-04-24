@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { Avatar, TierBadge } from "./alert-item";
 
 interface ContactHistory {
   id: string;
@@ -38,13 +39,6 @@ interface InactiveSponsorNotification {
   };
   contactHistory: ContactHistory[];
 }
-
-const tierLabel = (tier: string) => {
-  if (tier === "VIP") return "VIP";
-  if (tier === "REGULAR") return "Thường xuyên";
-  if (tier === "NEW") return "Mới";
-  return "Tiềm năng";
-};
 
 export function InactiveSponsorsDropdown() {
   const { toast } = useToast();
@@ -159,8 +153,10 @@ export function InactiveSponsorsDropdown() {
       <DropdownMenuContent align="end" className="w-[420px] p-0">
         <div className="flex items-center justify-between px-4 py-2.5 border-b">
           <div>
-            <p className="text-sm font-semibold">Cần kết nối lại</p>
-            <p className="text-xs text-muted-foreground">NTT lâu chưa tài trợ</p>
+            <p className="text-sm font-semibold">Kết nối lại</p>
+            <p className="text-xs text-muted-foreground">
+              {unresolved.length > 0 ? `${unresolved.length} NTT lâu chưa tài trợ` : "NTT lâu chưa tài trợ"}
+            </p>
           </div>
           <Button
             variant="outline"
@@ -190,19 +186,20 @@ export function InactiveSponsorsDropdown() {
               const days = daysSince(n.lastDonationDate);
               return (
                 <div key={n.id} className="rounded-md border border-slate-200 p-3 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2.5">
+                    <Avatar name={n.donor.fullName} size={36} />
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm break-words">{n.donor.fullName}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-medium text-sm break-words leading-tight">{n.donor.fullName}</p>
+                        <TierBadge tier={n.donor.tier} />
+                      </div>
                       {n.donor.phone && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                           <Phone className="h-3 w-3 shrink-0" />
                           <span className="break-all">{n.donor.phone}</span>
                         </p>
                       )}
                     </div>
-                    <span className="shrink-0 rounded border border-slate-200 px-1.5 py-0 text-[10px] text-muted-foreground whitespace-nowrap">
-                      {tierLabel(n.donor.tier)}
-                    </span>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
