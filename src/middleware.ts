@@ -37,9 +37,9 @@ export default withAuth(
         }
         return NextResponse.json(
           {
-            error: "ACCESS_RESTRICTED",
+            error: "ACCESS_DENIED",
             message:
-              "Truy cập bị giới hạn. Hệ thống tạm giới hạn các chức năng cho đến khi có thỏa thuận chính thức với chủ sở hữu.",
+              "Truy cập bị từ chối. Hệ thống chưa được bàn giao cho người dùng này.",
           },
           { status: 403 }
         );
