@@ -7,26 +7,26 @@ import { Button } from "@/components/ui/button";
 
 const CONTENT = {
   vi: {
-    badge: "Truy cập bị từ chối",
-    headline: "CRM-UMC chưa được bàn giao",
+    badge: "Truy cập bị giới hạn",
+    headline: "CRM-UMC tạm giới hạn truy cập",
     para1:
-      "CRM-UMC là hệ thống do cá nhân tôi phát triển, triển khai và duy trì trên tài nguyên riêng. Hiện tại hệ thống chưa được bàn giao cho bất kỳ cá nhân, nhóm, phòng ban hoặc tổ chức nào.",
+      "CRM-UMC là ứng dụng thử nghiệm do cá nhân tôi tự phát triển, triển khai và duy trì bằng tài nguyên riêng nhằm hỗ trợ quy trình làm việc ở phạm vi cá nhân. Đây không phải là dự án chính thức, kế hoạch triển khai chung hoặc hệ thống được bệnh viện phê duyệt/bàn giao.",
     para2:
-      "Mọi hành vi sử dụng, truy cập tính năng, sao chép dữ liệu, trình bày demo, vận hành, khai thác hoặc đại diện hệ thống dưới bất kỳ hình thức nào đều không được cho phép nếu chưa có hợp đồng/thỏa thuận bàn giao bằng văn bản với chủ sở hữu hệ thống.",
+      "Hiện tại hệ thống chưa có thỏa thuận bằng văn bản về quyền sử dụng, quyền trình bày, quyền vận hành, phạm vi dữ liệu, trách nhiệm bảo trì và chi phí duy trì. Vì vậy, các chức năng của hệ thống được tạm giới hạn cho đến khi các bên liên quan có thỏa thuận chính thức.",
     para3:
-      "Vui lòng liên hệ quản trị viên/chủ sở hữu hệ thống để trao đổi về quyền sử dụng hoặc thủ tục bàn giao.",
+      "Dữ liệu đã nhập sẽ được bảo toàn và không bị xóa. Việc tiếp tục sử dụng hoặc bàn giao hệ thống cần được xác nhận bằng văn bản với chủ sở hữu hệ thống.",
     signOut: "Đăng xuất",
     switchLang: "English",
   },
   en: {
-    badge: "Access denied",
-    headline: "CRM-UMC has not been handed over",
+    badge: "Access restricted",
+    headline: "CRM-UMC access is temporarily restricted",
     para1:
-      "CRM-UMC is a system that I personally developed, deployed, and maintain on my own resources. It has not been handed over to any individual, group, department, or organization.",
+      "CRM-UMC is an experimental application that I personally developed, deployed, and maintain on my own resources to support my individual workflow. It is not an official project, a shared deployment plan, or a hospital-approved/handed-over system.",
     para2:
-      "Any use, feature access, data copying, demonstration, operation, exploitation, or representation of the system in any form is not permitted without a written handover agreement/contract with the system owner.",
+      "There is currently no written agreement covering usage rights, demonstration rights, operation rights, data scope, maintenance responsibility, or maintenance cost. Therefore, the system's features are temporarily restricted until the parties involved reach a formal agreement.",
     para3:
-      "Please contact the system administrator/owner to discuss usage rights or handover procedures.",
+      "Existing data will be preserved and will not be deleted. Continued use or handover of the system requires written confirmation from the system owner.",
     signOut: "Sign out",
     switchLang: "Tiếng Việt",
   },
