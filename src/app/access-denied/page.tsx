@@ -112,20 +112,7 @@ export default function AccessDeniedPage() {
           </h1>
           <div className="space-y-4 text-base text-slate-700 leading-relaxed text-justify">
             {t.paragraphs.map((spans, idx) => (
-              <p key={idx}>
-                {spans.map((span, i) =>
-                  span.mark ? (
-                    <mark
-                      key={i}
-                      className="bg-amber-100 text-amber-900 px-0.5 rounded"
-                    >
-                      {span.text}
-                    </mark>
-                  ) : (
-                    <span key={i}>{span.text}</span>
-                  )
-                )}
-              </p>
+              <p key={idx}>{spans.map((s) => s.text).join("")}</p>
             ))}
           </div>
         </div>
