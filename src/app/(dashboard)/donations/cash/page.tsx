@@ -114,6 +114,9 @@ export default function CashDonationsPage() {
     }
     const res = await fetch(`/api/donations/cash?${params}`);
     const result = await res.json();
+    // Khi custodian là "Kế toán đang giữ" mới có voucherCode (mã phiếu thu/lệnh CK)
+    const isAccountant = (custodian: string | null | undefined) =>
+      !!custodian && custodian.toLowerCase().includes("kế toán");
     const rows = result.donations.map((d: any, i: number) => {
       const amount = Number(d.amount);
       const used = Number(d.usedAmount || 0);
@@ -136,6 +139,8 @@ export default function CashDonationsPage() {
         "Còn lại": remaining,
         "Ngày nhận": d.receivedDate ? new Date(d.receivedDate).toLocaleDateString("vi-VN") : "",
         "Trạng thái": status,
+        "Người giữ tiền": d.custodian || "",
+        "Mã giao dịch (Kế toán)": isAccountant(d.custodian) ? (d.voucherCode || "") : "",
       };
     });
     const ws = XLSX.utils.json_to_sheet(rows);
