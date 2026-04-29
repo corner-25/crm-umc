@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseVnDateStart, parseVnDateEnd } from "@/lib/date-filter";
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,12 +21,10 @@ export async function GET(request: NextRequest) {
     if (type) where.type = type;
     if (fromDate || toDate) {
       where.transactionDate = {};
-      if (fromDate) where.transactionDate.gte = new Date(fromDate);
-      if (toDate) {
-        const to = new Date(toDate);
-        to.setHours(23, 59, 59, 999);
-        where.transactionDate.lte = to;
-      }
+      const from = parseVnDateStart(fromDate);
+      const to = parseVnDateEnd(toDate);
+      if (from) where.transactionDate.gte = from;
+      if (to) where.transactionDate.lte = to;
     }
 
     const transactions = await prisma.warehouseTransaction.findMany({

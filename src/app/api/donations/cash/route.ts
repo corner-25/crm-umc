@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseVnDateStart, parseVnDateEnd } from "@/lib/date-filter";
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,12 +36,10 @@ export async function GET(request: NextRequest) {
 
     if (fromDate || toDate) {
       where.receivedDate = {};
-      if (fromDate) where.receivedDate.gte = new Date(fromDate);
-      if (toDate) {
-        const to = new Date(toDate);
-        to.setHours(23, 59, 59, 999);
-        where.receivedDate.lte = to;
-      }
+      const from = parseVnDateStart(fromDate);
+      const to = parseVnDateEnd(toDate);
+      if (from) where.receivedDate.gte = from;
+      if (to) where.receivedDate.lte = to;
     }
 
     // Nếu filter hasRemaining, dùng raw query để so sánh 2 cột trực tiếp ở DB level
@@ -57,15 +56,15 @@ export async function GET(request: NextRequest) {
         whereConditions.push(`d."fullName" ILIKE $${paramIdx++}`);
         queryParams.push(`%${donorName}%`);
       }
-      if (fromDate) {
+      const fromVn = parseVnDateStart(fromDate);
+      if (fromVn) {
         whereConditions.push(`dc."receivedDate" >= $${paramIdx++}`);
-        queryParams.push(new Date(fromDate));
+        queryParams.push(fromVn);
       }
-      if (toDate) {
-        const to = new Date(toDate);
-        to.setHours(23, 59, 59, 999);
+      const toVn = parseVnDateEnd(toDate);
+      if (toVn) {
         whereConditions.push(`dc."receivedDate" <= $${paramIdx++}`);
-        queryParams.push(to);
+        queryParams.push(toVn);
       }
       if (purpose) {
         whereConditions.push(`dc.purpose ILIKE $${paramIdx++}`);
@@ -122,15 +121,15 @@ export async function GET(request: NextRequest) {
       whereConditions.push(`d."fullName" ILIKE $${paramIdx++}`);
       queryParams.push(`%${donorName}%`);
     }
-    if (fromDate) {
+    const fromVn2 = parseVnDateStart(fromDate);
+    if (fromVn2) {
       whereConditions.push(`dc."receivedDate" >= $${paramIdx++}`);
-      queryParams.push(new Date(fromDate));
+      queryParams.push(fromVn2);
     }
-    if (toDate) {
-      const to = new Date(toDate);
-      to.setHours(23, 59, 59, 999);
+    const toVn2 = parseVnDateEnd(toDate);
+    if (toVn2) {
       whereConditions.push(`dc."receivedDate" <= $${paramIdx++}`);
-      queryParams.push(to);
+      queryParams.push(toVn2);
     }
     if (purpose) {
       whereConditions.push(`dc.purpose ILIKE $${paramIdx++}`);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseVnDateStart, parseVnDateEnd } from "@/lib/date-filter";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,13 +15,15 @@ export async function GET(request: NextRequest) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
 
-    const hasDateFilter = !!(from || to);
-    const cashDateFilter = hasDateFilter ? { receivedDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } } : {};
-    const inKindDateFilter = hasDateFilter ? { createdAt: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } } : {};
+    const fromVn = parseVnDateStart(from);
+    const toVn = parseVnDateEnd(to);
+    const hasDateFilter = !!(fromVn || toVn);
+    const cashDateFilter = hasDateFilter ? { receivedDate: { ...(fromVn && { gte: fromVn }), ...(toVn && { lte: toVn }) } } : {};
+    const inKindDateFilter = hasDateFilter ? { createdAt: { ...(fromVn && { gte: fromVn }), ...(toVn && { lte: toVn }) } } : {};
 
     // Count donors — nếu có filter năm thì tính theo năm tài trợ đầu tiên của donor
     let totalDonors: number;
-    if (hasDateFilter && from && to) {
+    if (hasDateFilter && fromVn && toVn) {
       // Lấy donors có khoản tài trợ đầu tiên (bất kỳ loại) trong khoảng năm được chọn
       const donorsWithFirstDonationInRange = await prisma.donor.findMany({
         where: { deletedAt: null },
@@ -30,8 +33,6 @@ export async function GET(request: NextRequest) {
           inKindDonations: { where: { deletedAt: null }, select: { createdAt: true }, orderBy: { createdAt: "asc" }, take: 1 },
         },
       });
-      const fromDate = new Date(from);
-      const toDate = new Date(to);
       totalDonors = donorsWithFirstDonationInRange.filter((donor) => {
         const dates: Date[] = [
           ...(donor.cashDonations[0] ? [new Date(donor.cashDonations[0].receivedDate)] : []),
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
         ];
         if (dates.length === 0) return false;
         const firstDonation = new Date(Math.min(...dates.map((d) => d.getTime())));
-        return firstDonation >= fromDate && firstDonation <= toDate;
+        return firstDonation >= fromVn && firstDonation <= toVn;
       }).length;
     } else {
       totalDonors = await prisma.donor.count({ where: { deletedAt: null } });
