@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
         sortBy === "remaining" ? `(dc.amount - dc."usedAmount") ${sortDir === "asc" ? "ASC" : "DESC"}` :
         `dc."receivedDate" DESC`;
 
-      const [donations, countResult] = await Promise.all([
+      const [donations, countResult, totalsResult] = await Promise.all([
         prisma.$queryRawUnsafe<any[]>(
           `SELECT dc.*, row_to_json(d) as donor FROM donation_cash dc
            JOIN donors d ON d.id = dc."donorId"
@@ -99,12 +99,27 @@ export async function GET(request: NextRequest) {
           `SELECT COUNT(*) as count FROM donation_cash dc WHERE ${whereClause}`,
           ...queryParams
         ),
+        prisma.$queryRawUnsafe<[{ total_amount: any; total_used: any }]>(
+          `SELECT COALESCE(SUM(dc.amount), 0) AS total_amount,
+                  COALESCE(SUM(dc."usedAmount"), 0) AS total_used
+           FROM donation_cash dc
+           WHERE ${whereClause} AND dc.currency = 'VND'`,
+          ...queryParams
+        ),
       ]);
 
       const total = Number(countResult[0].count);
+      const totalAmount = Number(totalsResult[0].total_amount || 0);
+      const totalUsed = Number(totalsResult[0].total_used || 0);
       return NextResponse.json({
         donations,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        totals: {
+          totalAmount,
+          totalUsed,
+          totalRemaining: totalAmount - totalUsed,
+          currency: "VND",
+        },
       });
     }
 
@@ -152,7 +167,7 @@ export async function GET(request: NextRequest) {
       sortBy === "receivedDate" ? `dc."receivedDate" ${sortDir === "asc" ? "ASC" : "DESC"}` :
       `dc."receivedDate" DESC`;
 
-    const [donations, countResult] = await Promise.all([
+    const [donations, countResult, totalsResult] = await Promise.all([
       prisma.$queryRawUnsafe<any[]>(
         `SELECT dc.*, row_to_json(d) as donor FROM donation_cash dc
          JOIN donors d ON d.id = dc."donorId"
@@ -167,13 +182,29 @@ export async function GET(request: NextRequest) {
          WHERE ${whereClause}`,
         ...queryParams
       ),
+      prisma.$queryRawUnsafe<[{ total_amount: any; total_used: any }]>(
+        `SELECT COALESCE(SUM(dc.amount), 0) AS total_amount,
+                COALESCE(SUM(dc."usedAmount"), 0) AS total_used
+         FROM donation_cash dc
+         JOIN donors d ON d.id = dc."donorId"
+         WHERE ${whereClause} AND dc.currency = 'VND'`,
+        ...queryParams
+      ),
     ]);
 
     const total = Number(countResult[0].count);
+    const totalAmount = Number(totalsResult[0].total_amount || 0);
+    const totalUsed = Number(totalsResult[0].total_used || 0);
 
     return NextResponse.json({
       donations,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      totals: {
+        totalAmount,
+        totalUsed,
+        totalRemaining: totalAmount - totalUsed,
+        currency: "VND",
+      },
     });
   } catch (error: any) {
     console.error("Error fetching cash donations:", error);

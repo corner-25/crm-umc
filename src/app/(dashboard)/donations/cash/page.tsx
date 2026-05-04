@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit, Trash2, FilterX, Zap, Search, Download } from "lucide-react";
+import { Plus, Edit, Trash2, FilterX, Zap, Search, Download, Wallet, CheckCircle2, Clock } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -296,6 +296,76 @@ export default function CashDonationsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Cards tổng — cập nhật theo filter */}
+      {(() => {
+        const t = data?.totals;
+        const totalAmount = t?.totalAmount ?? 0;
+        const totalUsed = t?.totalUsed ?? 0;
+        const totalRemaining = t?.totalRemaining ?? 0;
+        const usedPct = totalAmount > 0 ? (totalUsed / totalAmount) * 100 : 0;
+        const remainPct = totalAmount > 0 ? (totalRemaining / totalAmount) * 100 : 0;
+        return (
+          <div className="grid gap-3 md:grid-cols-3">
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Tổng tài trợ</p>
+                    <p className="text-2xl font-bold tabular-nums">
+                      {totalAmount.toLocaleString("vi-VN")} <span className="text-sm font-normal text-muted-foreground">VND</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {data?.pagination?.total ?? 0} khoản
+                    </p>
+                  </div>
+                  <div className="shrink-0 w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                    <Wallet className="h-5 w-5 text-slate-700" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Đã sử dụng</p>
+                    <p className="text-2xl font-bold tabular-nums">
+                      {totalUsed.toLocaleString("vi-VN")} <span className="text-sm font-normal text-muted-foreground">VND</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {usedPct.toFixed(1)}% tổng tài trợ
+                    </p>
+                  </div>
+                  <div className="shrink-0 w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-700" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Còn lại</p>
+                    <p className="text-2xl font-bold tabular-nums">
+                      {totalRemaining.toLocaleString("vi-VN")} <span className="text-sm font-normal text-muted-foreground">VND</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {remainPct.toFixed(1)}% chưa dùng
+                    </p>
+                  </div>
+                  <div className="shrink-0 w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-amber-700" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       <Card>
         <CardHeader className="pb-2">
