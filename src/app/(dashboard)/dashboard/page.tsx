@@ -34,8 +34,9 @@ export default function DashboardPage() {
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
 
-  const statsFrom = selectedYear ? new Date(selectedYear, 0, 1).toISOString() : undefined;
-  const statsTo = selectedYear ? new Date(selectedYear, 11, 31, 23, 59, 59).toISOString() : undefined;
+  // API /api/dashboard/stats mong đợi "YYYY-MM-DD" (parseVnDateStart/End sẽ tự gắn giờ + timezone VN).
+  const statsFrom = selectedYear ? `${selectedYear}-01-01` : undefined;
+  const statsTo = selectedYear ? `${selectedYear}-12-31` : undefined;
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ["dashboard-stats", selectedYear],
@@ -91,7 +92,14 @@ export default function DashboardPage() {
           <span className="text-sm text-muted-foreground">Năm:</span>
           {YEAR_FILTERS.map((year) => (
             <Button key={year} variant={selectedYear === year ? "default" : "outline"} size="sm"
-              onClick={() => setSelectedYear(selectedYear === year ? null : year)}>
+              onClick={() => {
+                const next = selectedYear === year ? null : year;
+                setSelectedYear(next);
+                if (next) {
+                  setStartDate(new Date(next, 0, 1));
+                  setEndDate(new Date(next, 11, 31, 23, 59, 59));
+                }
+              }}>
               {year}
             </Button>
           ))}
