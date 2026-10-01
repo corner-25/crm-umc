@@ -4,6 +4,13 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // CRM nội bộ: không cho công cụ tìm kiếm / AI index bất kỳ trang nào.
+        source: "/:path*",
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+        ],
+      },
+      {
         source: "/vietnam-provinces.geojson",
         headers: [
           { key: "Cache-Control", value: "public, max-age=31536000, immutable" },

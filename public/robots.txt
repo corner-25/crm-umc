@@ -1,0 +1,3 @@
+# CRM nội bộ — không cho phép bất kỳ crawler / bot AI nào thu thập dữ liệu.
+User-agent: *
+Disallow: /
